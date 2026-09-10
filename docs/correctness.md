@@ -35,6 +35,8 @@ cross-backendでbitwise一致を保証できないことをoptimized pathの許�
 
 DSparkのsampling正当性は公式algorithmと照合する。乱数消費が異なる方式のtoken列を同じseedだけで比較せず、固定draft / RNG入力でverificationとstate commitを検証し、target分布の保持を別に確認する。
 
+APIでは[architecture](architecture.md)に固定したdeepseek-recipeを直接使う。checkpointの`encoding/`fixtureとのprompt bytes / token IDs照合を残し、公式libraryの採用だけをqualificationの代わりにしない。streamではUTF-8、DSML、reasoning delimiter、stop sequenceがtoken / chunk境界を跨ぐ場合、streamingとcomplete responseの内容、usage / finish reasonを検証する。parser終了・client切断・cancel時のnative worker停止とstate整合性、ABI buffer lifetime、backend error伝播も対象にする。
+
 ## Stateと実行schedule
 
 plain reference forward、chunked prefill、CED prefill + Bounded Replay、tokenごとのdecodeが同じ継続状態を作ることを検証する。公式minimalの既存chunk制約を勝手に一般化しない。arbitrary chunk対応にはcompression端数、SWA、Engram、mHCを含めた独立の証拠が必要。

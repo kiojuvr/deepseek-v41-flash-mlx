@@ -7,6 +7,7 @@ DeepSeek-V4.1-Flash専用のApple Silicon inference runtime。Apple M3 Ultra / 5
 ## Runtime contract
 
 - runtime coreはC++20を基準とし、必要なC++23機能はApple Clangとの互換性を確認して採用する。MLX C++ APIとMetal Shading Languageを直接使う。
+- API / protocol層はRust + 公式deepseek-recipeを採用する。公式Axum server exampleを参考にnative runtimeを接続し、prompt・tool・reasoning・streaming parserを独自に再実装しない。API導入はM6、runtime開発はC++ / Metalで先行する。
 - 公式checkpoint tensorをcanonical source、DeepSeek公式minimal inferenceをモデル意味論のreference、vLLMをproduction構造のreferenceとする。
 - optimized pathは保持し続けるlocal reference pathに対してexactnessを要求する。correctnessを速度より優先する。
 - backbone、MoE、attention state、global KV、indexer state、DSpark、visionをUnified Memoryに置く。Engram full backing storeをSSDに置き、working setをUnified Memoryにcacheする。

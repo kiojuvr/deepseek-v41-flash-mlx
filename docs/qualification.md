@@ -12,9 +12,9 @@
 | M3 — Native execution graph | Python往復のないprefill / decode / replayを形成。vLLMの対応referenceを固定し、CED scheduleとpacked KVのexactnessを検証。ここから性能最適化 |
 | M4 — 32K→256K | 32K correctnessから64K / 128K / 256Kへ進み、長時間session後半のdecode TPTをhard gateとして測定 |
 | M5 — Engram storage engine | bounded page cache、mmap、async prefetch、working-set telemetry。cold / warm full-pathの改善と全state exactness。M4を再実行 |
-| M6 — DSpark / API / Vision / RELEASE | native DSpark、OpenAI互換API、tool call、reasoning effort、streaming、image input。最終構成で256K qualificationを再実行してrelease |
+| M6 — DSpark / API / Vision / RELEASE | native DSpark、Rust / Axum + deepseek-recipe API、C++ bridge、tool call、reasoning effort、streaming、image input。最終構成で256K qualificationを再実行してrelease |
 
-M0のreference方針は固定済みだが、vLLM / MLX / recipeの依存revision選定は後続phaseのexit条件。未確認referenceを利用済みと表示しない。M4の一度のpassをM5 / M6変更後へ無条件に持ち越さない。
+M0のreference方針とrecipeの採用候補revisionは[architecture](architecture.md)に固定した。vLLM / MLXのrevision選定、recipeのbuild / 接続検証と依存lockは後続phaseのexit条件。未確認referenceを利用済みと表示しない。M4の一度のpassをM5 / M6変更後へ無条件に持ち越さない。
 
 ## Context ladderとworkload
 
@@ -65,3 +65,5 @@ late-session driftは同等のcontext長・cache条件のfresh runとも比較�
 各runはruntime commit、全reference identity、build / environment、入力・schedule・seed、enabled features、raw timing、state比較、memory / I/O、判定閾値、結果を保存する。失敗・未実行・unsupportedはpassと別に表示する。
 
 M6ではtext-onlyとimage入力、DSpark on / off、tool call、数値reasoning effort、streaming / non-streaming、cancel / resumeを検証する。protocolは公式encoding fixtureと照合し、OpenCodeから実際にAPIを通す。APIや画像処理を加えた最終構成で256K gateを満たすまでRELEASEと呼ばない。APCを後から追加する際もstate再利用のexactnessとfull-path性能を再qualificationする。
+
+recipe採用に伴い、Rust toolchain / Cargo.lock / recipe revisionとnative bridge ABIをrun identityへ含める。mock serverの起動はAPI接続成功に数えない。実token IDsの増分decode、JSON / SSEの整合性、未対応option、stop sequence、切断・cancel・backpressure・backend failureを検証し、native committed token数とAPI usageを別計数する。requestからSSEまでのTTFT / tail latencyとnativeのみのTPTを併記する。

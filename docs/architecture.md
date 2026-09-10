@@ -9,7 +9,11 @@ Apple M3 Ultra / 512 GB Unified Memoryの1台で、1ユーザーの長時間codi
 C++20 runtimeからMLX C++のarray / graph / streamを使い、必要な演算をMetal kernelへ接続する。MLXの[公式C++ example](https://github.com/ml-explore/mlx/blob/main/examples/cpp/tutorial.cpp)でもarrayとlazy graphの直接操作を確認できる。C++23機能、MLX revision、Apple Clang、Metal compilerの組合せはbuild導入時に固定する。
 
 ```text
-OpenAI-compatible API / protocol / request lifecycle (C++)
+HTTP / SSE / request lifecycle (Rust / Axum)
+                         |
+     protocol / prompt / output parsing (deepseek-recipe)
+                         |
+       request + token events / bounded native bridge
                          |
               session / scheduler / generation (C++)
                          |
@@ -20,7 +24,45 @@ OpenAI-compatible API / protocol / request lifecycle (C++)
           Apple GPU             SSD backing store
 ```
 
-HTTPやprotocolのためにmodel dataflowをPythonへ戻さない。将来Rust serverを分離する場合も、native runtimeを1つの境界として呼び出し、tensor操作を細切れにFFI越しに制御しない。初期実装はC++とMetalに限定する。
+HTTPやprotocolのためにmodel dataflowをPythonへ戻さない。API層はRust + deepseek-recipeとし、native runtimeを1つの境界として呼び出す。tensor操作を細切れにFFI越しに制御しない。M1–M5はC++ / Metal runtimeを先行し、M6でRust serverを接続する。
+
+## API / protocol: deepseek-recipeの採用
+
+2026-09-10の契約更新。公式recipeの公開を受け、APIまでC++で初期実装する方針を変更する。prompt encodingとoutput parsingの公式実装を直接利用するため、最初のAPI実装からRustを採用する。推論coreの言語、ownership、exactness、開発phaseの順序は維持する。
+
+確認したupstream commitは[`8cadfede7063c896b944e7bae05daa3549ae97ea`](https://github.com/deepseek-ai/deepseek-recipe/tree/8cadfede7063c896b944e7bae05daa3549ae97ea)。このrevisionを採用候補として固定した。Rust cratesは0.1.0、workspace editionは2024、`rust-toolchain.toml`は1.97.1。ソースを読んだ段階であり、Apple Siliconでのbuild・link・runtime接続は未検証。projectへの依存追加時にrevisionとCargo.lockを固定する。
+
+| 責務 | 採用する実装 / 自前で残る部分 |
+| --- | --- |
+| API request → Conversation、生成設定の抽出 | `deepseek-recipe`。Messages / Chat Completions / Responsesの変換を利用 |
+| V4.1 prompt / token encoding | `deepseek-recipe-encoding`。checkpointに対応するtokenizerを明示的に渡す |
+| thinking / tool call / stop sequenceの解釈、JSON / streaming response | recipeの`StreamProcessor`とprotocolごとのchunk generator |
+| 画像取得・前処理 | `deepseek-recipe-image`を採用候補とし、公式checkpoint側の前処理・image spanと照合 |
+| HTTP / SSE | 公式`server-rs`のAxum構成を参考に本projectのserverを構築 |
+| model選択、defaults、context admission、session / cancellation、error伝播 | 本projectのadapter。生成設定をC++ runtimeへ渡す |
+| prefill / decode / sampling、state commit、Engram、DSpark、vision encoder | C++ / MLX / Metal runtime |
+| tool実行 | OpenCode等のclientが担当。runtimeはprotocol出力を返す |
+
+[`server-rs`](https://github.com/deepseek-ai/deepseek-recipe/tree/8cadfede7063c896b944e7bae05daa3549ae97ea/server-rs)はmock inference付きのexampleで、完成した推論serverではない。Chat Completions / Responses / MessagesのJSONとSSEの接続例を持つが、mockのprompt usage、model名、生成結果をproductionへ持ち込まない。protocol crateを依存として使い、exampleはHTTP接続の参考に限定する。
+
+### Native接続の契約
+
+公開crateにC / C++向けAPIは確認できなかったため、Rust serverからC++ coreへの小さなC ABI adapterを本projectで用意する方針とする。recipeをC++へ移植する必要はない。ABIの関数名・binding方式はM6実装時に固定する。
+
+- Rust側でrequestを変換し、token IDs、解決済みgeneration options、必要なimage buffersをrequest単位で渡す。opaque session handleと所有者・解放方法を定義し、C++例外とRust panicをABI外へ流さない。
+- C++は内部でgenerationを進め、committed token IDsとusage / finish / errorをbounded queueへ出す。Rustはこれをrecipeの`InferenceChunk::Ready` / `Token` / `Finish`へ対応付ける。C++ tensor / graphをRustへ公開しない。
+- recipeの`StreamProcessor`へ同じtokenizerを渡し、増分decodeとspecial tokenの解釈を任せる。tokenごとに同期RPCしてGPUを待たせる構造は採用しない。
+- `Ready`のprompt usageには実token数を渡す。API completion usageとnativeのcommitted token数は、stop sequenceや未完了UTF-8の扱いで差が生じ得るため、TPTの分母にはnative計数を使い別々に記録する。
+- parserがstop sequenceで終了する場合、client切断、stream drop、backpressure、cancelをC++ workerへ伝播し、GPU完了・state commit・buffer解放まで処理する。recipeのstream終了だけでnative generationが停止したと仮定しない。
+- backend errorを正常な`Finish::Stop`へ置き換えない。上限予約、EOS、length stop、parser側stop、DSparkの未commit draftを区別する。
+
+[`docs/tokenizer.md`](https://github.com/deepseek-ai/deepseek-recipe/blob/8cadfede7063c896b944e7bae05daa3549ae97ea/docs/tokenizer.md)と[`stream/inference.rs`](https://github.com/deepseek-ai/deepseek-recipe/blob/8cadfede7063c896b944e7bae05daa3549ae97ea/deepseek-recipe/src/stream/inference.rs)を接続仕様の根拠とする。bundled tokenizerを無条件にcanonicalとせず、checkpoint tokenizerのidentityを照合する。
+
+### Scopeと再qualification
+
+recipeが扱えるprotocolと本serverがqualifiedとして公開するendpointを分ける。M6ではOpenCodeに必要なChat Completionsを必須とし、Responses / Messagesは実接続試験を通したものだけ広告する。公開revisionでは`logprobs`、`n > 1`、JSON Schema / regex制約、tool `strict`の強制、`previous_response_id`による履歴取得等は未対応。未対応optionを成功したように扱わない。
+
+本変更によりM6へRust build / ABI lifecycle / recipe fixture / native token eventとSSEの照合を追加する。M1のcheckpoint atlasをAPI buildへ依存させない。recipe更新時はprompt token IDs、tool / reasoning / image表現、stop / finish / usage、stream分割を再検証し、最終API構成で256K qualificationを実施する。
 
 ## モデルの責務
 
@@ -61,7 +103,8 @@ deepseek-v41-flash-mlx/
 │   ├── cache/       kv_cache.cpp prefix_cache.cpp
 │   ├── engram/      index.cpp store.cpp page_cache.cpp prefetch.cpp
 │   ├── runtime/     session.cpp scheduler.cpp generation.cpp
-│   └── server/
+│   └── server/      native C ABI adapter
+├── server/          Rust / Cargo: Axum + deepseek-recipe
 ├── metal/           attention/ moe/ mhc/ engram/ dspark/
 ├── tools/           inspect_checkpoint/ convert/ benchmark/
 ├── tests/           reference/ exactness/ kernels/ long_context/ qualification/
@@ -76,7 +119,7 @@ deepseek-v41-flash-mlx/
 | --- | --- | --- |
 | weight / config / tokenizer | [DeepSeek公式checkpoint](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash) | 資料を取得済み、全shard未検証 |
 | モデル意味論・数値演算 | 同checkpointの`inference/model.py`, `kernel.py`, `engram.py`, `vision.py`等 | 読み取り確認済み、oracle未実行 |
-| prompt / tool / reasoning / image protocol | 同checkpointの`encoding/`、[deepseek-recipe](https://github.com/deepseek-ai/deepseek-recipe) | Python reference取得済み、Rust revision未固定 |
+| prompt / tool / reasoning / image protocol | 同checkpointの`encoding/`、[deepseek-recipe](https://github.com/deepseek-ai/deepseek-recipe) | Rust採用候補revision `8cadfede7063c896b944e7bae05daa3549ae97ea`を読解済み。build / 接続・fixture一致は未検証 |
 | production構造 | [vLLM upstream](https://github.com/vllm-project/vllm)のV4.1実装 | 対応commit / path未確認。M3のCED / replay実装前に固定する |
 | native backend | [MLX](https://github.com/ml-explore/mlx) | C++ API確認済み、依存revision未固定 |
 
