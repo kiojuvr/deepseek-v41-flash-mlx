@@ -51,7 +51,9 @@ traceは合成coding風入力とseed固定random token IDsであり、実agent s
 
 ## ユーザー実行: 自然なcache再利用の比較
 
-repo rootから実行する。現workspaceではbinaryとfixturesを準備済み。数分以上かかる可能性のある比較はassistant側では起動していない。
+2026-09-12にユーザー実行の6 runを回収・確認済み。[結果と判定](engram-cache-results.md)を参照。追加の実行は現在不要。以下は初回実行と再開の手順で、既存の出力がある場合は `--resume` または新しい `--output` を使う。
+
+repo rootから実行する。現workspaceではbinaryとfixturesを準備済み。
 
 ```sh
 python3 tools/benchmark/run_engram_cache.py
@@ -85,7 +87,7 @@ Ctrl-Cで子processを停止し、完了runを保存する。`--resume`は成功
 
 cacheはprocess間で引き継がれる。oracle用の実rowも測定前に読み取る。global cold、cache hit rate、device bandwidthは主張しない。`proc_pid_rusage`のdisk I/Oはprocess会計値で、device-level I/Oの完全な代替ではない。`comparison.json`のpassedは検査と実行の成功で、性能優位やM4 / M5合格を意味しない。
 
-この結果を確認後、M2のfull pathへ統合する。backbone・workspaceと同居した状態でのOS cacheの残り方、実coding-agent入力、長context後半のstall / TPTは後続qualificationで測る。
+今回の結果を踏まえ、mmap baselineを維持してM2のfull pathへ統合する。backbone・workspaceと同居した状態でのOS cacheの残り方、実coding-agent入力、長context後半のstall / TPTは後続qualificationで測る。
 
 ## 再生成・build
 

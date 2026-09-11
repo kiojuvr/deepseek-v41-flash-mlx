@@ -51,4 +51,4 @@ M1集計は約551.881B backbone + 196.614B Engram + 14.225B DSpark + 0.485B visi
 
 公式資料の1M context推奨はモデル側の能力・設定であり、本runtimeが広告できる上限はqualification済みの総context長とする。初期release gateは256K＝262,144 tokens。生成上限とcontext上限は別に扱う。
 
-M2は進行中。次はEngram全演算とtoken→logitsのend-to-end local referenceへの統合。OS page cacheの比較は[ユーザー実行手順](docs/engram-page-cache.md)にまとめた。atlasのintegrity成功や部分oracleとの一致を、full推論exactnessや256K qualificationの代わりにしない。
+M2は進行中。次はEngram全演算とtoken→logitsのend-to-end local referenceへの統合。[OS page cache比較の6 run](docs/engram-cache-results.md)を確認し、mmap baselineを維持した。SSD miss・backbone同居時の性能は未判定。atlasのintegrity成功や部分oracleとの一致を、full推論exactnessや256K qualificationの代わりにしない。
