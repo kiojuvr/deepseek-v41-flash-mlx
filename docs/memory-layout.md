@@ -13,8 +13,10 @@
 | indexer候補 / Top-K / scratch | Unified Memory | persistent Kと区別し、lifetimesとcapacityを明示 |
 | DSpark / vision weights・state | Unified Memory | 未有効の段階でもresident予算へ計上 |
 | Engram full backing store | SSD | canonical rowとscaleを保持するread-only backing |
-| Engram hot cache | Unified Memory | 上限を設け、in-flight pageをpinする |
+| Engram working set | OS file-backed page cache / Unified Memory | mmap / buffered preadを基準とし、独自の永続row cacheは初期実装しない |
 | Engramの小規模projection・hash等 | Unified Memory | atlasで巨大lookup tableと分離して分類 |
+
+2026-09-12更新: [Engram page-cache baseline](engram-page-cache.md)を採用する。OS cacheの64 GiBはmemory planning上の目安であり、per-file hard capやpinを意味しない。anonymous stagingには独立した上限とownershipを持たせる。
 
 checkpoint自体のSSD保存は通常のload元。推論時のstorage subsystemとしてSSDを使う対象はEngram backingとする。OS file cache、mmapのresident pages、runtime hot cacheの物理的重複をmemory計測で確認する。
 
@@ -73,17 +75,19 @@ resident weights + scales + required repacking
 + bounded SWA / replay / compression / n-gram state
 + DSpark / vision transient state
 + peak activations / indexer workspace / Metal scratch
-+ Engram hot cache + resident I/O pages
++ Engram file-backed working set + bounded anonymous I/O staging
 + allocator / graph / runtime overhead
 + OS and operational headroom
 ```
 
-shared buffersは一度だけ数え、参照countと物理allocationを分ける。load / conversion / warm-upのpeakもsteady stateとは別に計上する。Engram cache上限、OS余裕、Metal working-set limit、実使用可能memoryはM1の数値根拠とM2の実測で固定する。未確定項目を0扱いしてfit判定しない。
+shared buffersは一度だけ数え、参照countと物理allocationを分ける。load / conversion / warm-upのpeakもsteady stateとは別に計上する。Engram file-backed working setの予算目安、OS余裕、Metal working-set limit、実使用可能memoryはM1の数値根拠とM2の実測で固定する。OS eviction policyとruntimeが制御するallocation上限を区別する。未確定項目を0扱いしてfit判定しない。
 
 256K分のglobal KVが小さいことはモデル全体のfitを保証しない。予算を超えた場合はM1不合格として内訳を提示し、KV offloadや非公式量子化へ黙って切り替えない。
 
 ## Engram subsystem
 
-M2では最低限のexactなSSD row readとbounded cacheを実装してfull pathへ接続する。M5はmmap、page管理、async prefetch、working-set telemetryを完成させる段階で、Engramの意味論を初めて導入する段階ではない。
+M2ではread-only mmapとbuffered positional readによるexact lookupを比較し、OS page cacheを基準にする。M5はworking-set / page amplification / I/O stallの計測とpressure qualificationを完成させる段階とする。独自page cache、row cache、async prefetchは計測で必要性が示された場合に限って導入する。
 
-rowとscaleの取得完了前にconsumerを実行しない。cache missをzeroや近似値で代用しない。page fault / I/O error / cancellationを明示し、hot cache hitとmissで同じ結果を返す。prefetchが外れてもcorrectnessを変えず、evictionはin-flight consumer完了後に行う。cache hit rate、bytes read、I/O latency、stall、resident pagesをfull-path TPTと併記する。
+rowとscaleをboundedな所有bufferへgatherしてからGPU consumerへ渡す。lookup missをzeroや近似値で代用しない。OS cache hitとmissで同じBF16値を返し、mmapの仮想容量をresident bytesとして数えない。mapping lifetimeを保つことと物理pageをpinすることは別。full tableをmlockしたり巨大mappingをMetal bufferとしてGPUへ直接渡したりしない。
+
+mmap中にbackingをtruncateする操作はOS signalの原因になり得るため、checkpointは実行中immutableを前提とする。通常の変更はfile identity / size / timestampsで検出するが、悪意ある並行変更を排除する仕組みやSIGBUS復旧を実装済みとは扱わない。I/O errorを呼出側で扱う必要が強い場合はpread pathを選べる。natural cache条件、unique row/page、process I/O countersとfull-path TPTを分けて報告する。

@@ -1,0 +1,2 @@
+#pragma once
+inline constexpr const char* dsv41_engram_kernel_source = R"dsv41metal(@DSV41_ENGRAM_KERNEL_SOURCE@)dsv41metal";

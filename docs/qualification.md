@@ -11,7 +11,7 @@
 | M2 — End-to-end reference | C++ / MLX / Metalでtoken→encoder→decoder→logits。Engramを含むtext targetを公式oracleと比較。最小SSD reader、state比較、referenceを保持 |
 | M3 — Native execution graph | Python往復のないprefill / decode / replayを形成。vLLMの対応referenceを固定し、CED scheduleとpacked KVのexactnessを検証。ここから性能最適化 |
 | M4 — 32K→256K | 32K correctnessから64K / 128K / 256Kへ進み、長時間session後半のdecode TPTをhard gateとして測定 |
-| M5 — Engram storage engine | bounded page cache、mmap、async prefetch、working-set telemetry。cold / warm full-pathの改善と全state exactness。M4を再実行 |
+| M5 — Engram storage engine | OS page-cache基準のmmap / pread、working-set telemetryとpressure検証。独自cache / async prefetchは必要性が示された場合のみ。全state exactnessとM4再実行 |
 | M6 — DSpark / API / Vision / RELEASE | native DSpark、Rust / Axum + deepseek-recipe API、C++ bridge、tool call、reasoning effort、streaming、image input。最終構成で256K qualificationを再実行してrelease |
 
 M0のreference方針とrecipeの採用候補revisionは[architecture](architecture.md)に固定した。vLLM / MLXのrevision選定、recipeのbuild / 接続検証と依存lockは後続phaseのexit条件。未確認referenceを利用済みと表示しない。M4の一度のpassをM5 / M6変更後へ無条件に持ち越さない。
@@ -67,3 +67,7 @@ late-session driftは同等のcontext長・cache条件のfresh runとも比較�
 M6ではtext-onlyとimage入力、DSpark on / off、tool call、数値reasoning effort、streaming / non-streaming、cancel / resumeを検証する。protocolは公式encoding fixtureと照合し、OpenCodeから実際にAPIを通す。APIや画像処理を加えた最終構成で256K gateを満たすまでRELEASEと呼ばない。APCを後から追加する際もstate再利用のexactnessとfull-path性能を再qualificationする。
 
 recipe採用に伴い、Rust toolchain / Cargo.lock / recipe revisionとnative bridge ABIをrun identityへ含める。mock serverの起動はAPI接続成功に数えない。実token IDsの増分decode、JSON / SSEの整合性、未対応option、stop sequence、切断・cancel・backpressure・backend failureを検証し、native committed token数とAPI usageを別計数する。requestからSSEまでのTTFT / tail latencyとnativeのみのTPTを併記する。
+
+## 長時間検証の運用
+
+ユーザー指定に従い、数分以上かかる見込みの検証はユーザー実行用スクリプトとして渡す。実行手順、ログ / 結果path、想定負荷、再開方法を準備し、assistantが長時間監視し続ける形にしない。結果を回収するまでは未実行 / 未判定として保持し、その間は独立した実装・短いcorrectness検査を進める。

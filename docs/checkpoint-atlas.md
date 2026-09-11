@@ -51,7 +51,7 @@ Engram backingはlayer 1 / 14の`engram.embed.weight`と`engram.embed.scale`だ�
 
 packed resident weightsは286.408 GiB。公式converterでは43個の`attn.wo_a.weight`をBF16へ展開するため、同じreference表現を使う場合の追加allocationは、元のpacked weights / scalesも保持する保守的見積りで**2.6875 GiB**。全weightsのBF16化は行わない。runtime repackingとalignmentは別途計測する。
 
-M2の実装は以下の上限内に収める方針とする。実測値がない項目の0扱いを避けるための予算であり、必要量の検証済み上限ではない。超過したsubsystemは設計を再評価し、黙ってKV offloadや非公式量子化へ変更しない。
+M2の実装は以下の予算内に収める方針とする。2026-09-12からOS cache分はruntimeが強制できる上限ではなく目安とし、physical footprint / pressureを別に監視する。実測値がない項目の0扱いを避けるための予算であり、必要量の検証済み上限ではない。超過したsubsystemは設計を再評価し、黙ってKV offloadや非公式量子化へ変更しない。
 
 | Runtime領域 | Budget GiB | 根拠 / 残る検証 |
 | --- | ---: | --- |
@@ -60,10 +60,10 @@ M2の実装は以下の上限内に収める方針とする。実測値がない
 | SWA / replay / compression / token / n-gram state | 8 | replay開始時に必要なstateとlifetimesは未確定 |
 | Prefill / decode activations、attention / indexer / MoE scratch | 48 | chunkingと最大同時生存量の設計・実測が必要 |
 | DSpark / vision temporary state | 8 | weight容量とは別。有効化時に再測定 |
-| Engram hot cache | 64 | 初期cache上限。hit率とTPTによる調整はM5 |
-| Engram I/O staging / OS resident file pages | 8 | hot cacheとの物理的重複・page retentionを測定 |
+| Engram file-backed working set | 64 | 2026-09-12更新: OS page cache用の予算目安。per-file hard capではない |
+| Engram anonymous I/O staging | 8 | runtime側で制限する枠。OS file pagesは64 GiB側へ計上 |
 | Runtime / graph / allocator overhead | 8 | MLX graph retentionとallocator slackを測定 |
-| **Runtime合計上限** | **441** | Metal推奨464 GiBより23 GiB小さい |
+| **Runtime合計予算** | **441** | Metal推奨464 GiBより23 GiB小さい。OS cacheを含むため強制上限ではない |
 | OS / 他process用の余裕 | 64 | 実機512 GiBからruntime予算を差し引いて確保 |
 | **未割当の余裕** | **7** | 441 + 64 + 7 = 512 GiB |
 

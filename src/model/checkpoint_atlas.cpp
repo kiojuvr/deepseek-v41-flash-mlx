@@ -265,6 +265,10 @@ void write_json(const fs::path& path, const J& value) {
 }
 }
 
+nlohmann::json read_safetensors_header(const fs::path& path) { return header(path); }
+nlohmann::json read_json_file(const fs::path& path) { return parse(read_text(path)); }
+std::string sha256_text(const std::string& text) { return sha256(text); }
+
 int inspect_checkpoint(const AtlasOptions& options) {
     const auto started = std::chrono::steady_clock::now();
     const auto root = fs::canonical(options.checkpoint);

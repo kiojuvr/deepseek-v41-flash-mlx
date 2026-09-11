@@ -1,0 +1,30 @@
+{
+  "revision": "dba1be0a40aa45a94ad051997016db3960a90277",
+  "source_sha256": {
+    "config.json": "8be45ce0476004a3f529fd896115a4a2e800a129ad2d3ec05b16050f52e21879",
+    "inference/config.json": "2e84f45cf1dac8c7fcbb200e96667d4b913275690668ed496f24c7747207a809",
+    "inference/engram.py": "11f35ecbead8150c35aa002b3d180ef290b05a25afe883a11884f94d476d3897",
+    "inference/model.py": "4e9ae23620edc8028ccc5d5fef552ab7fdc7dcd6f79608754fe9f67644056f65",
+    "tokenizer.json": "c90dfa01249db1be4245780a052ede752e1361c612ac6d08e2bdada7d599476b"
+  },
+  "exporter_sha256": "aded94ec8b920ca59c9bff12c6c4d1368e18a53bd57602b4721a5be61e35d7cf",
+  "versions": {
+    "python": "3.12.11",
+    "torch": "2.13.0",
+    "numpy": "2.5.1",
+    "tokenizers": "0.22.2",
+    "sympy": "1.14.0"
+  },
+  "fixture_sha256": {
+    "metadata.json": "dec64db3cd1dcce2a49291111f73bfc890240d4a3c58015dbc4b22e6ce311210",
+    "traces.json": "ac7328b11a8f0a132ffd312c5586999eac46109b497d6a54db31207f1b17ee12",
+    "coding.rows.u64": "8465b8a060f8af08ebf37d1b672ecd72f2208950a417b6a9db596f494cdc8c61",
+    "random_ids.rows.u64": "f6f731a47fdf5ecb229451ab05dc69be50efe48d1daffbefbabb29e4441ad180",
+    "dequantize-all-bits.bf16": "3a3a367cac52c3efbcdf5e54453c9dbab96d85d47c2602a03a92c6a1158feb21",
+    "samples.json": "fe50cbe1298255c15434e5e9518520bbe7c739d7beb12783caef3fd44d20b8e0",
+    "samples.bf16": "381316f2a93d3b2be1536e6e79be78883b9afe841db178acc65256805db4ebc1"
+  },
+  "tokens_per_trace": 2048,
+  "workload": "synthetic coding-like transcript and seeded random token IDs; not a real agent session",
+  "official_oracle_scope": "NgramHashState and AST-extracted ParallelEngramEmbedding on CPU; no full-model oracle"
+}

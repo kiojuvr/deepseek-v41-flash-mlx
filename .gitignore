@@ -2,3 +2,9 @@
 __pycache__/
 *.pyc
 /artifacts/checkpoint/atlas.jsonl
+/artifacts/engram/*.u64
+/artifacts/engram/*.bf16
+/artifacts/engram/metadata.json
+/artifacts/engram/traces.json
+/artifacts/engram/samples.json
+/artifacts/engram/cache-runs/

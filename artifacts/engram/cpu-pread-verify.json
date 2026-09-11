@@ -1,0 +1,18 @@
+{
+  "cache_condition": "natural OS cache; no purge/prefetch/mlock/F_NOCACHE; oracle samples pre-read",
+  "exhaustive_dequant_cases": 65536,
+  "fixture_provenance_sha256": "a22f2e5fd833a29ed56ae356542c1ffd6870f0fb981569026d05075d186f5c86",
+  "full_model_qualified": false,
+  "metadata_identity": "eb5fda8a36c96aa827fba636bc8d6db4e32edb467071e6571ff55d0ba0d80d09",
+  "metal_exact": null,
+  "mode": "pread",
+  "page_size": 16384,
+  "resident_backbone_loaded": false,
+  "revision": "dba1be0a40aa45a94ad051997016db3960a90277",
+  "runs": [],
+  "schema_version": 1,
+  "scope": "Engram hash + gather + CPU BF16 reference lookup only; not decode TPT",
+  "status": "passed",
+  "verified_checkpoint_rows": 1158,
+  "verified_row_ids": 196608
+}

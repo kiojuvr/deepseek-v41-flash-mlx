@@ -1,0 +1,75 @@
+{
+  "recorded_at_utc": "2026-09-11T15:10:19.699754+00:00",
+  "base_commit": "2ad6bc968cece86c050849d68342ee88d7a5894f",
+  "source_sha256": {
+    "CMakeLists.txt": "15bb3448c37e7d6949be7ffe0aed548e07490af7f35af1eb5af584137086eeb0",
+    "include/dsv41/checkpoint_atlas.hpp": "3864c8f319f514d21a11d6689b68ca8ed71b78f24a02124d2b65308d3295ded0",
+    "include/dsv41/engram.hpp": "5a40cf03845ba87bcef6d3e33c3226e13a10fec55e41b76dcf906c7641a53351",
+    "include/dsv41/engram_mlx.hpp": "6ff7ca14182e172f7e04a49d2970fafd2d76398c739dc52046abab521a071f73",
+    "include/dsv41/weights.hpp": "9697bfafe385d2d1a749c66789261ad2a05801faacec9775a98022ca106bd5a9",
+    "metal/engram/dequantize.metal": "678a0fd48e22c0e3fc63554da1300978284bb0b4cde9fa07aceedd642b0a0305",
+    "src/engram/index.cpp": "46b7af76584b1b1c9c778501aa7edd744163baab26a5427d9c81dac7db3cc9c7",
+    "src/engram/kernel_source.hpp.in": "c0817a4418b2219c94f7a8e19afc02678203e02fb400c269b42bdd9100ea51bb",
+    "src/engram/mlx.cpp": "b185fbf3c884ef6dd1432c2e8543a0b73028851f4c7aa476b616aa1d3b8e0be1",
+    "src/engram/store.cpp": "f9b107266ef4615fe17d9dd03a046d3254de78a4cfaa9ab074d15756241789ab",
+    "src/model/checkpoint_atlas.cpp": "45c446652b66984f3d4bc57bb2d189ab824ed7460719bb0204ff72332c5f1cb9",
+    "src/model/weights.cpp": "da6684267a80f14631bcd6af1c3b9f3e3bdd341618aee58139660b37302111ad",
+    "tests/engram/test_engram.cpp": "9c6dfbbcfacd0249c1369243db7d9bd5a1197fb778ff1ace940e6eedf8f30930",
+    "tests/engram/test_runner.py": "1cbc670ef6063c109b4b59c6fea1d9d442a9b107e22ef56b0de9c4bb4554b462",
+    "third_party/nlohmann/json.hpp": "aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63",
+    "tools/benchmark/engram_probe.cpp": "b66ef09cc3eb1940c3ba4947c71b9fe62c36489093287d409e82ece4519bfee1",
+    "tools/benchmark/run_engram_cache.py": "6e6baa92dc65eb92dbb1826ebe75be420a7686f1c996b1e19afb3ff583fe3c68",
+    "tools/reference/export_engram_fixture.py": "aded94ec8b920ca59c9bff12c6c4d1368e18a53bd57602b4721a5be61e35d7cf"
+  },
+  "binary_sha256": {
+    "build/dsv41-engram-probe": "62589e65ada3b989ed3537cff483c55b308f94768c29b69cea0377766e4ba817",
+    "build-mlx/dsv41-engram-probe": "4f5aee887e454c663c2bcaba998d7247e3fc9940b59003bdd73ac46bb76c6d7d",
+    "build-sanitize/dsv41-engram-probe": "010a9d3ac3c589a4b4da1b0579f2df8c47d2daabe3cc82fe5117b63adf6930c5"
+  },
+  "build": {
+    "compiler": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.5.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+    "cmake": "cmake version 4.3.3",
+    "type": "Release",
+    "cxx_standard": 20,
+    "cpu_fp_contract": "off",
+    "mlx_version": "0.32.2",
+    "mlx_dir": "/Volumes/SDXC-512/glm53-flash-mlx/.venv/lib/python3.13/site-packages/mlx/share/cmake/MLX",
+    "metal_probe_deployment_target": "26.2",
+    "sanitizer_cmake_flags": [
+      "CMAKE_CXX_FLAGS:STRING=-fsanitize=address,undefined -fno-omit-frame-pointer",
+      "CMAKE_EXE_LINKER_FLAGS:STRING=-fsanitize=address,undefined"
+    ]
+  },
+  "mlx_dependency_sha256": {
+    "/Volumes/SDXC-512/glm53-flash-mlx/.venv/lib/python3.13/site-packages/mlx/lib/libmlx.dylib": "d24c7a9b9d55a76bfd3bbcd1d042251a185cbadcb6340c3244a6ffa3dcb7c7e8",
+    "/Volumes/SDXC-512/glm53-flash-mlx/.venv/lib/python3.13/site-packages/mlx/lib/mlx.metallib": "dc59d1cceb1a5c7e578232e6e41e28e2c73c9463ac6dbc3886c3ee17ffc270ed",
+    "/Volumes/SDXC-512/glm53-flash-mlx/.venv/lib/python3.13/site-packages/mlx/share/cmake/MLX/MLXConfigVersion.cmake": "2c63179f0fc86f0259b32f8e1374286f43e63c1349ab992e2b14c7286adc04b6"
+  },
+  "host": {
+    "os": "ProductName:\t\tmacOS\nProductVersion:\t\t26.5.2\nBuildVersion:\t\t25F84",
+    "machine": "arm64",
+    "hardware_evidence_sha256": "63de54eda89254398f10ba0125618aea86310b1be8d3ac98ee967c430caec4f9"
+  },
+  "m1_summary_sha256": "a031e177105d53c404ff573bac9072a72a0c99ba3537e23728bd7890c00de028",
+  "result_sha256": {
+    "cpu-verify.json": "47ddf1670383dfa6315c9b8eea7f88943525056cdc00d388d764a96395a48e50",
+    "cpu-pread-verify.json": "603d7d7c18d33b29b8b7645438907915773655dc688f771801b847a906baf875",
+    "metal-verify.json": "b59c38d598cdfbc400865c98c41d44ba7e3e23590b911d044d994af1f1f653a2",
+    "fixture-provenance.json": "a22f2e5fd833a29ed56ae356542c1ffd6870f0fb981569026d05075d186f5c86"
+  },
+  "tests": {
+    "release_ctest": "passed (3/3; checkpoint suite has 23 cases, runner has 5)",
+    "asan_ubsan_ctest": "passed (3/3)",
+    "official_hash_ids": 196608,
+    "official_dequant_all_bit_pairs": 65536,
+    "official_checkpoint_row_selections": 1158,
+    "cpu_mmap": "passed",
+    "cpu_pread": "passed",
+    "native_metal": "passed",
+    "telemetry_smoke": "passed; 8 tokens per trace, both modes, no performance conclusion",
+    "handoff_prepare_only": "passed; no real multi-round experiment launched"
+  },
+  "long_storage_comparison": "not run; user handoff script prepared",
+  "full_model_qualified": false,
+  "note": "Base commit precedes this implementation; source hashes identify tested code. M1 payload proof remains historical. MLX native package reused as a dependency; no GLM runtime code copied. Offline fixtures require Python, production lookup does not."
+}

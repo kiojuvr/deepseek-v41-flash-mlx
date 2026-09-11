@@ -19,7 +19,7 @@ HTTP / SSE / request lifecycle (Rust / Axum)
                          |
          model + explicit state ownership (C++ / MLX)
              |                       |
-        Metal kernels        Engram I/O + hot cache (C++)
+        Metal kernels        Engram I/O + OS page cache (C++)
              |                       |
           Apple GPU             SSD backing store
 ```
@@ -79,7 +79,7 @@ DSparkとvisionのtensor所有権・memory予算はM1から確保する。M2はt
 - modelはimmutable weightsとsemantic tensor mappingを所有する。
 - sessionはtoken positions、global KV、indexer K、compressionの未完了group、bounded SWA / replay state、Engram n-gram stateを所有する。共有sourceもsessionに帰属させる。
 - execution planはprefill / decode / replayで必要なproducer、consumer、stream、評価・同期境界を明示する。
-- temporary buffersは用途・上限・最終consumerを持つ。非同期GPU workが完了するまでarray、Metal buffer、mmap、Engram pageを解放・再利用しない。
+- temporary buffersは用途・上限・最終consumerを持つ。非同期GPU workが完了するまでarray、Metal buffer、mmap、Engram staging bufferを解放・再利用しない。file-backed pageのevictionはOSに任せる。
 - candidate / Top-Kは対応するtoken範囲とgenerationを持つ。前回forwardや破棄済みspeculationのstateを再利用しない。
 - generationはtokenをcommitする境界を持つ。将来のDSpark rollbackはKVだけでなくindexer、SWA、compression、Engram、RNGを含む全stateを扱う。
 
@@ -161,3 +161,7 @@ M1でtokenizer、index、全shard、付随資料のrevision / digest manifestへ
 | `qualify_native_coding_agent_http.py` | coding-agent APIを含むqualification設計 |
 
 GLM固有のtensor配置、attention、cache形式、kernel、Python orchestrationは持ち込まない。上記の観点をDeepSeekの意味論に基づいて新規設計する。
+
+## Engram storage方針の更新 — 2026-09-12
+
+[Engram page-cache baseline](engram-page-cache.md)を採用する。M2のnative readerは公式shardのread-only mmap / buffered preadを提供し、OS page cacheをworking setの第一候補とする。独自の永続row cacheやprefetchは必要性を実測してから追加する。M1のstatic byte集計は不変で、64 GiBのcache枠はOS cacheのbudget目安として扱い、hard capの保証とはしない。
