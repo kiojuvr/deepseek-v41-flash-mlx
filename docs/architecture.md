@@ -1,6 +1,6 @@
 # Architecture contract
 
-状態: M0 / 2026-09-10。以下は実装契約であり、完成済みruntimeの記述ではない。
+状態: M0 / 2026-09-10のruntime契約。2026-09-11に[M1 atlas](checkpoint-atlas.md)を追加した。以下は完成済みruntimeの記述ではない。
 
 ## 対象とnative boundary
 
@@ -122,6 +122,8 @@ deepseek-v41-flash-mlx/
 | prompt / tool / reasoning / image protocol | 同checkpointの`encoding/`、[deepseek-recipe](https://github.com/deepseek-ai/deepseek-recipe) | Rust採用候補revision `8cadfede7063c896b944e7bae05daa3549ae97ea`を読解済み。build / 接続・fixture一致は未検証 |
 | production構造 | [vLLM upstream](https://github.com/vllm-project/vllm)のV4.1実装 | 対応commit / path未確認。M3のCED / replay実装前に固定する |
 | native backend | [MLX](https://github.com/ml-explore/mlx) | C++ API確認済み、依存revision未固定 |
+
+M1のactive checkpoint baselineは`dba1be0a40aa45a94ad051997016db3960a90277`へ更新済み。[verification manifest](../artifacts/checkpoint/verification.json)が全88ファイルの現identityを記録する。以下のM0 hash表は当時の履歴として保持する。READMEとencoding 2ファイルの更新に伴い、M2 / M6は新baselineのfixturesを使う。inference / configの数値sourceはM0のhashと一致する。
 
 公式資料はローカルcheckpoint内を読んだ。WebではこのV4.1 snapshotの本文とvLLM対応実装を確認できなかったため、未確認のproduction挙動を事実として補完しない。公式minimal inferenceはplain autoregressive generationで、DSpark forwardを含むが完成したspeculative serving engineではない。SWA ringと量子化後のdequantized値を使うreference表現を、packed persistent layoutやBounded Replayの実装済み証拠にしない。
 

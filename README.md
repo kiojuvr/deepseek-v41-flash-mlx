@@ -2,7 +2,9 @@
 
 DeepSeek-V4.1-Flash専用のApple Silicon inference runtime。Apple M3 Ultra / 512 GB Unified Memory、single-node / single-userを対象に、約256K tokensまで成長する長時間coding-agent sessionの安定decodeを優先する。OpenCode等から利用するOpenAI互換APIを最終成果物とする。
 
-**現在はM0（repository contract）のみ。推論・API・性能・512 GBへの収容は未検証。** 最初のコミットは本書と`docs/`の4文書だけで構成する。実装、build設定、空のsource treeはM1以降に追加する。
+**M1のcheckpoint atlas / integrity検証が完了。推論・API・性能・runtime peak memoryは未検証。** 最初のコミットは5文書のみで作成し、その契約に従ってC++20のinspection toolを追加した。
+
+全48 shard・96,085 tensorを照合し、全88ファイルの公式digest検証が通過した。Engram backingは202.758 GB、Unified Memory対象weightsは307.528 GB。[M1 report](docs/checkpoint-atlas.md)と[build / 実行手順](tools/inspect_checkpoint/README.md)を参照。
 
 ## Runtime contract
 
@@ -36,15 +38,16 @@ Pythonは外部oracle、fixture生成、開発時の分析に限って使用で�
 | [correctness](docs/correctness.md) | canonical source、exactness、state検証、昇格条件 |
 | [memory-layout](docs/memory-layout.md) | residency、KV内訳、Engram分離、M1 atlas仕様 |
 | [qualification](docs/qualification.md) | M0–M6、32K→256K、wall/TPT hard gate |
+| [checkpoint atlas](docs/checkpoint-atlas.md) | M1の全tensor集計、integrity証拠、実機mappingとmemory予算 |
 
 契約変更は理由・影響・必要な再qualificationを同じ変更に記載する。失敗したoptimizationに合わせて基準を緩めない。
 
 ## 対象checkpointと未確定事項
 
-開発時のcheckpoint pathは`/Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-Flash`。2026-09-10時点でダウンロード途中であり、進捗表示の転送量をcheckpoint総容量として使わない。取得済み公式資料のrevisionとSHA-256は[architecture](docs/architecture.md)に記録した。
+開発時のcheckpoint pathは`/Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-Flash`。2026-09-11にダウンロード完了を確認し、baselineを`dba1be0a40aa45a94ad051997016db3960a90277`へ固定した。全tensor payloadは510,286,023,000 bytes。M0当時の資料identityは[architecture](docs/architecture.md)、現baselineは[M1 report](docs/checkpoint-atlas.md)とverification manifestに記録した。
 
-取得済み公式model cardは**552B backbone + 196B Engram**と記載している。計画入力にある「485B params / BF16・F32・F8・I8」は未照合で、logical parameters、packed tensorの保存要素数、storage dtype、scale等の補助tensorを区別してM1で解消する。parameter数からresident bytesを断定しない。
+M1集計は約551.881B backbone + 196.614B Engram + 14.225B DSpark + 0.485B visionで、計**763,205,315,794 logical parameters**。固定revisionのHugging Face API totalと一致した。計画入力の485Bはこのsnapshotのbaseline値として使わない。公式I8保存のrouted expertsはpacked FP4であり、INT8量子化モデルではない。
 
 公式資料の1M context推奨はモデル側の能力・設定であり、本runtimeが広告できる上限はqualification済みの総context長とする。初期release gateは256K＝262,144 tokens。生成上限とcontext上限は別に扱う。
 
-次の実装作業はM1 checkpoint atlas。全tensorのname / dtype / shape / bytes / shard / semantic ownerを収集し、Engram backingとresident領域を分離して512 GBへのmappingを確定する。全checkpointが揃うまではpartial atlasと表示し、M1完了や推論可能とは扱わない。
+次の実装作業はM2 end-to-end local reference。native weight readerとC++ / MLX / Metal dataflowを接続し、公式oracleとの数値比較とruntime memory測定を始める。atlasのintegrity成功を推論exactnessや256K qualificationの代わりにしない。

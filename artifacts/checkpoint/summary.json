@@ -1,0 +1,1253 @@
+{
+  "by_component": {
+    "attention": {
+      "logical_numel": 5468217536,
+      "logical_parameters": 5462900672,
+      "storage_bytes": 5486654976,
+      "storage_numel": 5468217536,
+      "tensors": 570
+    },
+    "draft_head": {
+      "logical_numel": 144926976,
+      "logical_parameters": 144850176,
+      "storage_bytes": 211133952,
+      "storage_numel": 144926976,
+      "tensors": 7
+    },
+    "embedding": {
+      "logical_numel": 661913600,
+      "logical_parameters": 661913600,
+      "storage_bytes": 1323827200,
+      "storage_numel": 661913600,
+      "tensors": 1
+    },
+    "encoder": {
+      "logical_numel": 411842560,
+      "logical_parameters": 411842560,
+      "storage_bytes": 823685120,
+      "storage_numel": 411842560,
+      "tensors": 259
+    },
+    "indexer": {
+      "logical_numel": 43557376,
+      "logical_parameters": 43516416,
+      "storage_bytes": 45130752,
+      "storage_numel": 43557376,
+      "tensors": 32
+    },
+    "lookup_table": {
+      "logical_numel": 202758032400,
+      "logical_parameters": 196613849600,
+      "storage_bytes": 202758032400,
+      "storage_numel": 202758032400,
+      "tensors": 4
+    },
+    "mhc": {
+      "logical_numel": 42273042,
+      "logical_parameters": 42273042,
+      "storage_bytes": 169092168,
+      "storage_numel": 42273042,
+      "tensors": 258
+    },
+    "moe_routed": {
+      "logical_numel": 574582947840,
+      "logical_parameters": 557171343360,
+      "storage_bytes": 295997276160,
+      "storage_numel": 295997276160,
+      "tensors": 94464
+    },
+    "moe_shared": {
+      "logical_numel": 1523232000,
+      "logical_parameters": 1521745920,
+      "storage_bytes": 1523232000,
+      "storage_numel": 1523232000,
+      "tensors": 258
+    },
+    "norm": {
+      "logical_numel": 440320,
+      "logical_parameters": 440320,
+      "storage_bytes": 880640,
+      "storage_numel": 440320,
+      "tensors": 86
+    },
+    "output": {
+      "logical_numel": 661918720,
+      "logical_parameters": 661918720,
+      "storage_bytes": 1323837440,
+      "storage_numel": 661918720,
+      "tensors": 2
+    },
+    "projection": {
+      "logical_numel": 314961920,
+      "logical_parameters": 314654720,
+      "storage_bytes": 315043840,
+      "storage_numel": 314961920,
+      "tensors": 8
+    },
+    "projector": {
+      "logical_numel": 73425920,
+      "logical_parameters": 73425920,
+      "storage_bytes": 146851840,
+      "storage_numel": 73425920,
+      "tensors": 7
+    },
+    "router": {
+      "logical_numel": 80640768,
+      "logical_parameters": 80640768,
+      "storage_bytes": 161344512,
+      "storage_numel": 80640768,
+      "tensors": 129
+    }
+  },
+  "by_layer": {
+    "decoder/20": {
+      "logical_numel": 14187442934,
+      "logical_parameters": 13762606326,
+      "storage_bytes": 7400451800,
+      "storage_numel": 7392670454,
+      "tensors": 2341
+    },
+    "decoder/21": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "decoder/22": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "decoder/23": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "decoder/24": {
+      "logical_numel": 14184755318,
+      "logical_parameters": 13759918710,
+      "storage_bytes": 7395076568,
+      "storage_numel": 7389982838,
+      "tensors": 2337
+    },
+    "decoder/25": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "decoder/26": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "decoder/27": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "decoder/28": {
+      "logical_numel": 14184755318,
+      "logical_parameters": 13759918710,
+      "storage_bytes": 7395076568,
+      "storage_numel": 7389982838,
+      "tensors": 2337
+    },
+    "decoder/29": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "decoder/30": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "decoder/31": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "decoder/32": {
+      "logical_numel": 14184755318,
+      "logical_parameters": 13759918710,
+      "storage_bytes": 7395076568,
+      "storage_numel": 7389982838,
+      "tensors": 2337
+    },
+    "decoder/33": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "decoder/34": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "decoder/35": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "decoder/36": {
+      "logical_numel": 14184755318,
+      "logical_parameters": 13759918710,
+      "storage_bytes": 7395076568,
+      "storage_numel": 7389982838,
+      "tensors": 2337
+    },
+    "decoder/37": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "decoder/38": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "decoder/39": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "dspark/0": {
+      "logical_numel": 4913945206,
+      "logical_parameters": 4772152438,
+      "storage_bytes": 2652643800,
+      "storage_numel": 2649021046,
+      "tensors": 801
+    },
+    "dspark/1": {
+      "logical_numel": 4835220086,
+      "logical_parameters": 4693504118,
+      "storage_bytes": 2573913560,
+      "storage_numel": 2570295926,
+      "tensors": 798
+    },
+    "dspark/2": {
+      "logical_numel": 4901421942,
+      "logical_parameters": 4759705974,
+      "storage_bytes": 2706317272,
+      "storage_numel": 2636497782,
+      "tensors": 802
+    },
+    "embedding/null": {
+      "logical_numel": 661913600,
+      "logical_parameters": 661913600,
+      "storage_bytes": 1323827200,
+      "storage_numel": 661913600,
+      "tensors": 1
+    },
+    "encoder/0": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "encoder/1": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "encoder/10": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "encoder/11": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "encoder/12": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "encoder/13": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "encoder/14": {
+      "logical_numel": 14190064374,
+      "logical_parameters": 13765227766,
+      "storage_bytes": 7405694680,
+      "storage_numel": 7395291894,
+      "tensors": 2342
+    },
+    "encoder/15": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "encoder/16": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "encoder/17": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "encoder/18": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "encoder/19": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "encoder/2": {
+      "logical_numel": 14190064374,
+      "logical_parameters": 13765227766,
+      "storage_bytes": 7405694680,
+      "storage_numel": 7395291894,
+      "tensors": 2342
+    },
+    "encoder/3": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "encoder/4": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "encoder/5": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "encoder/6": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "encoder/7": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "encoder/8": {
+      "logical_numel": 14190064374,
+      "logical_parameters": 13765227766,
+      "storage_bytes": 7405694680,
+      "storage_numel": 7395291894,
+      "tensors": 2342
+    },
+    "encoder/9": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "engram_backing/1": {
+      "logical_numel": 101377628352,
+      "logical_parameters": 98305579008,
+      "storage_bytes": 101377628352,
+      "storage_numel": 101377628352,
+      "tensors": 2
+    },
+    "engram_backing/14": {
+      "logical_numel": 101380404048,
+      "logical_parameters": 98308270592,
+      "storage_bytes": 101380404048,
+      "storage_numel": 101380404048,
+      "tensors": 2
+    },
+    "engram_resident/1": {
+      "logical_numel": 157480960,
+      "logical_parameters": 157327360,
+      "storage_bytes": 157521920,
+      "storage_numel": 157480960,
+      "tensors": 4
+    },
+    "engram_resident/14": {
+      "logical_numel": 157480960,
+      "logical_parameters": 157327360,
+      "storage_bytes": 157521920,
+      "storage_numel": 157480960,
+      "tensors": 4
+    },
+    "output/null": {
+      "logical_numel": 661918720,
+      "logical_parameters": 661918720,
+      "storage_bytes": 1323837440,
+      "storage_numel": 661918720,
+      "tensors": 2
+    },
+    "vision/null": {
+      "logical_numel": 485268480,
+      "logical_parameters": 485268480,
+      "storage_bytes": 970536960,
+      "storage_numel": 485268480,
+      "tensors": 266
+    }
+  },
+  "by_logical_dtype": {
+    "BF16": {
+      "logical_numel": 1976441856,
+      "logical_parameters": 1976441856,
+      "storage_bytes": 3952883712,
+      "storage_numel": 1976441856,
+      "tensors": 520
+    },
+    "F32": {
+      "logical_numel": 42307282,
+      "logical_parameters": 42307282,
+      "storage_bytes": 169229128,
+      "storage_numel": 42307282,
+      "tensors": 387
+    },
+    "F8_E4M3": {
+      "logical_numel": 204015223296,
+      "logical_parameters": 204015223296,
+      "storage_bytes": 204015223296,
+      "storage_numel": 204015223296,
+      "tensors": 357
+    },
+    "F8_E8M0": {
+      "logical_numel": 23563015184,
+      "logical_parameters": 0,
+      "storage_bytes": 23563015184,
+      "storage_numel": 23563015184,
+      "tensors": 47589
+    },
+    "FP4_E2M1": {
+      "logical_numel": 557171343360,
+      "logical_parameters": 557171343360,
+      "storage_bytes": 278585671680,
+      "storage_numel": 278585671680,
+      "tensors": 47232
+    }
+  },
+  "by_owner": {
+    "decoder": {
+      "logical_numel": 283616616376,
+      "logical_parameters": 275119961016,
+      "storage_bytes": 147823271392,
+      "storage_numel": 147721166776,
+      "tensors": 46699
+    },
+    "dspark": {
+      "logical_numel": 14650587234,
+      "logical_parameters": 14225362530,
+      "storage_bytes": 7932874632,
+      "storage_numel": 7855814754,
+      "tensors": 2401
+    },
+    "embedding": {
+      "logical_numel": 661913600,
+      "logical_parameters": 661913600,
+      "storage_bytes": 1323827200,
+      "storage_numel": 661913600,
+      "tensors": 1
+    },
+    "encoder": {
+      "logical_numel": 283619032248,
+      "logical_parameters": 275122387128,
+      "storage_bytes": 147838599136,
+      "storage_numel": 147723582648,
+      "tensors": 46704
+    },
+    "engram_backing": {
+      "logical_numel": 202758032400,
+      "logical_parameters": 196613849600,
+      "storage_bytes": 202758032400,
+      "storage_numel": 202758032400,
+      "tensors": 4
+    },
+    "engram_resident": {
+      "logical_numel": 314961920,
+      "logical_parameters": 314654720,
+      "storage_bytes": 315043840,
+      "storage_numel": 314961920,
+      "tensors": 8
+    },
+    "output": {
+      "logical_numel": 661918720,
+      "logical_parameters": 661918720,
+      "storage_bytes": 1323837440,
+      "storage_numel": 661918720,
+      "tensors": 2
+    },
+    "vision": {
+      "logical_numel": 485268480,
+      "logical_parameters": 485268480,
+      "storage_bytes": 970536960,
+      "storage_numel": 485268480,
+      "tensors": 266
+    }
+  },
+  "by_residency": {
+    "ssd": {
+      "logical_numel": 202758032400,
+      "logical_parameters": 196613849600,
+      "storage_bytes": 202758032400,
+      "storage_numel": 202758032400,
+      "tensors": 4
+    },
+    "unified_memory": {
+      "logical_numel": 584010298578,
+      "logical_parameters": 566591466194,
+      "storage_bytes": 307527990600,
+      "storage_numel": 305424626898,
+      "tensors": 96081
+    }
+  },
+  "by_shard": {
+    "model-00001-of-00048.safetensors": {
+      "logical_numel": 485253120,
+      "logical_parameters": 485253120,
+      "storage_bytes": 970506240,
+      "storage_numel": 485253120,
+      "tensors": 263
+    },
+    "model-00002-of-00048.safetensors": {
+      "logical_numel": 661928960,
+      "logical_parameters": 661928960,
+      "storage_bytes": 1323857920,
+      "storage_numel": 661928960,
+      "tensors": 4
+    },
+    "model-00003-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00004-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00005-of-00048.safetensors": {
+      "logical_numel": 14190064374,
+      "logical_parameters": 13765227766,
+      "storage_bytes": 7405694680,
+      "storage_numel": 7395291894,
+      "tensors": 2342
+    },
+    "model-00006-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00007-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00008-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00009-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00010-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00011-of-00048.safetensors": {
+      "logical_numel": 14190064374,
+      "logical_parameters": 13765227766,
+      "storage_bytes": 7405694680,
+      "storage_numel": 7395291894,
+      "tensors": 2342
+    },
+    "model-00012-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00013-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00014-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00015-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00016-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00017-of-00048.safetensors": {
+      "logical_numel": 14190064374,
+      "logical_parameters": 13765227766,
+      "storage_bytes": 7405694680,
+      "storage_numel": 7395291894,
+      "tensors": 2342
+    },
+    "model-00018-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00019-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00020-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00021-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00022-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00023-of-00048.safetensors": {
+      "logical_numel": 14187442934,
+      "logical_parameters": 13762606326,
+      "storage_bytes": 7400451800,
+      "storage_numel": 7392670454,
+      "tensors": 2341
+    },
+    "model-00024-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00025-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00026-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00027-of-00048.safetensors": {
+      "logical_numel": 14184755318,
+      "logical_parameters": 13759918710,
+      "storage_bytes": 7395076568,
+      "storage_numel": 7389982838,
+      "tensors": 2337
+    },
+    "model-00028-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00029-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00030-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00031-of-00048.safetensors": {
+      "logical_numel": 14184755318,
+      "logical_parameters": 13759918710,
+      "storage_bytes": 7395076568,
+      "storage_numel": 7389982838,
+      "tensors": 2337
+    },
+    "model-00032-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00033-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00034-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00035-of-00048.safetensors": {
+      "logical_numel": 14184755318,
+      "logical_parameters": 13759918710,
+      "storage_bytes": 7395076568,
+      "storage_numel": 7389982838,
+      "tensors": 2337
+    },
+    "model-00036-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00037-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00038-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00039-of-00048.safetensors": {
+      "logical_numel": 14184755318,
+      "logical_parameters": 13759918710,
+      "storage_bytes": 7395076568,
+      "storage_numel": 7389982838,
+      "tensors": 2337
+    },
+    "model-00040-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00041-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00042-of-00048.safetensors": {
+      "logical_numel": 14179343478,
+      "logical_parameters": 13754511990,
+      "storage_bytes": 7389500888,
+      "storage_numel": 7384570998,
+      "tensors": 2334
+    },
+    "model-00043-of-00048.safetensors": {
+      "logical_numel": 661918720,
+      "logical_parameters": 661918720,
+      "storage_bytes": 1323837440,
+      "storage_numel": 661918720,
+      "tensors": 2
+    },
+    "model-00044-of-00048.safetensors": {
+      "logical_numel": 4913945206,
+      "logical_parameters": 4772152438,
+      "storage_bytes": 2652643800,
+      "storage_numel": 2649021046,
+      "tensors": 801
+    },
+    "model-00045-of-00048.safetensors": {
+      "logical_numel": 4835220086,
+      "logical_parameters": 4693504118,
+      "storage_bytes": 2573913560,
+      "storage_numel": 2570295926,
+      "tensors": 798
+    },
+    "model-00046-of-00048.safetensors": {
+      "logical_numel": 4901421942,
+      "logical_parameters": 4759705974,
+      "storage_bytes": 2706317272,
+      "storage_numel": 2636497782,
+      "tensors": 802
+    },
+    "model-00047-of-00048.safetensors": {
+      "logical_numel": 101535109312,
+      "logical_parameters": 98462906368,
+      "storage_bytes": 101535150272,
+      "storage_numel": 101535109312,
+      "tensors": 6
+    },
+    "model-00048-of-00048.safetensors": {
+      "logical_numel": 101537885008,
+      "logical_parameters": 98465597952,
+      "storage_bytes": 101537925968,
+      "storage_numel": 101537885008,
+      "tensors": 6
+    }
+  },
+  "by_storage_dtype": {
+    "BF16": {
+      "logical_numel": 1976441856,
+      "logical_parameters": 1976441856,
+      "storage_bytes": 3952883712,
+      "storage_numel": 1976441856,
+      "tensors": 520
+    },
+    "F32": {
+      "logical_numel": 42307282,
+      "logical_parameters": 42307282,
+      "storage_bytes": 169229128,
+      "storage_numel": 42307282,
+      "tensors": 387
+    },
+    "F8_E4M3": {
+      "logical_numel": 204015223296,
+      "logical_parameters": 204015223296,
+      "storage_bytes": 204015223296,
+      "storage_numel": 204015223296,
+      "tensors": 357
+    },
+    "F8_E8M0": {
+      "logical_numel": 23563015184,
+      "logical_parameters": 0,
+      "storage_bytes": 23563015184,
+      "storage_numel": 23563015184,
+      "tensors": 47589
+    },
+    "I8": {
+      "logical_numel": 557171343360,
+      "logical_parameters": 557171343360,
+      "storage_bytes": 278585671680,
+      "storage_numel": 278585671680,
+      "tensors": 47232
+    }
+  },
+  "classified_tensors": 96085,
+  "elapsed_seconds": 223.803234416,
+  "expected_shards": 48,
+  "expected_tensors": 96085,
+  "file_bytes": 510296708312,
+  "issues": [],
+  "manifest_sha256": "8958523755ab91e98ce4e578792f052a924f0701451a61466e89ced379b6266e",
+  "observed_tensors": 96085,
+  "payload_bytes": 510286023000,
+  "revision": "dba1be0a40aa45a94ad051997016db3960a90277",
+  "runtime_mapping_status": "payload_accounted_runtime_peak_unqualified",
+  "schema_version": 1,
+  "shards": {
+    "model-00001-of-00048.safetensors": {
+      "file_bytes": 970533624,
+      "header_bytes": 27376,
+      "header_sha256": "2a181b0038d7f870193f4cd1df5fc33626afcc45bfb82b41af6fd43aca447b4f",
+      "payload_bytes": 970506240
+    },
+    "model-00002-of-00048.safetensors": {
+      "file_bytes": 1323858272,
+      "header_bytes": 344,
+      "header_sha256": "d12e3fdffd1199b504f628efad3ffe194a04365beed1234be196c42952af5101",
+      "payload_bytes": 1323857920
+    },
+    "model-00003-of-00048.safetensors": {
+      "file_bytes": 7389759032,
+      "header_bytes": 258136,
+      "header_sha256": "71213f444f9c15a4af6dbcbddc36f7611542884ebb3aadef54de650071357449",
+      "payload_bytes": 7389500888
+    },
+    "model-00004-of-00048.safetensors": {
+      "file_bytes": 7389759032,
+      "header_bytes": 258136,
+      "header_sha256": "a18996c1e8f291117f9a2b638ffbd24c0b60babafd44db75bedfab1bec3a3f4a",
+      "payload_bytes": 7389500888
+    },
+    "model-00005-of-00048.safetensors": {
+      "file_bytes": 7405953784,
+      "header_bytes": 259096,
+      "header_sha256": "c50a8acf025e565be36bf005ae712ad7518a8bcc1d2ed561e413970bbabc86e6",
+      "payload_bytes": 7405694680
+    },
+    "model-00006-of-00048.safetensors": {
+      "file_bytes": 7389759032,
+      "header_bytes": 258136,
+      "header_sha256": "b6fd1a38fb53430098d46487db546c012d38ac14ac91b22e9af6983ea4290189",
+      "payload_bytes": 7389500888
+    },
+    "model-00007-of-00048.safetensors": {
+      "file_bytes": 7389759032,
+      "header_bytes": 258136,
+      "header_sha256": "3dcfa5cba8e7e80fb684a3166f34164bb1b8ec95a802763b1e2eebb19b2a6ba5",
+      "payload_bytes": 7389500888
+    },
+    "model-00008-of-00048.safetensors": {
+      "file_bytes": 7389759032,
+      "header_bytes": 258136,
+      "header_sha256": "fde260ef12e8bc6737afaf29d58799d1f2dcf206a126746a22f61ebff9cb9a87",
+      "payload_bytes": 7389500888
+    },
+    "model-00009-of-00048.safetensors": {
+      "file_bytes": 7389759032,
+      "header_bytes": 258136,
+      "header_sha256": "139eeea4664aba161a4b4cb82a60a86a2429467601ee6584a887825f8137adfd",
+      "payload_bytes": 7389500888
+    },
+    "model-00010-of-00048.safetensors": {
+      "file_bytes": 7389759032,
+      "header_bytes": 258136,
+      "header_sha256": "f60d4a2f55d70b668be2c7a61883ed9e2ba7d2cace06f40c3429da073dca64f2",
+      "payload_bytes": 7389500888
+    },
+    "model-00011-of-00048.safetensors": {
+      "file_bytes": 7405953784,
+      "header_bytes": 259096,
+      "header_sha256": "a2d003170329274ba0d10091b1339e834b603129a4b345009651a5dd6ff1387c",
+      "payload_bytes": 7405694680
+    },
+    "model-00012-of-00048.safetensors": {
+      "file_bytes": 7389759032,
+      "header_bytes": 258136,
+      "header_sha256": "ec5434239be33e6d35218d2ed1d4ee522bb02357669280ef6dfe86ce44873e0c",
+      "payload_bytes": 7389500888
+    },
+    "model-00013-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "e9246f9e946c8b771d95640635c0cc01d295a312fc374fd87f7d0d67e9c7f0fc",
+      "payload_bytes": 7389500888
+    },
+    "model-00014-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "e2871f3474228510b968b237f9836898a5c9707add5cb1cad51401318dfb5311",
+      "payload_bytes": 7389500888
+    },
+    "model-00015-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "4184d16248ac775f7ab002039b2e9a43b98d51f24913cc9b19ceb85c3726ed59",
+      "payload_bytes": 7389500888
+    },
+    "model-00016-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "fcdcfd73f87aa514e2c8e3a742104def5a051acd47cd54b0b2bee2033d495edb",
+      "payload_bytes": 7389500888
+    },
+    "model-00017-of-00048.safetensors": {
+      "file_bytes": 7405956128,
+      "header_bytes": 261440,
+      "header_sha256": "d0869abfd06ac08cc5a376eebf9d7de632227e141e6dcb7109bf0d2bffd3fc79",
+      "payload_bytes": 7405694680
+    },
+    "model-00018-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "0ad32850738558e9df1239b284abc748e42e01745eec180cd30815e21a67af55",
+      "payload_bytes": 7389500888
+    },
+    "model-00019-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "efaa20b2c111c875904e0f83623206f3414652353413e9051ba02e60ab7a085f",
+      "payload_bytes": 7389500888
+    },
+    "model-00020-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "6cc297397ef39dc77747d5fbba93a8a299caf4dfb4952886ca9c2d478d517f0c",
+      "payload_bytes": 7389500888
+    },
+    "model-00021-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "ef8537770773e4006d36e1b5de0082407afe1abeb2309d4efac0e8ffcdc39040",
+      "payload_bytes": 7389500888
+    },
+    "model-00022-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "6f1df707004fd8f06f44e4a1e79677102037a414862d1550a7ac6a175961fa72",
+      "payload_bytes": 7389500888
+    },
+    "model-00023-of-00048.safetensors": {
+      "file_bytes": 7400713088,
+      "header_bytes": 261280,
+      "header_sha256": "fef3b0be45a79923f05c0a7e9a8713397d9c9d24dab8e13efc953d609f64efe9",
+      "payload_bytes": 7400451800
+    },
+    "model-00024-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "190ff387c34f3b0a55277993b798b26adf528de28125361495fa30a050ed106c",
+      "payload_bytes": 7389500888
+    },
+    "model-00025-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "ee80ffddf8ddeca1b934f2e32c14b7f4856b2e747088fbdc9fc80dcc27377891",
+      "payload_bytes": 7389500888
+    },
+    "model-00026-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "ed25fdc55bb96b2101ac8cff12a235a7ea54412050c792b4e72377ae417a9a66",
+      "payload_bytes": 7389500888
+    },
+    "model-00027-of-00048.safetensors": {
+      "file_bytes": 7395337384,
+      "header_bytes": 260808,
+      "header_sha256": "babf9e26761c97df06490e96368e40e3cc916770abe2afffa9b3a45a5734742b",
+      "payload_bytes": 7395076568
+    },
+    "model-00028-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "6dffc2e311e17c5538f2dd92dd3fc8ba7685e3ea67af066603b815e1b722c668",
+      "payload_bytes": 7389500888
+    },
+    "model-00029-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "611e9ea2b143014df6037e285a3e1a865676e0954091dcbf95b3f57ec825336b",
+      "payload_bytes": 7389500888
+    },
+    "model-00030-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "5a5bf5cbd36e27c13c6dcbd6969db9796e9219e928e69b86fd5704131be598ea",
+      "payload_bytes": 7389500888
+    },
+    "model-00031-of-00048.safetensors": {
+      "file_bytes": 7395337384,
+      "header_bytes": 260808,
+      "header_sha256": "50ac0885851fd0c5f9c2436858fbcecec347dd4efd39557ec68723b224d2985d",
+      "payload_bytes": 7395076568
+    },
+    "model-00032-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "105e2bffb58a83dd3ca1502ecfbcf14759b1a16f705ca0eac52284053684007f",
+      "payload_bytes": 7389500888
+    },
+    "model-00033-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "2b3caec06921b098107c3757f81e6b5bd0c401809b19fa65e24ef27ca9eb505e",
+      "payload_bytes": 7389500888
+    },
+    "model-00034-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "08a8b7c04834ea2ca2b3efcebe2bd5b934e165154a7c3d11004242e2a1b438c4",
+      "payload_bytes": 7389500888
+    },
+    "model-00035-of-00048.safetensors": {
+      "file_bytes": 7395337384,
+      "header_bytes": 260808,
+      "header_sha256": "18a61fbf3d94a454137e1d6fc8f19b7ddfe12954f32c47337c8921069d5de193",
+      "payload_bytes": 7395076568
+    },
+    "model-00036-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "32ef9284ffa83282248f59443f2c3b4daaf57e305d02a07dad3b493a05d68752",
+      "payload_bytes": 7389500888
+    },
+    "model-00037-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "7b3daaa3d09fc52c64153c5a81fcd3c4984e6c3dcc6981c95ae840c8928ad1d5",
+      "payload_bytes": 7389500888
+    },
+    "model-00038-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "33f706f0d8727ac9aa2154eb56b76f76d5396ea5c9bd94248c7378f086fddc2b",
+      "payload_bytes": 7389500888
+    },
+    "model-00039-of-00048.safetensors": {
+      "file_bytes": 7395337384,
+      "header_bytes": 260808,
+      "header_sha256": "e5e55c1f73de87075da7717c9319f30d32078ba2f1be641e8cd6127d4c273987",
+      "payload_bytes": 7395076568
+    },
+    "model-00040-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "e8a1a6448644f70d3aa897fba81c2cf2245125851aacdf377c97ef3ce959981e",
+      "payload_bytes": 7389500888
+    },
+    "model-00041-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "3fde0cd4e3167cc5a1117e055b052d20f4a3d8ea013bfc54764abb07d09351c1",
+      "payload_bytes": 7389500888
+    },
+    "model-00042-of-00048.safetensors": {
+      "file_bytes": 7389761368,
+      "header_bytes": 260472,
+      "header_sha256": "5ca433405c1b16b8776486a174583e7ff2641889b292d70952da7a339687a70c",
+      "payload_bytes": 7389500888
+    },
+    "model-00043-of-00048.safetensors": {
+      "file_bytes": 1323837624,
+      "header_bytes": 176,
+      "header_sha256": "9c6d4d664cfd377322e7c1cb1ed248ff1aea586d6f83373f6b5b36d9f7cc1d54",
+      "payload_bytes": 1323837440
+    },
+    "model-00044-of-00048.safetensors": {
+      "file_bytes": 2652728736,
+      "header_bytes": 84928,
+      "header_sha256": "bcfa221d7a325e0a910e262d782c0e97bd5e5b7cbde6c9b480bb88ab7c23a36e",
+      "payload_bytes": 2652643800
+    },
+    "model-00045-of-00048.safetensors": {
+      "file_bytes": 2573998176,
+      "header_bytes": 84608,
+      "header_sha256": "c8f2cad66c6387793b335cbc10231661b61f2ec7a8c814bccb8d6ae418200675",
+      "payload_bytes": 2573913560
+    },
+    "model-00046-of-00048.safetensors": {
+      "file_bytes": 2706402896,
+      "header_bytes": 85616,
+      "header_sha256": "1baad4e59ff44a15727f0c294d015da70a90502fd5d1e844c1c0939a8194793e",
+      "payload_bytes": 2706317272
+    },
+    "model-00047-of-00048.safetensors": {
+      "file_bytes": 101535150936,
+      "header_bytes": 656,
+      "header_sha256": "e5c5c7fc900caec400644bef07aa5d7e28fc6ca941c8c47592b393963b218242",
+      "payload_bytes": 101535150272
+    },
+    "model-00048-of-00048.safetensors": {
+      "file_bytes": 101537926640,
+      "header_bytes": 664,
+      "header_sha256": "5d8fa4697d7a071c31baeee6947d493c08ea3243261c5d0f79c355ad191b8222",
+      "payload_bytes": 101537925968
+    }
+  },
+  "status": "verified",
+  "totals": {
+    "all": {
+      "logical_numel": 786768330978,
+      "logical_parameters": 763205315794,
+      "storage_bytes": 510286023000,
+      "storage_numel": 508182659298,
+      "tensors": 96085
+    }
+  },
+  "valid_headers": 48
+}

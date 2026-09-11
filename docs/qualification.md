@@ -1,6 +1,6 @@
 # Qualification contract
 
-状態: M0。qualification結果、測定値、performance baselineはまだない。
+状態: M1の[checkpoint atlas / integrity検証](checkpoint-atlas.md)が完了。runtime numerical / performance qualificationとbaselineはまだない。
 
 ## Milestones
 

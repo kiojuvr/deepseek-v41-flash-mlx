@@ -1,0 +1,44 @@
+{
+  "recorded_at_utc": "2026-09-11T14:22:23.705216+00:00",
+  "base_commit": "c894eb529e5f17b09f3716c69dbda5424ccb3549",
+  "source_sha256": {
+    "CMakeLists.txt": "f1dd3db19f6d7c3632aa1151268ad6ea6bcba9d4ae1189a61c23ee0c939ed63e",
+    "include/dsv41/checkpoint_atlas.hpp": "e38bb199d5620cff49cb1bfc09842695f868290514bab3da2444e39431454a12",
+    "src/model/checkpoint_atlas.cpp": "69fe1972e6d870af8a720acc5de7f3eeab1d778716e072417fafa38877992583",
+    "tools/inspect_checkpoint/main.cpp": "88707c2e0867ba2022a2da0731ff734a54b2cbd10407f900c1e518692ce9a727",
+    "tools/inspect_checkpoint/memory_probe.mm": "9ae6497134c5fad13d6aeb8dc6d5e78f382d684e30a6ffcdb8f5a67b7af17c12",
+    "tests/checkpoint/test_atlas.py": "4a999aa69507b6a2d0a2e500ec332e5761c281eefcaf65aab39b28a714841757",
+    "third_party/nlohmann/json.hpp": "aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63",
+    "third_party/nlohmann/LICENSE.MIT": "46a65cffd1ea955132d95a8dd921640714a8d6b537d2e4e482d31145ae95b603"
+  },
+  "binary_sha256": "e8cee27de3d9813cfc285fbec2f80a175693e32bf7daed4cbd66dfde9a07de4b",
+  "compiler": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.5.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+  "cmake": "cmake version 4.3.3",
+  "build_type": "Release",
+  "cxx_standard": 20,
+  "command": [
+    "build/dsv41-inspect-checkpoint",
+    "--checkpoint",
+    "/Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-Flash",
+    "--output",
+    "artifacts/checkpoint",
+    "--manifest",
+    "artifacts/checkpoint/upstream-manifest.json",
+    "--verify-payload"
+  ],
+  "result_sha256": {
+    "atlas.jsonl": "0233e82170974a51e0cbf2821fc5a3f9d06d689454a85c1265850da903d36e03",
+    "summary.json": "a031e177105d53c404ff573bac9072a72a0c99ba3537e23728bd7890c00de028",
+    "verification.json": "6d4480c88850a7c05e34332d55b6b342c746885b06d7539deb9fcf932cdca05b",
+    "upstream-manifest.json": "8958523755ab91e98ce4e578792f052a924f0701451a61466e89ced379b6266e",
+    "hardware.json": "63de54eda89254398f10ba0125618aea86310b1be8d3ac98ee967c430caec4f9"
+  },
+  "tests": {
+    "fixture_tests": 23,
+    "release": "passed",
+    "address_sanitizer_and_undefined_behavior_sanitizer": "passed"
+  },
+  "verification_seconds": 223.803234416,
+  "runtime_peak_qualified": false,
+  "note": "Base commit is the pre-implementation parent; source hashes identify the tested implementation. Atlas is generated locally and not tracked in Git."
+}

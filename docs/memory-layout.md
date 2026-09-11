@@ -1,6 +1,6 @@
 # Memory layout contract
 
-状態: M0。512 GBは対象hardwareの公称容量であり、runtimeが全量を予約できる意味ではない。GBは10^9 bytes、GiBは2^30 bytes、MiBは2^20 bytes。本projectの1K tokensは1,024 tokens。
+状態: M0の契約を維持し、M1のstatic accountingと実機budgetを[checkpoint atlas report](checkpoint-atlas.md)で確定した。実機のphysical memoryは512 GiB、Metal推奨working setは464 GiB。runtimeが全量を予約できる意味ではない。GBは10^9 bytes、GiBは2^30 bytes、MiBは2^20 bytes。本projectの1K tokensは1,024 tokens。
 
 ## Residency
 
@@ -45,7 +45,7 @@ minimal inferenceは`fp4_act_quant(..., inplace=True)`で量子化後の値をde
 
 ## M1 checkpoint atlas
 
-最初の実装はC++の`tools/inspect_checkpoint/`とする。巨大payloadを一括loadせず、safetensors index / headerからatlasを作り、integrityのpayload検証を別段階で行う。ダウンロード中のファイルは変更しない。
+最初の実装としてC++の[`tools/inspect_checkpoint/`](../tools/inspect_checkpoint/README.md)を追加した。巨大payloadを一括loadせず、safetensors index / headerからatlasを作り、integrityのpayload検証を別段階で行う。checkpointを変更しない。
 
 tensorごとに最低限以下を出力する。
 

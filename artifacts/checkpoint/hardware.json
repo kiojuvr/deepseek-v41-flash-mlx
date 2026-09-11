@@ -1,0 +1,10 @@
+{
+  "physical_memory_bytes": 549755813888,
+  "device_name": "Apple M3 Ultra",
+  "has_unified_memory": true,
+  "recommended_max_working_set_bytes": 498216206336,
+  "max_buffer_length_bytes": 373662154752,
+  "current_allocated_bytes": 81920,
+  "os": "Version 26.5.2 (Build 25F84)",
+  "note": "Read-only device limits; no runtime allocation or residency qualification."
+}

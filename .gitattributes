@@ -1,0 +1,2 @@
+# Preserve byte-identical upstream files, including upstream whitespace.
+third_party/nlohmann/* -whitespace
