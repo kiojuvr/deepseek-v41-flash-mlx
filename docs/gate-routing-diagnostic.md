@@ -19,6 +19,12 @@ compare route weights or expert outputs, and does not qualify the full model.
 The result also does not justify a universal score tolerance: score differences
 must still be checked against the margin and selected IDs.
 
+The proposed diagnostic labeling is documented in
+[gate-tolerance-policy.md](gate-tolerance-policy.md): IDs remain exact, a
+provisional `2e-6` continuous score bound is paired with a `4×` margin safety
+band, and close rows stay indeterminate. This does not alter runtime routing or
+the full-model promotion contract.
+
 ```sh
 /Volumes/SDXC-512/deltafin/.venv/bin/python tools/reference/compare_gate_cpu.py \
   --checkpoint /Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-Flash \
