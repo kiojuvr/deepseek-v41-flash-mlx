@@ -1,0 +1,12 @@
+{
+  "report": "artifacts/cpu-attention/expert-251-cpu-compare-20260914-v2.json",
+  "status": "reviewed_single_expert_difference",
+  "expert": 251,
+  "occurrences": [0, 18, 40],
+  "bit_mismatch_count": 14581,
+  "max_abs_diff": 0.0087890625,
+  "mean_abs_diff": 0.000051083494327,
+  "nonfinite_cpu": 0,
+  "nonfinite_native": 0,
+  "scope": "CPU FP4 expert contribution vs native; w1/SwiGLU/w2 component cause unresolved, no gate tolerance or qualification"
+}

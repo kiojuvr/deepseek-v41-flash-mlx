@@ -26,3 +26,18 @@ existing output directory is rejected; rerun with a fresh path after failure.
 
 This is a native component trace, not an official CUDA oracle or full-model
 qualification. Route tolerance does not apply to expert contribution equality.
+
+## Expert 251 result (2026-09-14)
+
+The native trace for expert 251 was compared with the independent CPU FP4 path.
+It was selected at tokens 0, 18 and 40. The route-weighted contribution differs
+in 14,581 BF16 elements, maximum absolute difference `0.0087890625`, mean
+`0.000051083494327`; both outputs are finite. The reviewed record is
+`artifacts/cpu-attention/expert-251-cpu-compare-20260914-reviewed.json`.
+
+This confirms that the routed-sum discrepancy is already present in one expert
+contribution. It cannot be repaired by gate score tolerance or by changing only
+the six-expert accumulation order. The remaining split is w1/w3 FP4 projection,
+SwiGLU clamp/cast, w2 projection, and route-weight multiplication. Native
+per-stage tracing is the next step; this result is not a CPU/CUDA match or
+qualification.
