@@ -4,6 +4,17 @@ M2のcanonical MLX reference接続を土台に、M3ではAPI protocolとC++ runt
 接続する。recipeはprompt/message encodingとstream parsingを所有し、C++は
 token execution、state、sampling、committed token eventを所有する。
 
+固定recipe sourceは次で準備・検証する。
+
+```sh
+bash tools/benchmark/prepare_recipe.sh
+```
+
+この処理は`third_party/deepseek-recipe`へblob-filtered checkoutを作り、revision・
+tree・Cargo metadataを`artifacts/recipe/prepare-.../`へ保存する。取得にはネットワーク
+と数百MB程度の一時領域を使う。既存checkoutは上書きせず、失敗時は`RECIPE_DIR`で
+新しい出力先を指定して再実行する。Cargo依存の有効化はsource確認後に行う。
+
 ## 接続順序
 
 1. Rust側でrecipe出力をtoken ID列へ固定し、request identityとtoken countを記録する。
