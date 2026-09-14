@@ -22,6 +22,11 @@ The handler depends on a `RuntimeBackend` trait in
 the future C++ bridge can replace it without changing protocol validation or
 OpenAI-compatible response mapping.
 
+The backend boundary now carries optional `max_tokens`, `temperature`, and
+`seed` values. Non-finite or negative temperatures are rejected with HTTP 400;
+valid options are preserved for the native bridge even while the current
+backend returns `runtime_unavailable`.
+
 The planned integration uses the pinned official `deepseek-recipe` revision and
 a small C ABI event bridge. Recipe owns prompt/message encoding and stream
 parsing; C++ owns tensor execution and committed token events. The bridge must
