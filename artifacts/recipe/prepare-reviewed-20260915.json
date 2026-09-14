@@ -1,0 +1,10 @@
+{
+  "status": "prepared",
+  "revision": "8cadfede7063c896b944e7bae05daa3549ae97ea",
+  "tree": "3ed5db20847e09a9f3d157660e27c8d2c3141fc3",
+  "checkout": "third_party/deepseek-recipe",
+  "run": "artifacts/recipe/prepare-20260915-003349-32802",
+  "cargo_workspace": ["deepseek-recipe", "deepseek-recipe-core", "deepseek-recipe-encoding", "deepseek-recipe-image"],
+  "production_dependency_enabled": false,
+  "scope": "Pinned source provenance; no API or inference qualification"
+}

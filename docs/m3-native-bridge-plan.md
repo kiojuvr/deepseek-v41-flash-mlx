@@ -15,6 +15,10 @@ tree・Cargo metadataを`artifacts/recipe/prepare-.../`へ保存する。取得�
 と数百MB程度の一時領域を使う。既存checkoutは上書きせず、失敗時は`RECIPE_DIR`で
 新しい出力先を指定して再実行する。Cargo依存の有効化はsource確認後に行う。
 
+2026-09-15にrevision `8cadfede7063c896b944e7bae05daa3549ae97ea`、tree
+`3ed5db20847e09a9f3d157660e27c8d2c3141fc3`を取得した。provenanceは
+`artifacts/recipe/prepare-reviewed-20260915.json`へ保存し、checkout本体はvendorしない。
+
 ## 接続順序
 
 1. Rust側でrecipe出力をtoken ID列へ固定し、request identityとtoken countを記録する。
