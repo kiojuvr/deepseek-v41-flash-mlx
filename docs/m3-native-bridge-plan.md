@@ -141,3 +141,7 @@ bash tools/benchmark/run_recipe_core_checks.sh
 `test.log`を確認して同じcheckoutで再実行できる。別checkoutを試す場合は
 `RECIPE_DIR=/path/to/deepseek-recipe bash tools/benchmark/run_recipe_core_checks.sh`
 とする。終了コード0だけではnative API接続や生成oracleのqualificationを意味しない。
+
+2026-09-15の実行では固定revision/treeに対してコンパイルとcore unit test 5件が成功した。
+結果は`artifacts/recipe/checks-reviewed-20260915.json`に記録した。これはrecipeの
+protocol部品がビルド可能であることの確認であり、native runtimeへの接続判定ではない。

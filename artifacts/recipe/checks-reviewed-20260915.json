@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "run": "artifacts/recipe/checks-20260915-003944-33034",
+  "recipe_revision": "8cadfede7063c896b944e7bae05daa3549ae97ea",
+  "recipe_tree": "3ed5db20847e09a9f3d157660e27c8d2c3141fc3",
+  "packages": [
+    "deepseek-recipe-core",
+    "deepseek-recipe-encoding",
+    "deepseek-recipe"
+  ],
+  "cargo_test_exit_code": 0,
+  "unit_tests": 5,
+  "failed_tests": 0,
+  "notes": "Core tests and compilation passed. This does not qualify native runtime, API generation, image execution, or official generation oracle."
+}
