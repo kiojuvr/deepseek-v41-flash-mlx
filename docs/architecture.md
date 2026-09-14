@@ -2,6 +2,10 @@
 
 状態: M0 / 2026-09-10のruntime契約。2026-09-11に[M1 atlas](checkpoint-atlas.md)を追加した。以下は完成済みruntimeの記述ではない。
 
+## 2026-09-13: 実動referenceと価値目標
+
+公式checkpointをそのまま動かす実用目標は、ユーザー確認のomlx v0.7.0.dev2が達成したものとして計画する。本projectは同精度の専用native実装でfull-path性能を上回ることを目指す。omlxをcommit `b390b31e0c6831225fed0f24d278eb1db7fcb68b`に固定し、Apple Silicon実装の第一referenceとする。公式意味論とlocal exactnessの契約は維持する。[調査・優先順位・再qualification](omlx-baseline.md)を参照。
+
 ## 対象とnative boundary
 
 Apple M3 Ultra / 512 GB Unified Memoryの1台で、1ユーザーの長時間coding-agent sessionを実行する。最初のschedulerは1本のactive generationを直列に扱う。分散推論、多ユーザーthroughput、汎用モデル対応は初期scopeに含めない。
@@ -24,7 +28,7 @@ HTTP / SSE / request lifecycle (Rust / Axum)
           Apple GPU             SSD backing store
 ```
 
-HTTPやprotocolのためにmodel dataflowをPythonへ戻さない。API層はRust + deepseek-recipeとし、native runtimeを1つの境界として呼び出す。tensor操作を細切れにFFI越しに制御しない。M1–M5はC++ / Metal runtimeを先行し、M6でRust serverを接続する。
+HTTPやprotocolのためにmodel dataflowをPythonへ戻さない。API層はRust + deepseek-recipeとし、native runtimeを1つの境界として呼び出す。tensor操作を細切れにFFI越しに制御しない。M3で非RELEASEのdeveloper serverとbridge contractを接続し、M6でrecipe・SSE・画像・長文qualificationを含む最終API構成を検証する。
 
 ## API / protocol: deepseek-recipeの採用
 
@@ -120,7 +124,8 @@ deepseek-v41-flash-mlx/
 | weight / config / tokenizer | [DeepSeek公式checkpoint](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash) | 資料を取得済み、全shard未検証 |
 | モデル意味論・数値演算 | 同checkpointの`inference/model.py`, `kernel.py`, `engram.py`, `vision.py`等 | 読み取り確認済み、oracle未実行 |
 | prompt / tool / reasoning / image protocol | 同checkpointの`encoding/`、[deepseek-recipe](https://github.com/deepseek-ai/deepseek-recipe) | Rust採用候補revision `8cadfede7063c896b944e7bae05daa3549ae97ea`を読解済み。build / 接続・fixture一致は未検証 |
-| production構造 | [vLLM upstream](https://github.com/vllm-project/vllm)のV4.1実装 | 対応commit / path未確認。M3のCED / replay実装前に固定する |
+| Apple Silicon実動・性能・実装構造 | [omlx v0.7.0.dev2](https://github.com/jundot/omlx/tree/b390b31e0c6831225fed0f24d278eb1db7fcb68b) | 2026-09-13追加。直接load・専用kernel・Engram経路を静的確認。ユーザー測定は[baseline](omlx-baseline.md)、本projectでの再測定は未実行 |
+| production構造（補助） | [vLLM upstream](https://github.com/vllm-project/vllm)のV4.1実装 | 対応commit / path未確認。M3のCED / replay実装前に固定する |
 | native backend | [MLX](https://github.com/ml-explore/mlx) | C++ API確認済み、依存revision未固定 |
 
 M1のactive checkpoint baselineは`dba1be0a40aa45a94ad051997016db3960a90277`へ更新済み。[verification manifest](../artifacts/checkpoint/verification.json)が全88ファイルの現identityを記録する。以下のM0 hash表は当時の履歴として保持する。READMEとencoding 2ファイルの更新に伴い、M2 / M6は新baselineのfixturesを使う。inference / configの数値sourceはM0のhashと一致する。
