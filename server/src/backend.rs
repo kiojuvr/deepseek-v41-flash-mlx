@@ -17,7 +17,9 @@ pub enum BackendError {
 pub struct UnconnectedBackend;
 
 impl RuntimeBackend for UnconnectedBackend {
-    fn name(&self) -> &'static str { "unconnected" }
+    fn name(&self) -> &'static str {
+        "unconnected"
+    }
 
     fn complete(&self, _messages: &[Value], _stream: bool) -> Result<Value, BackendError> {
         Err(BackendError::Unavailable)
