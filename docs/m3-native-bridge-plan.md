@@ -49,6 +49,9 @@ token列のborrow、request ID、callback eventの文字列copy、cancel結果�
 unavailable error event、request ID、cancel応答を検査する。MLXやcheckpointを
 ロードしないため、短いCI契約検査として実行できる。
 
+CTestの`bridge_smoke`にも登録し、`ctest --test-dir build-mlx -R '^bridge_smoke$'`
+で単独実行できる。
+
 Rust featureをlibraryへ接続する場合は、C++ libraryを先にbuildしてから次を実行する。
 
 ```sh

@@ -120,6 +120,7 @@ target_link_libraries(dsv41-memory-probe PRIVATE "-framework Foundation" "-frame
 include(CTest)
 if(BUILD_TESTING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  add_test(NAME bridge_smoke COMMAND dsv41-bridge-smoke)
   add_test(NAME checkpoint_contract COMMAND ${Python3_EXECUTABLE}
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/checkpoint/test_atlas.py $<TARGET_FILE:dsv41-inspect-checkpoint>)
   add_executable(dsv41-test-engram tests/engram/test_engram.cpp)
