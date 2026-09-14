@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 use std::{env, net::SocketAddr, sync::Arc};
 mod backend;
 mod native;
-use backend::{RuntimeBackend, UnconnectedBackend};
+use backend::{GenerationOptions, RuntimeBackend, UnconnectedBackend};
 
 #[derive(Clone)]
 struct AppState {
@@ -24,6 +24,12 @@ struct ChatRequest {
     messages: Vec<Value>,
     #[serde(default)]
     stream: bool,
+    #[serde(default)]
+    max_tokens: Option<u32>,
+    #[serde(default)]
+    temperature: Option<f32>,
+    #[serde(default)]
+    seed: Option<u64>,
 }
 
 #[derive(Serialize)]
@@ -63,7 +69,20 @@ async fn chat(
             ),
         );
     }
-    match state.backend.complete(&req.messages, req.stream) {
+    if req.temperature.is_some_and(|v| !v.is_finite() || v < 0.0) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({"error":{"message":"temperature must be finite and nonnegative","type":"invalid_request_error"}}),
+            ),
+        );
+    }
+    let options = GenerationOptions {
+        max_tokens: req.max_tokens,
+        temperature: req.temperature,
+        seed: req.seed,
+    };
+    match state.backend.complete(&req.messages, req.stream, options) {
         Ok(value) => (StatusCode::OK, Json(value)),
         Err(backend::BackendError::Unavailable) => (
             StatusCode::NOT_IMPLEMENTED,
