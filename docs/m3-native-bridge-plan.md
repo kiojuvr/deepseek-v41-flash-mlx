@@ -38,3 +38,8 @@ tree・Cargo metadataを`artifacts/recipe/prepare-.../`へ保存する。取得�
 create/submit/destroyとinvalid argument検査を実装し、submitは推論を実行せず
 `runtime_unavailable` error eventを返す。native generationを返すbridgeへ置換する
 まで、このshellの成功をAPI inference成功として扱わない。
+
+Rust側には`server` crateの`native-bridge` featureで有効化する薄い所有権wrapperを
+追加した。default buildは従来どおり純Rust stubで、feature有効時のみ
+`dsv41_bridge_create/destroy`へ接続する。token列・callback eventのFFIはrecipeの
+fixtureとrequest lifecycleを固定した後に追加する。

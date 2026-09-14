@@ -4,6 +4,10 @@ version = "0.1.0-dev"
 edition = "2024"
 publish = false
 
+[features]
+default = []
+native-bridge = []
+
 [dependencies]
 axum = "0.8"
 serde = { version = "1", features = ["derive"] }

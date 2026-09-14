@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{env, net::SocketAddr, sync::Arc};
 mod backend;
+mod native;
 use backend::{RuntimeBackend, UnconnectedBackend};
 
 #[derive(Clone)]
