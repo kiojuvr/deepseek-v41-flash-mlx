@@ -114,6 +114,10 @@ fixtureの再現性は次で確認できる。
 
 sourceとtokenizerが変わるとexact比較が失敗する。
 
+2026-09-15の再検証では5 fixtureがexact、encoding source SHA256は
+`502bdaec8a3fd88ebc24c4721a7038fbe42f2063c664638127056107920035c1`、tokenizer
+SHA256は`c90dfa01249db1be4245780a052ede752e1361c612ac6d08e2bdada7d599476b`で一致した。
+
 Rust adapterのfeature付きunit testもC++ shellへリンクして実行し、error eventの
 kind/code、request ID、callback変換を確認済みである。
 
