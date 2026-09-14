@@ -83,3 +83,8 @@ The reproducible runner was then executed successfully at
 `artifacts/api-smoke/run-20260914-221558-29823/` (exit code 0). Its readiness
 loop suppresses transient connection errors and fails explicitly when the
 server does not become ready within 20 seconds.
+
+After generation option coverage was added, the runner passed again at
+`artifacts/api-smoke/run-20260915-002706-32404/` (exit code 0). Valid
+`max_tokens/temperature/seed` reached the explicit 501 backend response, while
+negative temperature returned 400.
