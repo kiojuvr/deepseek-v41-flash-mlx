@@ -81,6 +81,18 @@ trace; broader expert IDs still need sampling before attributing the residual to
 a universal backend reduction effect. No MoE or full-model qualification is
 claimed.
 
+## Cast-aligned comparison (2026-09-14)
+
+The CPU comparator was then aligned with the native cast boundary: each expert's
+`w2` output and the shared output are converted to BF16 before float32 MoE
+accumulation, with routed experts accumulated in ascending expert ID order. The
+same replay now reports 59 mismatched BF16 elements, maximum absolute
+difference `0.0009765625`, and mean absolute difference `5.659957835746354e-08`.
+Per-route contributions account for 27 elements (maximum `0.000244140625`);
+the remaining 32 elements are final accumulation-rounding differences. All
+values are finite. This is a reviewed local semantic match for the layer-0 MoE
+path, not an official oracle or full-model qualification.
+
 ## Reviewed component comparison (2026-09-14)
 
 The corrected 60-token CPU run was compared with the native component replay.
