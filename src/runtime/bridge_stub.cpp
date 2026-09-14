@@ -1,6 +1,7 @@
 #include "dsv41/runtime_bridge.h"
 
 #include <atomic>
+#include <cmath>
 #include <cstring>
 
 struct dsv41_bridge {
@@ -18,7 +19,9 @@ extern "C" int dsv41_bridge_submit(dsv41_bridge_t *bridge, const dsv41_request_t
                                      dsv41_event_callback callback, void *context,
                                      uint64_t *request_id_out) {
     if (!bridge || !request || request->abi_version != DSV41_BRIDGE_ABI_VERSION ||
-        (!request->input_tokens && request->input_token_count) || !callback) {
+        (!request->input_tokens && request->input_token_count) || !callback ||
+        request->input_token_count == 0 || request->max_new_tokens == 0 ||
+        !std::isfinite(request->temperature) || request->temperature < 0.0f) {
         return DSV41_BRIDGE_INVALID_ARGUMENT;
     }
     const auto id = bridge->next_request.fetch_add(1, std::memory_order_relaxed);

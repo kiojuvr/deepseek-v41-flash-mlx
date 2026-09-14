@@ -218,3 +218,6 @@ checkpoint/tokenizer/bridge libraryの存在を検査し、結果を
 
 初回preflightは成功し、前提条件、native-bridge health、501/404/400のAPI契約を確認した。
 記録は`artifacts/api-smoke/native-bridge-preflight-reviewed-20260915.json`に保存した。
+
+C ABI shellもserverと同じく空prompt、`max_new_tokens=0`、非有限温度、負温度を
+`DSV41_BRIDGE_INVALID_ARGUMENT`で拒否する。bridge smokeでこの境界を検査している。

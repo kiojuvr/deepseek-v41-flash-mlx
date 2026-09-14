@@ -14,6 +14,8 @@ int main() {
     assert(bridge != nullptr);
     assert(dsv41_bridge_submit(nullptr, nullptr, on_event, nullptr, nullptr) == DSV41_BRIDGE_INVALID_ARGUMENT);
     const uint32_t tokens[] = {0, 42, 1000, 42};
+    dsv41_request_t invalid{DSV41_BRIDGE_ABI_VERSION, tokens, 4, 0, 0.0f, 0};
+    assert(dsv41_bridge_submit(bridge, &invalid, on_event, nullptr, nullptr) == DSV41_BRIDGE_INVALID_ARGUMENT);
     dsv41_request_t request{DSV41_BRIDGE_ABI_VERSION, tokens, 4, 16, 0.0f, 0};
     Seen seen;
     uint64_t request_id = 0;
