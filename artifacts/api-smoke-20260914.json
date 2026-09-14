@@ -1,0 +1,16 @@
+{
+  "status": "reviewed",
+  "server": "dsv41-developer-server",
+  "checks": {
+    "health_200": true,
+    "models_200": true,
+    "known_model_chat_501_runtime_unavailable": true,
+    "unknown_model_404": true,
+    "empty_messages_400": true,
+    "literal_image_marker_explicit_backend_error": true,
+    "structured_content_explicit_backend_error": true,
+    "missing_model_422_deserialization_error": true
+  },
+  "release": false,
+  "scope": "Protocol smoke only; native runtime, recipe encoding, SSE and generation not tested"
+}

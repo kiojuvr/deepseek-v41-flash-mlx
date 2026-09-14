@@ -38,3 +38,15 @@ The last request must return HTTP 501 and `runtime_unavailable`. A 200 response
 before native integration is a protocol test failure. OpenCode compatibility,
 recipe fixtures, SSE, image/text boundaries and full cancellation tests remain
 M6 requirements and cannot be inferred from this stub.
+
+## Reviewed smoke test (2026-09-14)
+
+The developer server was exercised manually. Health and model discovery returned
+200; a known-model request returned explicit 501 `runtime_unavailable`; unknown
+model and empty messages returned 404 and 400 respectively. Literal
+`<｜deepseek_image｜>` text and structured content both reached the same explicit
+backend-unavailable response rather than being rejected by a protocol-side
+special-token check. A missing `model` field produced the expected 422 JSON
+deserialization error. The checklist is recorded in
+`artifacts/api-smoke-20260914.json`. These results validate only the stub's
+HTTP/error contract and do not qualify recipe encoding or native inference.
