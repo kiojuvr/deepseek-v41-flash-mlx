@@ -1,0 +1,12 @@
+{
+  "scope": "Official encoding.py chat fixture token IDs through native generation; no API or oracle qualification",
+  "run": "artifacts/text-generate/run-20260915-001059-31483",
+  "token_file": "artifacts/recipe/runtime-tokens-chat-20260915-001059-31479.txt",
+  "prompt_tokens": [0, 128803, 19923, 128804, 128822],
+  "generated_tokens": [19923, 3, 1730, 588, 342, 1694, 440, 4316, 33, 1, 201, 1, 201, 1, 201, 19923],
+  "committed_tokens": 16,
+  "next_position": 21,
+  "stopped": false,
+  "exit_code": 0,
+  "full_model_qualified": false
+}

@@ -86,6 +86,11 @@ MAX_NEW=16 TEMPERATURE=0 SEED=0 \
 `artifacts/text-generate/run-.../`へ保存する。これはrecipe renderingとnative
 token pathの接続検査であり、公式生成oracleではない。
 
+chat fixtureの実行結果は`artifacts/recipe/native-generation-chat-reviewed-20260915.json`
+へ保存した。5 tokenの公式rendered promptから16 tokenをcommitし、`next_position=21`
+となることを確認済みである。これはrecipe encodingとnative generationの接続証拠で
+あり、Rust API bridgeや公式生成oracleの証拠ではない。
+
 Rust adapterのfeature付きunit testもC++ shellへリンクして実行し、error eventの
 kind/code、request ID、callback変換を確認済みである。
 
