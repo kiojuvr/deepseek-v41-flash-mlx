@@ -24,3 +24,22 @@ the script is offline validation only.
 /Volumes/SDXC-512/deltafin/.venv/bin/python tools/reference/cpu_moe_fixture.py \
   --output <fresh-report.json>
 ```
+
+## Full layer 0 CPU MoE comparison
+
+`tools/reference/cpu_moe_compare.py` uses the real native `ffn_in`, frozen native
+route IDs/weights, and independently decoded CPU FP4 experts. It computes each
+routed expert only on first use, applies the official SwiGLU clamps and route
+weights, adds the shared expert, and compares the BF16 `moe_out` with native.
+
+Run the prepared script because expert slabs may take several minutes and multiple
+GiB of RAM to load:
+
+```sh
+bash tools/benchmark/run_cpu_moe_compare.sh
+```
+
+Results and progress logs are saved under
+`artifacts/cpu-attention/cpu-moe-<timestamp>-<pid>/`. Exit zero means the report
+was written, not that outputs agree. A failed run leaves logs; retrying creates a
+fresh directory. Mid-token resume is not implemented.
