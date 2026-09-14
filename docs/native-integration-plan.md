@@ -15,18 +15,18 @@
 | 共通linear / mHC | fixed-schedule FP8/FP4 reference、mHC mix / collapse / 展開、layer 0 Block接続 | mHC係数のCPU差 |
 | SWA | layer 0のQ/KV → bounded state → masked attention → inverse RoPE → wo_a / wo_b、Block接続 | 公式oracle / padding / reduction比較、Bounded Replay |
 | layer 0 MoE / Block | 全384 expert resident、ユーザーrunでhidden / pre-mix / KVのchunk-token bit一致、reset / position拒否 | 公式oracle比較、実token入口・次layerへの接続 |
-| encoder / decoder / logits | 未接続 | 以下の統合作業 |
+| encoder / decoder / logits | encoder 0..19、decoder 20..39、final collapse / norm / headを接続し、token→logits local pathを確認 | 公式oracle比較、長文qualification |
 | layer 0 → Engram 1 → layer 1 | ユーザーrunでchunk/token bits・hash継続・fork/reset・不正入力拒否を確認 | 公式oracle比較、layer 2以降への接続 |
 | layer 2 global KV producer | layer 2 Attentionへcompressor・FP4 cache・index query・SWA/global計算を接続、短いlocal検査通過 | FP4 / scoreの独立oracle比較、shared cache接続 |
 | layer 2 → layer 3〜7 publication | cache / candidates / query positionを固定し、consumer検査とsnapshot保持を短い検査で確認 | layer 3 consumer Attention接続済み。layer 4〜7とrequest ownershipは未完了 |
 | token → layer 2 Block | ユーザーrunでhidden・pre-mix・3層stateのchunk bits、global group境界・継続・fork/resetを確認 | 公式oracle比較、layer 3以降へのshared cache接続 |
 | encoder 0..19 text経路 | producer 2/8/14、reuse 3–7/9–13/15–19、Engram 1/14を接続し、ユーザーrunでchunk/token bits・継続・fork/reset・不正token拒否を確認 | 公式oracle比較、decoderへの接続 |
 | decoder 20..39 / head | ratio-1 producer 20、candidate二段Top-K、index source 24/28/32/36、reuse 21..39、final collapse/norm/headを接続し、ユーザーrunでchunk/token bit・継続・fork/resetを確認 | 公式logits oracle比較 |
-| token → logits full backbone | encoder 0..19 → decoder 20..39 → logitsを接続し、ユーザーrunでchunk/token bit・継続・fork/reset・不正token拒否を確認（routing tie 3件は最小ID break、未qualified） | 公式logits oracle比較、sampling / generation |
+| token → logits full backbone | encoder 0..19 → decoder 20..39 → logitsを接続し、ユーザーrunでchunk/token bit・継続・fork/reset・不正token拒否を確認（routing tie 3件は最小ID break、未qualified） | 公式logits oracle比較、長文qualification |
 | logits oracle比較 | native / 固定oMLX traceと公式式CPU転記で最初の分岐を `encoder.layer0.attn_in` に特定。RMSNormの分散reduction差、Q projection差、Attention算術差を局所化。layer 0 gateはscore差≈2e-6でもID一致、MoE native replayはbit一致。独立CPU FP4 MoEは152 expertsを通し、差270,799/307,200要素を検出 | M2のlogits差基準を広いteacher-forced入力で固定、expert projection / SwiGLU / shared / sum component trace |
-| sampling / generation | greedy / temperatureの参照samplingと生成loop、RNG再現性の高速検査 | 公式RNGとのtoken列一致、stop sequence、API接続 |
+| sampling / generation | greedy / temperatureの参照samplingと生成loop、RNG再現性、修正版full backboneで16 token生成を確認 | 公式RNGとのtoken列一致、stop sequence、API接続 |
 
-既存の数値差を未解決として記録しながら、独立したfull-path接続を進める。CPUとMLXの全bit一致を各primitiveの実装着手条件にせず、公式oracle → local referenceの判定をM2 exit条件として保持する。local reference → optimized pathのbitwise条件は維持する。
+既存の数値差を未解決として記録しながら、独立したfull-path接続を進める。CPUとMLXの全bit一致を各primitiveの実装着手条件にせず、公式oracle → local referenceの判定をM2 exit条件として保持する。local reference → optimized pathのbitwise条件は維持する。full backboneとnative generationは接続済みだが、公式oracle・長文qualification・API接続は未完了である。
 
 ## 統合進捗と共通linearの契約
 
