@@ -1,0 +1,247 @@
+{
+  "run": "artifacts/cpu-attention/run-20260914-160650-23333",
+  "status": "reviewed_numerical_differences",
+  "exit_code": 0,
+  "tokens": 60,
+  "identity_checks": {
+    "tools/reference/cpu_reference.py": true,
+    "tools/reference/trace_cpu_attention.py": true,
+    "tools/reference/compare_traces.py": true,
+    "artifacts/checkpoint/summary.json": true,
+    "artifacts/checkpoint/verification.json": true,
+    "artifacts/logits-trace/native-20260914-145608-21879/manifest.json": true,
+    "artifacts/logits-trace/native-20260914-145608-21879/encoder.layer0.attn_in.npy": true,
+    "inference/model.py": true,
+    "inference/kernel.py": true,
+    "inference/config.json": true,
+    "/Volumes/SDXC-512/deepseek-v41-flash-mlx/tools/reference/trace_cpu_attention.py": true,
+    "/Volumes/SDXC-512/deepseek-v41-flash-mlx/tools/reference/cpu_reference.py": true,
+    "output:encoder.layer0.attn_in": true,
+    "output:encoder.layer0.attn_qr": true,
+    "output:encoder.layer0.attn_qb": true,
+    "output:encoder.layer0.attn_q": true,
+    "output:encoder.layer0.attn_kv_norm": true,
+    "output:encoder.layer0.attn_kv": true,
+    "output:encoder.layer0.attn_kv_quant": true,
+    "output:encoder.layer0.attn_o_raw": true,
+    "output:encoder.layer0.attn_o": true,
+    "output:encoder.layer0.attn_out": true,
+    "native:manifest": true,
+    "native:encoder.layer0.attn_in": true,
+    "native:encoder.layer0.attn_qr": true,
+    "native:encoder.layer0.attn_qb": true,
+    "native:encoder.layer0.attn_q": true,
+    "native:encoder.layer0.attn_kv_norm": true,
+    "native:encoder.layer0.attn_kv": true,
+    "native:encoder.layer0.attn_kv_quant": true,
+    "native:encoder.layer0.attn_o_raw": true,
+    "native:encoder.layer0.attn_o": true,
+    "native:encoder.layer0.attn_out": true,
+    "oracle:manifest": true,
+    "oracle:encoder.layer0.attn_in": true,
+    "oracle:encoder.layer0.attn_qr": true,
+    "oracle:encoder.layer0.attn_qb": true,
+    "oracle:encoder.layer0.attn_q": true,
+    "oracle:encoder.layer0.attn_kv_norm": true,
+    "oracle:encoder.layer0.attn_kv": true,
+    "oracle:encoder.layer0.attn_kv_quant": true,
+    "oracle:encoder.layer0.attn_o_raw": true,
+    "oracle:encoder.layer0.attn_o": true,
+    "oracle:encoder.layer0.attn_out": true
+  },
+  "reviewed_files_sha256": {
+    "report.json": "3a66805cfab6f6ad3d0567292a8f55e9fed2662a9ecafab50fdba358db5c861d",
+    "test.log": "14d4ebd8d1c132bad076d093c3ae3899c39da1cdef3dbc30973b79a98434ee8c",
+    "identity.txt": "5237f63ac0da186760063a73a6a5a167db375bc4a89d646d2d374089840b91e0",
+    "manifest.json": "0d7c47f119fba8ede8ee67fcc680b68785debbdd36af01d438372c2dd3924961"
+  },
+  "boundaries": {
+    "encoder.layer0.attn_in": {
+      "shape": [
+        60,
+        5120
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true,
+      "native_array_sha256": "89c8be2dab1d0101f23d2424fc0ee8b0aa8aca1323a588885ccd76df55685e80",
+      "oracle_array_sha256": "e92c292ddfaa581001202b5591776450bf18062034424175266d5adab29695f8"
+    },
+    "encoder.layer0.attn_qr": {
+      "shape": [
+        60,
+        1280
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 3,
+      "max_abs_diff": 0.0078125,
+      "mean_abs_diff": 1.0212301049250527e-07,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true,
+      "native_array_sha256": "340814611c1911b42b8435d12672b2e1ad94fbfe5c98557539519f634e461de3",
+      "oracle_array_sha256": "36c3aa2b0f0daec877665d71995a476b31f0170980ff629add38e652951179c2"
+    },
+    "encoder.layer0.attn_qb": {
+      "shape": [
+        60,
+        32768
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 44,
+      "max_abs_diff": 0.0078125,
+      "mean_abs_diff": 2.2568626079078058e-08,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true,
+      "native_array_sha256": "5be8196b94001f08b2282c1dbe09fce72f6b8514ecc5887caa0be89a124d6199",
+      "oracle_array_sha256": "f368480619c96fc1e885d0990cde1472de12fc9e54d9b95c67fdf5cfa4165b5a"
+    },
+    "encoder.layer0.attn_q": {
+      "shape": [
+        60,
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 50,
+      "max_abs_diff": 0.015625,
+      "mean_abs_diff": 3.551413030322692e-08,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true,
+      "native_array_sha256": "18d67c4953b906110eb404bbb1832db8e5edae624019f710693fde7e6a2a678e",
+      "oracle_array_sha256": "c49ae3369d385648949e5c3413732fee4e3ba14f288f5ad78964c033b4f3ffa3"
+    },
+    "encoder.layer0.attn_kv_norm": {
+      "shape": [
+        60,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 3,
+      "max_abs_diff": 0.001953125,
+      "mean_abs_diff": 6.358119719607203e-08,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true,
+      "native_array_sha256": "9eb734704db6699715bc89275414c09e0fce102a8467a9d8dd93cbf31d71fd8c",
+      "oracle_array_sha256": "4d79a741daa7db06d00de315a8e77063dfe36b5e8a47126d00a625f7b5dfb4f7"
+    },
+    "encoder.layer0.attn_kv": {
+      "shape": [
+        60,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 2,
+      "max_abs_diff": 0.001953125,
+      "mean_abs_diff": 6.35792574144034e-08,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true,
+      "native_array_sha256": "066d4ddf17e55f334d8950b931c7e3018deca54fe13e2dfabe007164cd6a2b9b",
+      "oracle_array_sha256": "24f8be21496d95b77888aa09d01542a79c5718ced61b830975c81c85aba4ff17"
+    },
+    "encoder.layer0.attn_kv_quant": {
+      "shape": [
+        60,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true,
+      "native_array_sha256": "3b7f3c8c53bad54655e51981d7b097477ccdfa63ed29300d07d522526ccc2b3c",
+      "oracle_array_sha256": "29c3792a1010af2f57cfccd56dfef29d82905178b3a61d834088a7d0ddb5cd78"
+    },
+    "encoder.layer0.attn_o_raw": {
+      "shape": [
+        60,
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 201,
+      "max_abs_diff": 0.001953125,
+      "mean_abs_diff": 2.817832900348094e-08,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true,
+      "native_array_sha256": "560f68ef80d5a0a20df5110893de9bc8f53e1742dfbafd7bb702c1154dd15aa0",
+      "oracle_array_sha256": "f95db31343676cf53b74d80fdd8475944027505f1510989758f3ccf56525287e"
+    },
+    "encoder.layer0.attn_o": {
+      "shape": [
+        60,
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 205,
+      "max_abs_diff": 0.001953125,
+      "mean_abs_diff": 2.94181532467519e-08,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true,
+      "native_array_sha256": "9d4483b4b3f263d4c6813ed53289624a0f1ecd8d8afc1f9231d51f514ec68350",
+      "oracle_array_sha256": "4386119d3eaee64cf666214a2c465c6b8ed5beb28ed07d7bc60a9327aed0484c"
+    },
+    "encoder.layer0.attn_out": {
+      "shape": [
+        60,
+        5120
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 16907,
+      "max_abs_diff": 0.015625,
+      "mean_abs_diff": 7.555886259069666e-05,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true,
+      "native_array_sha256": "b380af7d90650667053e52390ba4431e64032d7092a29e02d245f47f645d0867",
+      "oracle_array_sha256": "e34fc61bdde2b6949c70b1d49fc650e3a5def18fbb572893f59cb6308319217b"
+    }
+  },
+  "first_diverging_boundary": "encoder.layer0.attn_qr",
+  "tensor_payloads_rehashed_during_review": false,
+  "scope": "Frozen native layer0 attn_in -> CPU attention; no official CUDA or full logits qualification",
+  "full_model_qualified": false
+}

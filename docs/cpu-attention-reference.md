@@ -30,8 +30,8 @@ Outputs live in `artifacts/cpu-attention/run-<timestamp>-<pid>/`: identities,
 `test.log`, `trace-exit-code.txt`, overall `exit-code.txt`, trace arrays and
 manifest, `comparison.log`, and `report.json`. Exit zero means the report was
 generated, not numerical agreement. Review identities and numerical differences
-before drawing conclusions. This real-checkpoint run is still pending as of
-2026-09-14.
+before drawing conclusions. The first real-checkpoint run was reviewed on
+2026-09-14; results follow below.
 
 On failure, rerun the command to create a fresh directory and preserve the
 previous logs. Token-level resume is not implemented. If trace generation
@@ -58,3 +58,41 @@ Short tests, without loading checkpoint tensors:
 
 Ten tests passed on 2026-09-14. They cover comparator contracts and small CPU
 arithmetic cases; they do not validate the complete attention computation.
+
+## Reviewed 60-token result (2026-09-14)
+
+Run `run-20260914-160650-23333` completed with trace and overall exit code zero.
+`artifacts/cpu-attention/reviewed-result.json` records review of script, M1,
+official source, input/output manifest and compared array hashes, the completed
+60-token log, and metrics. All checked hashes matched; all ten boundaries were
+finite on both sides. Checkpoint tensor payloads were not rehashed during review;
+their hashes recorded by the exporter remain provenance, not a new snapshot audit.
+
+| Boundary | Bit mismatches | Max absolute difference |
+| --- | ---: | ---: |
+| attn_in (fixed input) | 0 | 0 |
+| attn_qr | 3 | 0.0078125 |
+| attn_qb | 44 | 0.0078125 |
+| attn_q | 50 | 0.015625 |
+| attn_kv_norm | 3 | 0.001953125 |
+| attn_kv | 2 | 0.001953125 |
+| attn_kv_quant | 0 | 0 |
+| attn_o_raw | 201 | 0.001953125 |
+| attn_o | 205 | 0.001953125 |
+| attn_out | 16907 | 0.015625 |
+
+The first recorded difference is Q after projection and normalization, before
+RoPE. Unlike the earlier frozen-Q RoPE diagnostic, this experiment also includes
+upstream projection and norm differences. Quantized SWA KV agrees exactly in
+this sample. Output projection increases the mismatch count; that observation
+alone does not establish an output-projection bug.
+
+`diagnose_cpu_qr.py` ran a short CPU sensitivity check (under two seconds).
+FP64 accumulation of the same FP8-quantized Q projection differed from FP32 in
+five BF16 projection elements. Both `rsqrt` and `1/sqrt` normalization variants still
+differed from native Q-normalized output in three elements. The report is
+`artifacts/cpu-attention/diagnose-qr-20260914.json`. This rules out those CPU
+variant changes as a fix for this sample, not a native implementation error or
+CUDA rounding difference. Native pre-norm Q is not present in the existing trace;
+capturing that boundary is the next diagnostic step. No numerical acceptance
+threshold or full-path promotion contract was changed.
