@@ -41,3 +41,16 @@ the six-expert accumulation order. The remaining split is w1/w3 FP4 projection,
 SwiGLU clamp/cast, w2 projection, and route-weight multiplication. Native
 per-stage tracing is the next step; this result is not a CPU/CUDA match or
 qualification.
+
+## Root cause correction (2026-09-14)
+
+The stage trace for expert 251 is bit-identical to the CPU formula for gate, up,
+SwiGLU activation and route-weighted contribution (three selected tokens). This
+exposed a semantic bug in the previous native `ExpertReference::forward`: it
+applied the route weight to the intermediate SwiGLU activation before `w2`.
+The official model applies the route weight after the expert's `w2` output.
+`ExpertReference::forward` now delegates to the corrected post-`w2` component
+path. The earlier 270,799-element CPU MoE difference was therefore measured
+against a native path with incorrect route-weight placement and is invalid as a
+comparison of the corrected implementation. Existing full-backbone and MoE
+replay results must be regenerated; no qualification is carried forward.

@@ -78,7 +78,9 @@ ExpertReference::ExpertReference(WeightCatalog& c,int e,int layer):w1_(c,prefix(
 }
 mx::array ExpertReference::forward(const mx::array& x,const mx::array& weight) const{
  if(x.dtype()!=mx::bfloat16||x.shape()!=mx::Shape({1,5120}))throw std::runtime_error("expert requires one BF16 token");
- return w2_.forward(expert_activation_reference(w1_.forward(x),w3_.forward(x),weight));
+ // Official routing weights scale the expert output after w2, not the
+ // intermediate SwiGLU activation. Keep this path identical to components().
+ return components(x,weight).output;
 }
 ExpertComponents ExpertReference::components(const mx::array& x,const mx::array& weight) const {
  auto gate=w1_.forward(x), up=w3_.forward(x);
