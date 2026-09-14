@@ -145,3 +145,14 @@ bash tools/benchmark/run_recipe_core_checks.sh
 2026-09-15の実行では固定revision/treeに対してコンパイルとcore unit test 5件が成功した。
 結果は`artifacts/recipe/checks-reviewed-20260915.json`に記録した。これはrecipeの
 protocol部品がビルド可能であることの確認であり、native runtimeへの接続判定ではない。
+
+JSON messageからrecipe `Conversation`への変換は`recipe-adapter` featureに隔離した。
+境界テストは次で実行できる。
+
+```sh
+cargo test --manifest-path server/Cargo.toml --features recipe-adapter
+```
+
+このadapterはplain textとtext content arrayを扱い、literal image markerを保持する。
+画像blockはvision実装へ渡す前に`ImageContentRequiresVision`で停止する。tokenizer、
+native bridge、HTTP handlerへの接続は次段階で行う。

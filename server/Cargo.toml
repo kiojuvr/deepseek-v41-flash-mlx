@@ -8,6 +8,7 @@ build = "build.rs"
 [features]
 default = []
 native-bridge = []
+recipe-adapter = ["dep:deepseek-recipe-core", "dep:deepseek-recipe-encoding"]
 
 [dependencies]
 axum = "0.8"
@@ -15,6 +16,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
 tower-http = { version = "0.6", features = ["trace"] }
+
+deepseek-recipe-core = { path = "../third_party/deepseek-recipe/deepseek-recipe-core", optional = true }
+deepseek-recipe-encoding = { path = "../third_party/deepseek-recipe/deepseek-recipe-encoding", optional = true }
 
 # Integration is intentionally deferred until the C ABI event contract is fixed.
 # The prompt/stream semantics will be wired to this pinned recipe revision then.
