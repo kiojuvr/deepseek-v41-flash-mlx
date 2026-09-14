@@ -187,3 +187,17 @@ cargo run --manifest-path server/Cargo.toml --features 'native-bridge recipe-ada
 現時点ではshell bridgeがunavailableを返すため、healthは`native-bridge`、completionは
 `501 runtime_unavailable`となる。tokenizer未指定またはfeature未指定時はunconnectedへ
 フォールバックする。
+
+既存のAPI smokeをnative構成で実行する場合は、次のようにfeatureと環境変数を渡す。
+
+```sh
+DSV41_CARGO_FEATURES='native-bridge recipe-adapter' \
+DSV41_NATIVE_BRIDGE=1 \
+DSV41_EXPECTED_RUNTIME=native-bridge \
+DSV41_TOKENIZER=/Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-Flash/tokenizer.json \
+DSV41_BRIDGE_LIB_DIR="$PWD/build-mlx" \
+bash tools/benchmark/run_api_smoke.sh
+```
+
+結果は`artifacts/api-smoke/run-.../`に保存される。shell bridgeではchat statusが501で
+あることを維持し、healthのruntimeだけ`native-bridge`になることを検査する。

@@ -3,9 +3,13 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 port=${DSV41_SMOKE_PORT:-18080}
+features=${DSV41_CARGO_FEATURES:-}
+expected_runtime=${DSV41_EXPECTED_RUNTIME:-unconnected}
 run_dir="artifacts/api-smoke/run-$(date +%Y%m%d-%H%M%S)-$$"
 mkdir -p "$run_dir"
-DSV41_BIND="127.0.0.1:${port}" cargo run --quiet --manifest-path server/Cargo.toml >"$run_dir/server.log" 2>&1 &
+run=(cargo run --quiet --manifest-path server/Cargo.toml)
+if [[ -n "$features" ]]; then run+=(--features "$features"); fi
+DSV41_BIND="127.0.0.1:${port}" "${run[@]}" >"$run_dir/server.log" 2>&1 &
 pid=$!
 cleanup() { kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; }
 trap 'status=$?; cleanup; echo "$status" > "$run_dir/exit-code.txt"' EXIT
@@ -43,10 +47,12 @@ curl -sS -o "$run_dir/max-tokens-limit-400.json" -w '%{http_code}\n' \
   -X POST "http://127.0.0.1:${port}/v1/chat/completions" -H 'content-type: application/json' \
   -d '{"model":"DeepSeek-V4.1-Flash","messages":[{"role":"user","content":"bad"}],"max_tokens":262145}' >"$run_dir/max-tokens-limit-400.status"
 
-python3 - "$run_dir" <<'PY'
+DSV41_EXPECTED_RUNTIME="$expected_runtime" python3 - "$run_dir" <<'PY'
 import json, pathlib, sys
+import os
 r=pathlib.Path(sys.argv[1])
-assert json.loads((r/'health.json').read_text()) == {'status':'ok','runtime':'unconnected','release':False}
+health=json.loads((r/'health.json').read_text())
+assert health == {'status':'ok','runtime':os.environ['DSV41_EXPECTED_RUNTIME'],'release':False}
 assert (r/'chat-501.status').read_text().strip() == '501'
 assert (r/'model-404.status').read_text().strip() == '404'
 assert (r/'empty-400.status').read_text().strip() == '400'
