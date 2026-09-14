@@ -1,0 +1,27 @@
+{
+  "scope": "Corrected native generation loop; no oracle or M2 qualification",
+  "runs": [
+    {
+      "run": "run-20260914-214412-28826",
+      "temperature": 0.0,
+      "seed": 0,
+      "max_new": 16,
+      "exit_code": 0,
+      "next_position": 20,
+      "committed_tokens": 16,
+      "tokens": [20, 49, 438, 223, 20, 28, 19, 271, 80, 26402, 20, 49, 11, 438, 223, 18]
+    },
+    {
+      "run": "run-20260914-214445-28897",
+      "temperature": 0.7,
+      "seed": 0,
+      "max_new": 16,
+      "exit_code": 0,
+      "next_position": 20,
+      "committed_tokens": 16,
+      "tokens": [20, 49, 438, 223, 18, 14, 25, 7, 343, 3556, 7308, 14361, 114636, 37009, 46254, 1075]
+    }
+  ],
+  "identity_sha256": "recorded in each run identity.txt",
+  "official_sampling_qualified": false
+}

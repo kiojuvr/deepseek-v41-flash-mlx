@@ -1,0 +1,11 @@
+{
+  "scope": "Corrected native full-backbone structural validation; no oracle or full-model qualification",
+  "run": "run-20260914-214232-28699",
+  "exit_code": 0,
+  "path": "token IDs -> encoder 0..19 -> decoder 20..39 -> final collapse/norm/head -> logits",
+  "contract_checks": ["chunk/token bits", "continuation", "fork", "reset", "invalid token rejection"],
+  "route_tie_count": 3,
+  "route_tie_policy": "lowest expert ID; unqualified oracle gap",
+  "identity_sha256": "artifacts/text-backbone/run-20260914-214232-28699/identity.txt",
+  "full_model_qualified": false
+}

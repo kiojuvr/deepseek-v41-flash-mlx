@@ -25,6 +25,7 @@ full backboneのため数分以上かかる。`artifacts/text-generate/run-日�
 2026-09-14のユーザーrun: greedy `run-20260914-124922-18696`（exit 0）が `20 49 438 223 20 28 19 271 80 26402 20 49 11 438 223 18`、temperature 0.7 `run-20260914-125105-18707`（exit 0）が `20 49 438 223 20 982 223 19 1492 223 864 438 223 18 16 779` を16 token生成した。binary / M1 summary / Engram metadata / provenanceのSHA256は現物と一致。記録は[reviewed-result](../artifacts/text-generate/reviewed-result.json)。これはnative内の生成loop・state継続・RNG再現性の確認であり、公式RNGとの一致やM2合格ではない。
 
 修正版MoE/full-backbone後の再実行でも、greedy `run-20260914-214412-28826` は同一の16 token列を生成し、temperature 0.7 `run-20260914-214445-28897` は `20 49 438 223 18 14 25 7 343 3556 7308 14361 114636 37009 46254 1075` を生成した。両runともexit 0、`next_position=20`、binaryとcheckpoint/Engram identityは一致した。公式sampling oracleとの一致は未検証である。
+レビュー記録は[`reviewed-result-20260914-corrected.json`](../artifacts/text-generate/reviewed-result-20260914-corrected.json)に保存した。
 
 ## 未完了
 
