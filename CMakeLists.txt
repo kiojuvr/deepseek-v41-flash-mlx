@@ -13,6 +13,8 @@ target_compile_options(dsv41_checkpoint PRIVATE -Wall -Wextra -Wpedantic -Wno-de
 add_library(dsv41_runtime_bridge src/runtime/bridge_stub.cpp)
 target_include_directories(dsv41_runtime_bridge PUBLIC include)
 target_compile_options(dsv41_runtime_bridge PRIVATE -Wall -Wextra -Wpedantic)
+add_executable(dsv41-bridge-smoke tools/benchmark/bridge_smoke.cpp)
+target_link_libraries(dsv41-bridge-smoke PRIVATE dsv41_runtime_bridge)
 add_executable(dsv41-inspect-checkpoint tools/inspect_checkpoint/main.cpp)
 target_link_libraries(dsv41-inspect-checkpoint PRIVATE dsv41_checkpoint)
 add_library(dsv41_storage src/model/weights.cpp src/engram/index.cpp src/engram/store.cpp src/attention/swa_state.cpp)

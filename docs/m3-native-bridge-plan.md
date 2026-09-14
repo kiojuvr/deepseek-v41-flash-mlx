@@ -44,3 +44,7 @@ Rust側には`server` crateの`native-bridge` featureで有効化する薄い所
 token列のborrow、request ID、callback eventの文字列copy、cancel結果をRust型へ
 変換する。現在のbridge shellはunavailableを返すため、これはABI/lifecycle検査で
 あり、native generation接続の証拠ではない。
+
+`dsv41-bridge-smoke`はC++からshellを呼び、ABI version拒否、invalid argument、
+unavailable error event、request ID、cancel応答を検査する。MLXやcheckpointを
+ロードしないため、短いCI契約検査として実行できる。
