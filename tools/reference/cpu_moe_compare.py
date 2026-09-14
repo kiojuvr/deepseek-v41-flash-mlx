@@ -24,10 +24,13 @@ def main():
  with torch.inference_mode():
   for t in range(n):
    row=x[t:t+1]; shared_y=shared(row); y=shared_y; routed_y=torch.zeros_like(y); seen=[]; slots=[]
+   contributions=[]
    for k in range(6):
     eid=int(ids[t,k]); seen.append(eid)
     if eid not in cache: cache[eid]=Expert(weights,f'layers.0.ffn.experts.{eid}')
-    contribution=cache[eid](row,float(rw[t,k])); routed_y=routed_y+contribution; y=y+contribution; slots.append(contribution.to(torch.bfloat16))
+    contribution=cache[eid](row,float(rw[t,k])); contributions.append((eid,contribution)); slots.append(contribution.to(torch.bfloat16))
+   for _,contribution in sorted(contributions,key=lambda item:item[0]): routed_y=routed_y+contribution
+   y=shared_y+routed_y
    shared_rows.append(shared_y.to(torch.bfloat16)); routed_rows.append(routed_y.to(torch.bfloat16)); outputs.append(y.to(torch.bfloat16)); used.append(seen); slot_rows.append(torch.cat(slots,dim=0))
    if (t+1)%8==0: print(f'Completed token {t+1}/{n}',flush=True)
  result=torch.cat(outputs).contiguous(); shared_result=torch.cat(shared_rows); routed_result=torch.cat(routed_rows); slot_result=torch.stack(slot_rows); nr=torch.from_numpy(native.view(np.uint16).copy()).view(torch.bfloat16)
