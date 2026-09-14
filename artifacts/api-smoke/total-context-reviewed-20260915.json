@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "run": "artifacts/api-smoke/run-20260915-011442-37271",
+  "runtime": "native-bridge",
+  "release": false,
+  "context_limit_status": 400,
+  "context_limit_code": "context_length_exceeded",
+  "other_contracts": {"chat": 501, "options": 501, "model_not_found": 404, "input_constraints": 400},
+  "exit_code": 0,
+  "notes": "Recipe encoded prompt plus max_tokens admission is enforced at the 256K total-context boundary."
+}

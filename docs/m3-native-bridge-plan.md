@@ -227,3 +227,7 @@ recipe encoderが有効なserverでは、encoded prompt token数と`max_tokens`�
 admissionであり、recipe adapter未使用のunconnected stubには適用されない。
 C ABIでは`input_token_count + max_new_tokens`も同じ256K上限で検査し、API層を迂回した
 requestでもtotal-context契約を維持する。
+
+native-bridge smokeで短いpromptに`max_tokens=262144`を指定し、合算超過が
+`400 context_length_exceeded`となることを確認した。結果は
+`artifacts/api-smoke/total-context-reviewed-20260915.json`に保存した。
