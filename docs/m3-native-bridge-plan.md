@@ -74,6 +74,18 @@ checkpoint同梱の公式encoding fixtureは次で生成できる。
 これはchat、reasoning effort、tool、structured image、literal image marker拒否を
 記録するoffline fixtureであり、production APIの成功判定には使わない。
 
+fixture token IDsをnative generationへ通す場合は、次を実行する。
+
+```sh
+MAX_NEW=16 TEMPERATURE=0 SEED=0 \
+  bash tools/benchmark/run_recipe_native_generation.sh chat
+```
+
+引数は`chat`、`thinking`、`tool`、`structured_image`から選べる。full backboneを
+実行するため数分以上かかる可能性があり、run artifactとidentityを
+`artifacts/text-generate/run-.../`へ保存する。これはrecipe renderingとnative
+token pathの接続検査であり、公式生成oracleではない。
+
 Rust adapterのfeature付きunit testもC++ shellへリンクして実行し、error eventの
 kind/code、request ID、callback変換を確認済みである。
 
