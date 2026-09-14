@@ -1,0 +1,38 @@
+{
+  "run": "artifacts/cpu-attention/cpu-moe-20260914-185642-26522",
+  "status": "reviewed_component_difference",
+  "exit_code": 0,
+  "tokens": 60,
+  "unique_experts_loaded": 152,
+  "overall": {
+    "bit_mismatch_count": 270799,
+    "max_abs_diff": 0.03125,
+    "mean_abs_diff": 0.0016184431733563542,
+    "nonfinite_cpu": 0,
+    "nonfinite_native": 0
+  },
+  "components": {
+    "shared": {
+      "bit_mismatch_count": 215,
+      "max_abs_diff": 0.0009765625,
+      "mean_abs_diff": 6.269321772833791e-08
+    },
+    "routed": {
+      "bit_mismatch_count": 287263,
+      "max_abs_diff": 0.0234375,
+      "mean_abs_diff": 0.001618312089703977
+    }
+  },
+  "native_component_trace": "artifacts/cpu-attention/moe-replay-20260914-171925-26149/trace",
+  "sha256": {
+    "artifacts/cpu-attention/cpu-moe-20260914-185642-26522/report.json": "f5ca462b70b2060f58cadf37627e738111e1747e361a7ca1c4fdda533a7756eb",
+    "artifacts/cpu-attention/cpu-moe-20260914-185642-26522/test.log": "c00e3b69884630c3392acdca6e079d354c9c2987ce0ed4658cea6b348c5a3df7",
+    "artifacts/cpu-attention/cpu-moe-20260914-185642-26522/identity.txt": "d9a7e3c770d9e2d7a7d7c16a10402bd49f6ecc6a3a838d216b95c27fbd0514b0",
+    "artifacts/cpu-attention/cpu-moe-20260914-185642-26522/report.shared.bf16.npy": "6300cae5d677ffefe32f61b7ec9696cebb1056838729ebfb8997f200fa772be9",
+    "artifacts/cpu-attention/cpu-moe-20260914-185642-26522/report.routed.bf16.npy": "395a27904c28f228c69b626b4679552e84dc496e0e6deb0c74015aaf5ce045dc",
+    "artifacts/cpu-attention/moe-replay-20260914-171925-26149/trace/encoder.layer0.moe_shared.npy": "5044f84666e743bfe243e3e975a50b23b222eeab9820ade183d8ac41783435d3",
+    "artifacts/cpu-attention/moe-replay-20260914-171925-26149/trace/encoder.layer0.moe_routed.npy": "520361fee67706e0d114b3beb4bddfe53ae37df243d90f1ad4fb241329f93960",
+    "artifacts/cpu-attention/moe-replay-20260914-171925-26149/trace/encoder.layer0.moe_out.npy": "465daa946d882d2a49e286c7baefe80826a3f1f624d78de9fe2c9fa6c23872c8"
+  },
+  "scope": "Independent CPU FP4 MoE component review; routed expert arithmetic unresolved, no acceptance or qualification"
+}

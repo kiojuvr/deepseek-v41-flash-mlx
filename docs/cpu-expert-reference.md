@@ -61,3 +61,19 @@ native, and no route ID disagreement was introduced. Candidate causes are FP4
 expert projection accumulation, SwiGLU cast placement, shared-expert arithmetic,
 and MoE summation order. Component traces are required before any numerical
 policy change.
+
+## Reviewed component comparison (2026-09-14)
+
+The corrected 60-token CPU run was compared with the native component replay.
+The shared expert is close (215 BF16 mismatches, max_abs `0.0009765625`, mean
+`6.269321772833791e-08`). The routed six-expert sum accounts for almost all of
+the aggregate error: 287,263 mismatches, max_abs `0.0234375`, mean
+`0.001618312089703977`. The aggregate remains 270,799 mismatches with max_abs
+`0.03125`. Both paths are finite and route IDs were frozen from native.
+
+This localizes the unresolved issue to routed FP4 expert arithmetic or its
+weighted accumulation. It is not evidence for relaxing gate conditions. The
+review record is `artifacts/cpu-attention/cpu-moe-20260914-component-reviewed.json`.
+The next diagnostic should compare one routed expert's w1/SwiGLU/w2 output and
+the route-weighted contribution against a native per-expert trace before changing
+the CPU formula or production MLX path.
