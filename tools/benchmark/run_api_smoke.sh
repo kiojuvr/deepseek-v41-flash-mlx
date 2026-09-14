@@ -46,6 +46,9 @@ curl -sS -o "$run_dir/max-tokens-400.json" -w '%{http_code}\n' \
 curl -sS -o "$run_dir/max-tokens-limit-400.json" -w '%{http_code}\n' \
   -X POST "http://127.0.0.1:${port}/v1/chat/completions" -H 'content-type: application/json' \
   -d '{"model":"DeepSeek-V4.1-Flash","messages":[{"role":"user","content":"bad"}],"max_tokens":262145}' >"$run_dir/max-tokens-limit-400.status"
+curl -sS -o "$run_dir/context-limit-400.json" -w '%{http_code}\n' \
+  -X POST "http://127.0.0.1:${port}/v1/chat/completions" -H 'content-type: application/json' \
+  -d '{"model":"DeepSeek-V4.1-Flash","messages":[{"role":"user","content":"context"}],"max_tokens":262144}' >"$run_dir/context-limit-400.status"
 
 DSV41_EXPECTED_RUNTIME="$expected_runtime" python3 - "$run_dir" <<'PY'
 import json, pathlib, sys
@@ -60,6 +63,8 @@ assert (r/'options-501.status').read_text().strip() == '501'
 assert (r/'temperature-400.status').read_text().strip() == '400'
 assert (r/'max-tokens-400.status').read_text().strip() == '400'
 assert (r/'max-tokens-limit-400.status').read_text().strip() == '400'
+if os.environ['DSV41_EXPECTED_RUNTIME'] == 'native-bridge':
+    assert (r/'context-limit-400.status').read_text().strip() == '400'
 print('PASS: developer API smoke contract')
 PY
 echo "API smoke completed: $run_dir"

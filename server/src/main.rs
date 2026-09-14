@@ -15,6 +15,8 @@ mod recipe_adapter;
 use backend::{GenerationOptions, RuntimeBackend, UnconnectedBackend};
 
 const MAX_QUALIFIED_OUTPUT_TOKENS: u32 = 262_144;
+#[cfg(feature = "recipe-adapter")]
+const MAX_QUALIFIED_CONTEXT_TOKENS: usize = 262_144;
 
 #[derive(Clone)]
 struct AppState {
@@ -109,11 +111,13 @@ async fn chat(
     };
     #[cfg(feature = "recipe-adapter")]
     if let Some(encoder) = &state.recipe {
-        if let Err(error) = encoder.encode(&req.messages) {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(json!({"error":{"message":error,"type":"invalid_request_error","code":"recipe_encoding_error"}})),
-            );
+        let prompt_tokens = match encoder.encode(&req.messages) {
+            Ok(tokens) => tokens.len(),
+            Err(error) => return (StatusCode::BAD_REQUEST, Json(json!({"error":{"message":error,"type":"invalid_request_error","code":"recipe_encoding_error"}}))),
+        };
+        let requested = req.max_tokens.unwrap_or(16) as usize;
+        if prompt_tokens.saturating_add(requested) > MAX_QUALIFIED_CONTEXT_TOKENS {
+            return (StatusCode::BAD_REQUEST, Json(json!({"error":{"message":"prompt plus max_tokens exceeds the current 256K context admission limit","type":"invalid_request_error","code":"context_length_exceeded"}})));
         }
     }
     match state.backend.complete(&req.messages, req.stream, options) {
