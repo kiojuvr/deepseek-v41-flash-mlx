@@ -66,7 +66,7 @@ feature未指定の`cargo check`は外部libraryを要求しない。recipe toke
 checkpoint同梱の公式encoding fixtureは次で生成できる。
 
 ```sh
-python3 tools/reference/export_recipe_fixtures.py \
+/Volumes/SDXC-512/deltafin/.venv/bin/python tools/reference/export_recipe_fixtures.py \
   --checkpoint /Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-Flash \
   --output artifacts/recipe/encoding-fixtures.json
 ```

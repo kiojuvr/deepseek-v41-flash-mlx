@@ -1,7 +1,8 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "source": "/Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-Flash/encoding/encoding.py",
   "source_sha256": "502bdaec8a3fd88ebc24c4721a7038fbe42f2063c664638127056107920035c1",
+  "tokenizer_sha256": "c90dfa01249db1be4245780a052ede752e1361c612ac6d08e2bdada7d599476b",
   "fixtures": [
     {
       "name": "chat",
@@ -15,6 +16,13 @@
         "thinking_mode": "chat"
       },
       "prompt": "<｜begin▁of▁sentence｜><｜User｜>Hello<｜Assistant｜></think>",
+      "token_ids": [
+        0,
+        128803,
+        19923,
+        128804,
+        128822
+      ],
       "media": null
     },
     {
@@ -30,6 +38,42 @@
         "reasoning_effort": "low"
       },
       "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 50 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>Explain the fix.<｜Assistant｜><think>",
+      "token_ids": [
+        0,
+        128799,
+        77666,
+        288,
+        9504,
+        482,
+        28,
+        223,
+        1328,
+        343,
+        16801,
+        223,
+        19,
+        15,
+        1457,
+        14,
+        270,
+        4077,
+        270,
+        1990,
+        14,
+        270,
+        850,
+        15146,
+        270,
+        22805,
+        868,
+        128803,
+        65106,
+        270,
+        11284,
+        16,
+        128804,
+        128821
+      ],
       "media": null
     },
     {
@@ -57,6 +101,53 @@
         "thinking_mode": "chat"
       },
       "prompt": "<｜begin▁of▁sentence｜><｜User｜>lookup value<｜Assistant｜></think>\n\n<｜DSML｜ calls>\n<｜DSML｜ invoke name=\"lookup\">\n<｜DSML｜ parameter name=\"query\" string=\"true\">value</｜DSML｜ parameter>\n</｜DSML｜ invoke>\n</｜DSML｜ calls><｜end▁of▁sentence｜>",
+      "token_ids": [
+        0,
+        128803,
+        12533,
+        1425,
+        1990,
+        128804,
+        128822,
+        271,
+        30,
+        128825,
+        10699,
+        1018,
+        30,
+        128825,
+        34756,
+        2329,
+        1281,
+        12533,
+        1425,
+        3816,
+        30,
+        128825,
+        10767,
+        2329,
+        1281,
+        12066,
+        4,
+        3418,
+        1281,
+        11476,
+        3320,
+        5197,
+        1718,
+        128825,
+        10767,
+        1018,
+        1718,
+        128825,
+        34756,
+        1018,
+        1718,
+        128825,
+        10699,
+        32,
+        1
+      ],
       "media": null
     },
     {
@@ -83,6 +174,16 @@
         "return_multi_modal_data": true
       },
       "prompt": "<｜begin▁of▁sentence｜><｜User｜>inspect\n\n<｜deepseek_image｜><｜Assistant｜></think>",
+      "token_ids": [
+        0,
+        128803,
+        261,
+        25133,
+        271,
+        129264,
+        128804,
+        128822
+      ],
       "media": {
         "images": [
           {
