@@ -1,0 +1,28 @@
+{
+  "date": "2026-09-15",
+  "status": "m2_canonical_mlx_reference_reviewed",
+  "canonical_backend": "MLX/Metal C++ reference path",
+  "official_cuda_bitwise_qualification": false,
+  "evidence": {
+    "full_backbone": "artifacts/text-backbone/reviewed-result-20260914.json",
+    "generation": "artifacts/text-generate/reviewed-result-20260914-corrected.json",
+    "moe": "artifacts/cpu-attention/cpu-moe-20260914-212331-reviewed.json",
+    "api_backend_boundary": "include/dsv41/runtime_bridge.h"
+  },
+  "completed": [
+    "token_to_logits_full_path",
+    "state_chunk_continuation_fork_reset_contract",
+    "layer0_moe_cast_aligned_reference_comparison",
+    "greedy_and_temperature_generation",
+    "api_runtime_backend_separation"
+  ],
+  "remaining": [
+    "32K_to_256K_qualification",
+    "recipe_api_bridge",
+    "DSpark",
+    "vision",
+    "oMLX_performance_comparison",
+    "RELEASE"
+  ],
+  "qualified_for_release": false
+}
