@@ -104,6 +104,16 @@ structured image fixtureはtext native pathが`encoder reference requires text t
 `artifacts/recipe/native-generation-structured-image-reviewed-20260915.json`へ記録した。
 vision projectorとimage spanはM6で別接続する。
 
+fixtureの再現性は次で確認できる。
+
+```sh
+/Volumes/SDXC-512/deltafin/.venv/bin/python tools/reference/verify_recipe_fixtures.py \
+  --checkpoint /Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-Flash \
+  --fixture artifacts/recipe/encoding-fixtures.json
+```
+
+sourceとtokenizerが変わるとexact比較が失敗する。
+
 Rust adapterのfeature付きunit testもC++ shellへリンクして実行し、error eventの
 kind/code、request ID、callback変換を確認済みである。
 
