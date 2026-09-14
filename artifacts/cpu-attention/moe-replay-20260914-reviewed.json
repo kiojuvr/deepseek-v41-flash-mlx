@@ -1,0 +1,16 @@
+{
+  "run": "artifacts/cpu-attention/moe-replay-20260914-164602-24859",
+  "status": "reviewed_native_replay",
+  "exit_code": 0,
+  "tokens": 60,
+  "boundary": "encoder.layer0.moe_out",
+  "exact_bits": true,
+  "bit_mismatch_count": 0,
+  "max_abs_diff": 0.0,
+  "mean_abs_diff": 0.0,
+  "nonfinite_native": 0,
+  "nonfinite_replay": 0,
+  "route_tie_count_native": 0,
+  "route_tie_count_replay": 0,
+  "scope": "Deterministic native MLX MoE replay from frozen ffn_in; not CPU oracle, official CUDA comparison, or full-model qualification"
+}

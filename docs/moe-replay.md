@@ -32,3 +32,16 @@ The comparator should show exact equality for a deterministic native replay.
 If it does not, inspect the first differing boundary and expert cache lifecycle
 before changing arithmetic or applying gate tolerances. Gate ID/score tolerance
 does not excuse an expert output or MoE sum mismatch.
+
+## Reviewed replay (2026-09-14)
+
+Run `moe-replay-20260914-164602-24859` completed with exit code zero. The
+single common boundary `encoder.layer0.moe_out` matched bit-for-bit for all 60
+tokens (60 × 5120 BF16 elements); maximum and mean absolute differences were
+zero, with no nonfinite values. Route tie counts were zero in both traces. The
+reviewed summary is `artifacts/cpu-attention/moe-replay-20260914-reviewed.json`.
+
+This proves deterministic native MLX replay and on-demand expert lifecycle for
+this input. It is not a CPU oracle, official CUDA match, expert semantic
+qualification, or full-model qualification. An independent expert-formula path
+or second backend remains required before MoE numerical acceptance.
