@@ -126,3 +126,25 @@ impl Drop for NativeBridge {
         unsafe { dsv41_bridge_destroy(self.raw) }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unconnected_submit_emits_error_event() {
+        let bridge = NativeBridge::connect().expect("bridge shell must create");
+        let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let seen_cb = seen.clone();
+        let result = bridge.submit(&[0, 42, 1000, 42], 4, 0.0, 7, move |event| {
+            seen_cb.lock().unwrap().push(event);
+            true
+        });
+        assert_eq!(result, Err(-2));
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen.len(), 1);
+        assert_eq!(seen[0].kind, EVENT_ERROR);
+        assert_eq!(seen[0].error_code.as_deref(), Some("runtime_unavailable"));
+        assert_eq!(seen[0].request_id, 1);
+    }
+}

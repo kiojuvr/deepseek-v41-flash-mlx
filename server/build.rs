@@ -4,6 +4,7 @@ fn main() {
             .expect("native-bridge requires DSV41_BRIDGE_LIB_DIR");
         println!("cargo:rustc-link-search=native={dir}");
         println!("cargo:rustc-link-lib=static=dsv41_runtime_bridge");
+        println!("cargo:rustc-link-lib=c++");
         println!("cargo:rerun-if-env-changed=DSV41_BRIDGE_LIB_DIR");
     }
 }
