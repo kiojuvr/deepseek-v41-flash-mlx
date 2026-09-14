@@ -2,7 +2,7 @@
 
 DeepSeek-V4.1-Flash専用のApple Silicon inference runtime。Apple M3 Ultra / 512 GB Unified Memory、single-node / single-userを対象に、約256K tokensまで成長する長時間coding-agent sessionの安定decodeを優先する。OpenCode等から利用するOpenAI互換APIを最終成果物とする。
 
-**M1完了。M2ではEngramのhash / row read / Metal BF16復元を公式部分oracleと照合済み。full推論・API・性能・runtime peak memoryは未検証。** 最初のコミットは5文書のみで作成し、その契約に従ってC++20の実装を進めている。
+**M1完了。M2終盤ではcanonical MLX referenceとしてfull token→logits pathとgenerationを接続済み。** 公式CUDAとのbit一致はM2判定から分離し、cross-framework差は別証拠として記録する。API bridge、長文qualification、性能、runtime peak memoryは未完了。[M2 review](docs/m2-reference-review.md)。
 
 全48 shard・96,085 tensorを照合し、全88ファイルの公式digest検証が通過した。Engram backingは202.758 GB、Unified Memory対象weightsは307.528 GB。[M1 report](docs/checkpoint-atlas.md)と[build / 実行手順](tools/inspect_checkpoint/README.md)を参照。
 
@@ -73,6 +73,6 @@ M1集計は約551.881B backbone + 196.614B Engram + 14.225B DSpark + 0.485B visi
 
 公式資料の1M context推奨はモデル側の能力・設定であり、本runtimeが広告できる上限はqualification済みの総context長とする。初期release gateは256K＝262,144 tokens。生成上限とcontext上限は別に扱う。
 
-M2は進行中。[Engram native forward](docs/engram-forward.md)を接続したが、公式gateとのFP32差があり、layer 14のresidualにBF16 1 ULP差が1要素残るため未qualified。2026-09-13にproducerをlayer 2/8/14、reuse consumerを3–7/9–13/15–19へ一般化し、[encoder 0..19のtext reference](docs/text-encoder-validation.md)を接続、ユーザーrunのlocal整合性検査を確認した。decoder 20..39（candidate二段Top-K、index source 24/28/32/36）と[full backbone token→logits](docs/text-decoder-validation.md)も接続し、ユーザーrunのlocal整合性検査を確認した。routed expertはon-demand load。公式logits oracle比較とsampling / generation / DSpark / vision / APIは未完了。[OS page cache比較の6 run](docs/engram-cache-results.md)を確認し、mmap baselineを維持した。SSD miss・backbone同居時の性能は未判定。atlasのintegrity成功や部分oracleとの一致を、full推論exactnessや256K qualificationの代わりにしない。
+M2はcanonical MLX referenceの接続段階を完了した。[M2 review](docs/m2-reference-review.md)にfull token→logits、generation、MoE cast整合、未完了gateを記録している。公式CUDAとの差は別証拠として保持し、API bridge、DSpark、vision、長文qualification、性能、RELEASEは未完了。[OS page cache比較の6 run](docs/engram-cache-results.md)を確認し、mmap baselineを維持した。SSD miss・backbone同居時の性能は未判定。atlasのintegrity成功や部分oracleとの一致を、256K qualificationの代わりにしない。
 
 2026-09-13: Engramの固定projection診断でomlxとnativeのdot / gateがbitwise一致し、同じCPU oracle差を再現した。[モデル入口](docs/model-entry.md)も追加し、embedding / 初期pre-mixは一致。RMSNormはCPU oracleに対して5要素のBF16 1 ULP差があり未qualified。どちらもfull-path完成・性能昇格には数えない。
