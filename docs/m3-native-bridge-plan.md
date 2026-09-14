@@ -127,3 +127,17 @@ kind/code、request ID、callback変換を確認済みである。
 
 2026-09-15にC++ libraryを`build-mlx`から参照したfeature付き`cargo build`も成功した。
 このbuildはserver handlerへbridgeを接続しておらず、実token生成の証拠ではない。
+
+recipe core/encoding/protocol crateの固定checkoutがコンパイル・テスト可能か確認する場合は、次を実行する。
+
+```sh
+bash tools/benchmark/run_recipe_core_checks.sh
+```
+
+このチェックは`deepseek-recipe-core`、`deepseek-recipe-encoding`、`deepseek-recipe`
+だけを対象にし、image/python bindingsやnative runtimeは含めない。Cargo依存の取得と
+コンパイルに数分以上、数GB未満の一時領域を使う可能性がある。ログ、revision、tree、
+終了コードは`artifacts/recipe/checks-<timestamp>-<pid>/`へ保存され、失敗時は
+`test.log`を確認して同じcheckoutで再実行できる。別checkoutを試す場合は
+`RECIPE_DIR=/path/to/deepseek-recipe bash tools/benchmark/run_recipe_core_checks.sh`
+とする。終了コード0だけではnative API接続や生成oracleのqualificationを意味しない。
