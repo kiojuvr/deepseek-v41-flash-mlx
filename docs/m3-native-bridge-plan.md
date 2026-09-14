@@ -160,3 +160,6 @@ native bridge、HTTP handlerへの接続は次段階で行う。
 adapterには`encode_file`も用意し、呼び出し側が指定したtokenizer JSONでrecipeの
 renderingとtokenizeを一括実行できる。tokenizerはrequestごとに読み込む前提ではなく、
 HTTP application stateで所有してnative bridgeへtoken列をborrowする構成にする。
+
+`RecipeEncoder`はtokenizerを`Arc`で一度だけ所有し、複数requestから共有できる。
+生成requestの寿命中だけ返却`Vec<u32>`を保持し、そのsliceをbridge requestへborrowする。
