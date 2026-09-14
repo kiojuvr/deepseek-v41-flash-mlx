@@ -366,6 +366,7 @@ dependencies = [
  "deepseek-recipe-encoding",
  "serde",
  "serde_json",
+ "tokenizers",
  "tokio",
  "tower-http",
 ]

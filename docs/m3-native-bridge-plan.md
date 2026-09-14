@@ -156,3 +156,7 @@ cargo test --manifest-path server/Cargo.toml --features recipe-adapter
 このadapterはplain textとtext content arrayを扱い、literal image markerを保持する。
 画像blockはvision実装へ渡す前に`ImageContentRequiresVision`で停止する。tokenizer、
 native bridge、HTTP handlerへの接続は次段階で行う。
+
+adapterには`encode_file`も用意し、呼び出し側が指定したtokenizer JSONでrecipeの
+renderingとtokenizeを一括実行できる。tokenizerはrequestごとに読み込む前提ではなく、
+HTTP application stateで所有してnative bridgeへtoken列をborrowする構成にする。

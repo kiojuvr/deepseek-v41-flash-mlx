@@ -5,6 +5,7 @@
 //! server and native runtime share one prompt semantic owner.
 
 use deepseek_recipe_core::{conversation::Conversation, messages::InputMessage};
+use deepseek_recipe_encoding::{PromptEncoding, v4::dsv41::DeepseekV41Encoding};
 use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,6 +52,20 @@ pub fn conversation(messages: &[Value]) -> Result<Conversation, AdapterError> {
         });
     }
     Ok(out)
+}
+
+/// Render and tokenize a conversation with a caller-owned tokenizer file.
+/// Loading is explicit so the HTTP layer can keep tokenizer ownership in its
+/// application state and the native bridge only receives borrowed token IDs.
+#[allow(dead_code)]
+pub fn encode_file(messages: &[Value], tokenizer_path: &str) -> Result<Vec<u32>, String> {
+    let conversation = conversation(messages).map_err(|e| format!("protocol: {e:?}"))?;
+    let tokenizer = tokenizers::Tokenizer::from_file(tokenizer_path)
+        .map_err(|e| format!("tokenizer: {e}"))?;
+    DeepseekV41Encoding::new()
+        .with_tokenizer(tokenizer)
+        .encode(&conversation)
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
