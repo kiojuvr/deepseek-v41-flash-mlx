@@ -59,3 +59,6 @@ DSV41_BRIDGE_LIB_DIR="$PWD/build-mlx" \
 
 feature未指定の`cargo check`は外部libraryを要求しない。recipe token/event adapter
 が接続されるまでは、feature buildもABI検査の範囲に留まる。
+
+2026-09-15にC++ libraryを`build-mlx`から参照したfeature付き`cargo build`も成功した。
+このbuildはserver handlerへbridgeを接続しておらず、実token生成の証拠ではない。
