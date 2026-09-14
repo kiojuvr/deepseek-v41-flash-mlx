@@ -7,6 +7,7 @@
 namespace dsv41 {
 struct RouteReference { std::array<int,6> ids; mlx::core::array weights; };
 struct GateDiagnostic { mlx::core::array raw_scores, corrected_scores; RouteReference route; };
+struct MoEComponents { mlx::core::array shared, routed, total; };
 struct RouteTieRecord { int layer; std::uint64_t token; int sixth_id,seventh_id; float sixth_score,seventh_score; bool tied; };
 // Text layer 0, one token. CPU selection is an explicit reference synchronization.
 // strict throws on an exact top-6 boundary tie; otherwise ties break to the lowest expert ID.
@@ -45,6 +46,7 @@ public:
  // Numerically identical to a fully resident load, but bounds memory for the full backbone.
  explicit MoEReference(WeightCatalog& catalog,int layer=0);
  mlx::core::array forward(const mlx::core::array& input) const;
+ MoEComponents forward_components(const mlx::core::array& input) const;
  // Number of top-6 boundary ties broken by lowest expert ID (unqualified oracle gap).
  std::size_t tie_count() const{return tie_count_;}
 private:

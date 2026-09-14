@@ -60,3 +60,9 @@ The fixture also records a separate attention activation/QMM difference in the
 oMLX comparison; oMLX remains an external reference. Routed expert activation,
 SwiGLU clamps, route-weight scaling and the six-expert sum still require an
 end-to-end comparison.
+
+The replay tool now also records `encoder.layer0.moe_shared` and
+`encoder.layer0.moe_routed` alongside `moe_out`. A fresh run is required to
+populate these component traces; the earlier reviewed run predates this output.
+They allow the next CPU comparison to distinguish shared-expert and routed-sum
+errors from final accumulation.

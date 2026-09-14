@@ -87,6 +87,9 @@ ExpertReference& MoEReference::expert(int id) const{
  return *it->second;
 }
 mx::array MoEReference::forward(const mx::array& x) const{
+ return forward_components(x).total;
+}
+MoEComponents MoEReference::forward_components(const mx::array& x) const{
  RouteTieRecord tie{layer_,route_trace_token(),0,0,0.0f,0.0f,false};
  auto route=gate_.forward(x,&tie);
  if(tie.tied){++tie_count_;tie_records().push_back(tie);}
@@ -94,7 +97,7 @@ mx::array MoEReference::forward(const mx::array& x) const{
  // Official sums in ascending expert ID, not top-k score order.
  for(int id=0;id<384;++id)for(int k=0;k<6;++k)if(route.ids[k]==id)
   y=mx::add(y,mx::astype(expert(id).forward(x,mx::take(route.weights,mx::array(k))),mx::float32));
- y=mx::add(y,mx::astype(shared_.forward(x,mx::array(1.0f)),mx::float32));
- return mx::astype(y,mx::bfloat16);
+ auto shared=mx::astype(shared_.forward(x,mx::array(1.0f)),mx::float32);
+ return {mx::astype(shared,mx::bfloat16),mx::astype(y,mx::bfloat16),mx::astype(mx::add(y,shared),mx::bfloat16)};
 }
 }
