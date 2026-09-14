@@ -1,11 +1,11 @@
 {
-  "run": "artifacts/cpu-attention/cpu-moe-20260914-212331-28124",
-  "status": "reviewed_corrected_native_comparison",
+  "run": "artifacts/cpu-attention/cpu-moe-20260914-214105-28647",
+  "status": "reviewed_cast_aligned_native_comparison",
   "tokens": 60,
   "unique_experts_loaded": 152,
-  "overall": {"bit_mismatch_count": 72351, "elements": 307200, "max_abs_diff": 0.015625, "mean_abs_diff": 0.00007552796159870923},
-  "components": {"shared": {"bit_mismatch_count": 215, "max_abs_diff": 0.0009765625, "mean_abs_diff": 0.00000006269321772833791}, "routed": {"bit_mismatch_count": 101146, "max_abs_diff": 0.0078125, "mean_abs_diff": 0.0000755049914052125}},
+  "overall": {"bit_mismatch_count": 59, "elements": 307200, "max_abs_diff": 0.0009765625, "mean_abs_diff": 0.00000005659957835746354},
+  "per_route": {"bit_mismatch_count": 27, "max_abs_diff": 0.000244140625, "mean_abs_diff": 0.0000000002227392992271148},
   "nonfinite_cpu": 0,
   "nonfinite_native": 0,
-  "scope": "Corrected post-w2 route weighting; remaining routed FP4 numerical difference is unresolved and not qualified"
+  "scope": "Corrected post-w2 route weighting, native BF16 cast boundary, and expert-ID accumulation order; remaining local rounding difference is not qualified as official oracle"
 }
