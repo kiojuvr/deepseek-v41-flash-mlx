@@ -38,6 +38,16 @@ qualification result.
 
 Protocol smoke checks can run against the stub before M3 runtime integration:
 
+The reproducible form is:
+
+```sh
+bash tools/benchmark/run_api_smoke.sh
+```
+
+It stores per-response JSON, HTTP statuses, server log and exit code under
+`artifacts/api-smoke/run-.../`. Set `DSV41_SMOKE_PORT` when port 18080 is in use;
+the process is always cleaned up by the script trap.
+
 ```sh
 cargo run --manifest-path server/Cargo.toml
 curl -sS http://127.0.0.1:8080/health
