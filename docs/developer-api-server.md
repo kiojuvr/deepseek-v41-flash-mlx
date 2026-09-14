@@ -17,6 +17,11 @@ claim prompt encoding, tool calls, reasoning, image input, streaming, usage,
 stop sequences or generation. Unsupported behavior must remain an explicit
 error rather than a fabricated completion.
 
+The handler depends on a `RuntimeBackend` trait in
+`server/src/backend.rs`. `UnconnectedBackend` is the current implementation;
+the future C++ bridge can replace it without changing protocol validation or
+OpenAI-compatible response mapping.
+
 The planned integration uses the pinned official `deepseek-recipe` revision and
 a small C ABI event bridge. Recipe owns prompt/message encoding and stream
 parsing; C++ owns tensor execution and committed token events. The bridge must
