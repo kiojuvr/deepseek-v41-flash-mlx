@@ -63,6 +63,17 @@ DSV41_BRIDGE_LIB_DIR="$PWD/build-mlx" \
 feature未指定の`cargo check`は外部libraryを要求しない。recipe token/event adapter
 が接続されるまでは、feature buildもABI検査の範囲に留まる。
 
+checkpoint同梱の公式encoding fixtureは次で生成できる。
+
+```sh
+python3 tools/reference/export_recipe_fixtures.py \
+  --checkpoint /Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-Flash \
+  --output artifacts/recipe/encoding-fixtures.json
+```
+
+これはchat、reasoning effort、tool、structured image、literal image marker拒否を
+記録するoffline fixtureであり、production APIの成功判定には使わない。
+
 Rust adapterのfeature付きunit testもC++ shellへリンクして実行し、error eventの
 kind/code、request ID、callback変換を確認済みである。
 
