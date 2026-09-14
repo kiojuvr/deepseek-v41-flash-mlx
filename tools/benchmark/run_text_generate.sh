@@ -7,8 +7,13 @@ mkdir -p "$run_dir"
 echo "Logs: $run_dir"
 cmake --build build-mlx --target dsv41-text-generate -j 4 2>&1 | tee "$run_dir/build.log"
 shasum -a 256 build-mlx/dsv41-text-generate artifacts/checkpoint/summary.json artifacts/engram/metadata.json artifacts/engram/fixture-provenance.json > "$run_dir/identity.txt"
+tokens_arg=()
+if [[ -n "${TOKENS_FILE:-}" ]]; then
+  tokens_arg=("$TOKENS_FILE")
+  shasum -a 256 "$TOKENS_FILE" >> "$run_dir/identity.txt"
+fi
 set +e
-build-mlx/dsv41-text-generate "$checkpoint" artifacts/checkpoint/summary.json artifacts/engram/metadata.json "${MAX_NEW:-16}" "${TEMPERATURE:-0}" "${SEED:-0}" 2>&1 | tee "$run_dir/test.log"
+build-mlx/dsv41-text-generate "$checkpoint" artifacts/checkpoint/summary.json artifacts/engram/metadata.json "${MAX_NEW:-16}" "${TEMPERATURE:-0}" "${SEED:-0}" "${tokens_arg[@]}" 2>&1 | tee "$run_dir/test.log"
 pipeline_status=("${PIPESTATUS[@]}")
 status=${pipeline_status[0]}
 if [ "$status" -eq 0 ] && [ "${pipeline_status[1]}" -ne 0 ]; then status=${pipeline_status[1]}; fi
