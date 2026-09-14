@@ -1,0 +1,17 @@
+{
+  "status": "diagnostic_complete_not_qualified",
+  "native_exit_code": 0,
+  "cpu_exit_code": 0,
+  "sha256": {
+    "build-mlx/dsv41-q-projection": "30e760c261de19e4b4541a46662c9ee388918d12b0f43c0f88fa5832dcca734c",
+    "tools/trace/q_projection.cpp": "dfcc6aeb87e0f1d6fa8b5e910c7772e702e6c5a9f8b34e364b8c0fe986b07df3",
+    "CMakeLists.txt": "4452750d1aa2a77be9c87c829e0427ed6ef6e41606876a44ec224d3268130691",
+    "artifacts/checkpoint/summary.json": "a031e177105d53c404ff573bac9072a72a0c99ba3537e23728bd7890c00de028",
+    "artifacts/logits-trace/native-20260914-145608-21879/manifest.json": "892267f43326eaa4a574383ae7085ad23699998c7345489f4b2ea02ae3db393d",
+    "artifacts/logits-trace/native-20260914-145608-21879/encoder.layer0.attn_in.npy": "89c8be2dab1d0101f23d2424fc0ee8b0aa8aca1323a588885ccd76df55685e80",
+    "artifacts/cpu-attention/diagnose-native-qr-20260914.json": "6cbba91c1b80c9b1cbd70d50bcf2ac18dcd592cff8277f280b898b1dc6f65937",
+    "artifacts/cpu-attention/native-q-20260914/encoder.layer0.attn_qr.npy": "340814611c1911b42b8435d12672b2e1ad94fbfe5c98557539519f634e461de3",
+    "artifacts/cpu-attention/native-q-20260914/manifest.json": "2661188269fee84cf185128bb00eeaa9428236274c89509dbb5d56543ed02bb6",
+    "artifacts/cpu-attention/native-q-20260914/encoder.layer0.attn_qa.npy": "bd054485d73e3eca537457548067918c530ae493b946f58a70bc738507a8fb17"
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "arrays": [
+    {
+      "dtype": "float32",
+      "name": "encoder.layer0.qnorm_adjusted",
+      "shape": [
+        76,
+        1
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "encoder.layer0.qnorm_inv",
+      "shape": [
+        76,
+        1
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "encoder.layer0.qnorm_normalized",
+      "shape": [
+        76,
+        1280
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "encoder.layer0.qnorm_variance",
+      "shape": [
+        76,
+        1
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "encoder.layer0.qnorm_weighted",
+      "shape": [
+        76,
+        1280
+      ]
+    },
+    {
+      "dtype": "bfloat16",
+      "name": "encoder.layer0.attn_qa",
+      "shape": [
+        76,
+        1280
+      ]
+    },
+    {
+      "dtype": "bfloat16",
+      "name": "encoder.layer0.attn_qr",
+      "shape": [
+        76,
+        1280
+      ]
+    }
+  ],
+  "revision": "dba1be0a40aa45a94ad051997016db3960a90277",
+  "sample_ids": [
+    "zero",
+    "constant/-60",
+    "alternating/-60",
+    "sparse/-60",
+    "normal/-60/0",
+    "normal/-60/1",
+    "normal/-60/2",
+    "normal/-60/3",
+    "normal/-60/4",
+    "normal/-60/5",
+    "constant/-34",
+    "alternating/-34",
+    "sparse/-34",
+    "normal/-34/0",
+    "normal/-34/1",
+    "normal/-34/2",
+    "normal/-34/3",
+    "normal/-34/4",
+    "normal/-34/5",
+    "constant/-33",
+    "alternating/-33",
+    "sparse/-33",
+    "normal/-33/0",
+    "normal/-33/1",
+    "normal/-33/2",
+    "normal/-33/3",
+    "normal/-33/4",
+    "normal/-33/5",
+    "constant/-32",
+    "alternating/-32",
+    "sparse/-32",
+    "normal/-32/0",
+    "normal/-32/1",
+    "normal/-32/2",
+    "normal/-32/3",
+    "normal/-32/4",
+    "normal/-32/5",
+    "constant/-10",
+    "alternating/-10",
+    "sparse/-10",
+    "normal/-10/0",
+    "normal/-10/1",
+    "normal/-10/2",
+    "normal/-10/3",
+    "normal/-10/4",
+    "normal/-10/5",
+    "constant/0",
+    "alternating/0",
+    "sparse/0",
+    "normal/0/0",
+    "normal/0/1",
+    "normal/0/2",
+    "normal/0/3",
+    "normal/0/4",
+    "normal/0/5",
+    "constant/10",
+    "alternating/10",
+    "sparse/10",
+    "normal/10/0",
+    "normal/10/1",
+    "normal/10/2",
+    "normal/10/3",
+    "normal/10/4",
+    "normal/10/5",
+    "constant/30",
+    "alternating/30",
+    "sparse/30",
+    "normal/30/0",
+    "normal/30/1",
+    "normal/30/2",
+    "normal/30/3",
+    "normal/30/4",
+    "normal/30/5",
+    "neighbor/-1",
+    "neighbor/0",
+    "neighbor/1"
+  ],
+  "schema_version": 1,
+  "scope": "Synthetic Q normalization; not a token trace or full-model qualification"
+}

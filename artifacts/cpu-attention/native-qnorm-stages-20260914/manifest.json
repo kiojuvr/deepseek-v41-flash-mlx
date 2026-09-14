@@ -1,0 +1,125 @@
+{
+  "arrays": [
+    {
+      "dtype": "float32",
+      "name": "encoder.layer0.qnorm_adjusted",
+      "shape": [
+        60,
+        1
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "encoder.layer0.qnorm_inv",
+      "shape": [
+        60,
+        1
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "encoder.layer0.qnorm_normalized",
+      "shape": [
+        60,
+        1280
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "encoder.layer0.qnorm_variance",
+      "shape": [
+        60,
+        1
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "encoder.layer0.qnorm_weighted",
+      "shape": [
+        60,
+        1280
+      ]
+    },
+    {
+      "dtype": "bfloat16",
+      "name": "encoder.layer0.attn_qa",
+      "shape": [
+        60,
+        1280
+      ]
+    },
+    {
+      "dtype": "bfloat16",
+      "name": "encoder.layer0.attn_qr",
+      "shape": [
+        60,
+        1280
+      ]
+    }
+  ],
+  "revision": "dba1be0a40aa45a94ad051997016db3960a90277",
+  "schema_version": 1,
+  "scope": "Native Q projection and norm on frozen attn_in; not full-model qualification",
+  "token_ids": [
+    3476,
+    477,
+    260,
+    20255,
+    22896,
+    16,
+    47266,
+    270,
+    2502,
+    15255,
+    2019,
+    832,
+    436,
+    10340,
+    270,
+    2595,
+    294,
+    23256,
+    294,
+    260,
+    2310,
+    294,
+    18392,
+    339,
+    3465,
+    2595,
+    4731,
+    79316,
+    88287,
+    3395,
+    361,
+    3452,
+    438,
+    223,
+    18,
+    201,
+    361,
+    362,
+    1990,
+    295,
+    3785,
+    1137,
+    528,
+    3452,
+    7004,
+    1990,
+    201,
+    361,
+    1354,
+    3452,
+    271,
+    19462,
+    270,
+    37370,
+    2019,
+    305,
+    8470,
+    270,
+    15398,
+    16
+  ]
+}

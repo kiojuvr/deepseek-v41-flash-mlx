@@ -1,0 +1,28 @@
+{
+  "status": "reviewed_local_variance_reduction_difference",
+  "qr_reproduces_original_trace_bits": true,
+  "native_exit_code": 0,
+  "cpu_exit_code": 0,
+  "sha256": {
+    "build-mlx/dsv41-q-projection": "ea26d493640ad75720ff103e9e4b64ee31958a0f9932525f2cb3b222c59966d8",
+    "tools/trace/q_projection.cpp": "bb9321f0cc0b8f320c896257de9a1606898dda23a82530c56f7718ee64502213",
+    "CMakeLists.txt": "4452750d1aa2a77be9c87c829e0427ed6ef6e41606876a44ec224d3268130691",
+    "src/model/entry.cpp": "1635ec531be8af4ef99a53b48ccd30eec52b6b4a967b484a658fdf5cc0186525",
+    "src/model/linear.cpp": "3d9e7afdaaae2e2c916bfba7357ea41835cd18affbf73a6a72ccbea5e854ca03",
+    "artifacts/checkpoint/summary.json": "a031e177105d53c404ff573bac9072a72a0c99ba3537e23728bd7890c00de028",
+    "artifacts/cpu-attention/diagnose-qnorm-stages-20260914.json": "48216f7cc64861aa137ff0a83b7a5a958184ae4b358c89080b40d8ed0ef77c1b",
+    "artifacts/logits-trace/native-20260914-145608-21879/manifest.json": "892267f43326eaa4a574383ae7085ad23699998c7345489f4b2ea02ae3db393d",
+    "artifacts/logits-trace/native-20260914-145608-21879/encoder.layer0.attn_in.npy": "89c8be2dab1d0101f23d2424fc0ee8b0aa8aca1323a588885ccd76df55685e80",
+    "artifacts/logits-trace/native-20260914-145608-21879/encoder.layer0.attn_qr.npy": "340814611c1911b42b8435d12672b2e1ad94fbfe5c98557539519f634e461de3",
+    "artifacts/cpu-attention/native-qnorm-stages-20260914/encoder.layer0.qnorm_variance.npy": "957fd35abcc10c16ddd212ed33ff7f52ebf39ebde8787496d3f0ab76e563a5e8",
+    "artifacts/cpu-attention/native-qnorm-stages-20260914/encoder.layer0.qnorm_inv.npy": "b252530a6c836312f06460fc5c08defe75b27fbbf085289ecbe445c820636fb5",
+    "artifacts/cpu-attention/native-qnorm-stages-20260914/encoder.layer0.qnorm_adjusted.npy": "957fd35abcc10c16ddd212ed33ff7f52ebf39ebde8787496d3f0ab76e563a5e8",
+    "artifacts/cpu-attention/native-qnorm-stages-20260914/encoder.layer0.attn_qr.npy": "340814611c1911b42b8435d12672b2e1ad94fbfe5c98557539519f634e461de3",
+    "artifacts/cpu-attention/native-qnorm-stages-20260914/encoder.layer0.qnorm_weighted.npy": "8673366418ff53e38883287750f11c1afa01cfdab819d4a1e7f352622b36289e",
+    "artifacts/cpu-attention/native-qnorm-stages-20260914/manifest.json": "b3c579538e80d803e119cb32ce40d4517382a128494b20cd09a2fedb3de911ee",
+    "artifacts/cpu-attention/native-qnorm-stages-20260914/encoder.layer0.attn_qa.npy": "bd054485d73e3eca537457548067918c530ae493b946f58a70bc738507a8fb17",
+    "artifacts/cpu-attention/native-qnorm-stages-20260914/encoder.layer0.qnorm_normalized.npy": "429425800b2569053b8869f69051b084197634e7d479f9ff2fd9816f032e43fe"
+  },
+  "full_model_qualified": false,
+  "scope": "Frozen native Q; variance reduction causes the observed single BF16 norm discrepancy in this 60-token sample. No general error bound or CUDA proof."
+}

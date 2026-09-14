@@ -1,0 +1,28 @@
+{
+  "status": "reviewed_synthetic_local_diagnostic",
+  "samples": 76,
+  "elements": 97280,
+  "input_bits_preserved": true,
+  "max_bf16_ulp": 0,
+  "sha256": {
+    "build-mlx/dsv41-q-projection": "3a5f538033996fe0c6c66c6380e97d852497df22453be1421d6e0f9ec42a8c73",
+    "tools/trace/q_projection.cpp": "54f1f1db630286ac9b347145a65674aa49f310fab8b1685371d33865a37cdc48",
+    "src/model/entry.cpp": "1635ec531be8af4ef99a53b48ccd30eec52b6b4a967b484a658fdf5cc0186525",
+    "CMakeLists.txt": "4452750d1aa2a77be9c87c829e0427ed6ef6e41606876a44ec224d3268130691",
+    "tools/reference/export_qnorm_cases.py": "e1f0c3e5c72b67849e78d421a5e0367f0f23588bb55288ffb32d85c9457344fb",
+    "artifacts/checkpoint/summary.json": "a031e177105d53c404ff573bac9072a72a0c99ba3537e23728bd7890c00de028",
+    "artifacts/cpu-attention/diagnose-qnorm-cases-relative-20260914.json": "66c8f7142a16965088eebc80812fdeb8598dc8a208aa36d08b6908dbefb59a66",
+    "artifacts/cpu-attention/qnorm-cases-20260914/manifest.json": "e0b20d3383ed3cf1619870c1ccf57ea96951404ecce0de047470512ce461cc62",
+    "artifacts/cpu-attention/qnorm-cases-20260914/encoder.layer0.attn_qa.npy": "55aedf23431e8814ba711dd5a0164b70284d1fd51b0b54d8b369da9dd612683b",
+    "artifacts/cpu-attention/qnorm-cases-native-20260914/encoder.layer0.qnorm_variance.npy": "c475e19067181ee4474e731ca353c1b5f3386f7f25bd99c6bd7014eac8946dfa",
+    "artifacts/cpu-attention/qnorm-cases-native-20260914/encoder.layer0.qnorm_inv.npy": "2b4ebc168682f25fd048606bc46b908eb4018886f2ea6d985b816b02621f8d3c",
+    "artifacts/cpu-attention/qnorm-cases-native-20260914/encoder.layer0.qnorm_adjusted.npy": "d870b45f0889838c64428e7ea24a161ed782a9f2667fab3dc0bf91aeae5a8331",
+    "artifacts/cpu-attention/qnorm-cases-native-20260914/encoder.layer0.attn_qr.npy": "15db8f22c3e710c00e2ad8b126df70071f545da4d6f24efbb9a14c5efc9349e0",
+    "artifacts/cpu-attention/qnorm-cases-native-20260914/encoder.layer0.qnorm_weighted.npy": "6504cbc8e12dd2139c3e1a7f51536b8a875f097648a5b9b326641a98bbd12cac",
+    "artifacts/cpu-attention/qnorm-cases-native-20260914/manifest.json": "66929eaeb531fbe1e6efceace274486a94946c767a85c848fd775cbd89ddd3d3",
+    "artifacts/cpu-attention/qnorm-cases-native-20260914/encoder.layer0.attn_qa.npy": "47da681174d42ac907e70702fe1cbc4b495f4d80fc40a0d901deef43bf9d41c2",
+    "artifacts/cpu-attention/qnorm-cases-native-20260914/encoder.layer0.qnorm_normalized.npy": "04851c059ea02d0477e7b8a3a2b10487efb2e56da04930ebc9fe1a387c70d789"
+  },
+  "scope": "Independent synthetic calibration input, actual layer0 q_norm weight; not held-out acceptance, routing, CUDA or full-model qualification",
+  "full_model_qualified": false
+}
