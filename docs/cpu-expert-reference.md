@@ -43,3 +43,16 @@ Results and progress logs are saved under
 `artifacts/cpu-attention/cpu-moe-<timestamp>-<pid>/`. Exit zero means the report
 was written, not that outputs agree. A failed run leaves logs; retrying creates a
 fresh directory. Mid-token resume is not implemented.
+
+## Reviewed six-expert comparison (2026-09-14)
+
+The first real 60-token run loaded 152 unique routed experts. CPU output differs
+from native in 270,799 of 307,200 BF16 elements; maximum absolute difference is
+`0.03125`, mean `0.0016184431733563542`. Both outputs are finite. The reviewed
+record is `artifacts/cpu-attention/cpu-moe-20260914-reviewed.json`.
+
+This cannot be classified as gate score tolerance: routes were frozen from
+native, and no route ID disagreement was introduced. Candidate causes are FP4
+expert projection accumulation, SwiGLU cast placement, shared-expert arithmetic,
+and MoE summation order. Component traces are required before any numerical
+policy change.

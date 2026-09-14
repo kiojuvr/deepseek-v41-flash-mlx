@@ -1,0 +1,14 @@
+{
+  "run": "artifacts/cpu-attention/cpu-moe-20260914-165500-25317",
+  "status": "reviewed_independent_cpu_moe_difference",
+  "exit_code": 0,
+  "tokens": 60,
+  "unique_experts_loaded": 152,
+  "bit_mismatch_count": 270799,
+  "elements": 307200,
+  "max_abs_diff": 0.03125,
+  "mean_abs_diff": 0.0016184431733563542,
+  "nonfinite_cpu": 0,
+  "nonfinite_native": 0,
+  "scope": "Independent CPU FP4 MoE with frozen native routes; difference is unresolved and not accepted by gate tolerance"
+}
