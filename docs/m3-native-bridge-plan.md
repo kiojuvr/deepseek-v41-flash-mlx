@@ -48,3 +48,14 @@ token列のborrow、request ID、callback eventの文字列copy、cancel結果�
 `dsv41-bridge-smoke`はC++からshellを呼び、ABI version拒否、invalid argument、
 unavailable error event、request ID、cancel応答を検査する。MLXやcheckpointを
 ロードしないため、短いCI契約検査として実行できる。
+
+Rust featureをlibraryへ接続する場合は、C++ libraryを先にbuildしてから次を実行する。
+
+```sh
+cmake --build build-mlx --target dsv41_runtime_bridge -j 4
+DSV41_BRIDGE_LIB_DIR="$PWD/build-mlx" \
+  cargo check --manifest-path server/Cargo.toml --features native-bridge
+```
+
+feature未指定の`cargo check`は外部libraryを要求しない。recipe token/event adapter
+が接続されるまでは、feature buildもABI検査の範囲に留まる。

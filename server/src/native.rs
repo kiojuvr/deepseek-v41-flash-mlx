@@ -1,8 +1,11 @@
 #![cfg(feature = "native-bridge")]
+#![allow(dead_code)]
 use std::ffi::{CStr, c_char, c_void};
 const ABI_VERSION: u32 = 1;
 #[repr(C)]
-struct Bridge;
+struct Bridge {
+    _private: [u8; 0],
+}
 #[repr(C)]
 struct Request {
     abi_version: u32,
@@ -106,7 +109,7 @@ impl NativeBridge {
                 self.raw,
                 &r,
                 event_callback,
-                (&mut f as *mut _).cast(),
+                (&mut f as *mut Box<dyn FnMut(EventView) -> bool>).cast(),
                 &mut id,
             )
         };

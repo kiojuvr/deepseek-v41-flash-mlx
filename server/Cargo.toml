@@ -3,6 +3,7 @@ name = "dsv41-developer-server"
 version = "0.1.0-dev"
 edition = "2024"
 publish = false
+build = "build.rs"
 
 [features]
 default = []
