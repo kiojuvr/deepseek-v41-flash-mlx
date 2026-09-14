@@ -77,3 +77,17 @@ review record is `artifacts/cpu-attention/cpu-moe-20260914-component-reviewed.js
 The next diagnostic should compare one routed expert's w1/SwiGLU/w2 output and
 the route-weighted contribution against a native per-expert trace before changing
 the CPU formula or production MLX path.
+
+After the route-weight correction, pass the corrected native replay trace as the
+third argument:
+
+```sh
+bash tools/benchmark/run_cpu_moe_compare.sh \
+  artifacts/logits-trace/native-20260914-145608-21879 \
+  artifacts/cpu-attention/gate-native-weights-20260914 \
+  artifacts/cpu-attention/moe-replay-20260914-192425-27753/trace
+```
+
+The first argument supplies `ffn_in`; the third supplies corrected `moe_out`.
+Omitting it compares against the pre-correction full-backbone output and is not
+valid for judging the fixed implementation.

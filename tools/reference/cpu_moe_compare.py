@@ -12,13 +12,13 @@ class Expert:
   return self.w2(y).float()*weight
 
 def main():
- p=argparse.ArgumentParser(description=__doc__); p.add_argument('--checkpoint',type=Path,required=True); p.add_argument('--native',type=Path,required=True); p.add_argument('--gate',type=Path,required=True); p.add_argument('--output',type=Path,required=True); a=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__); p.add_argument('--checkpoint',type=Path,required=True); p.add_argument('--native',type=Path,required=True); p.add_argument('--native-output',type=Path); p.add_argument('--gate',type=Path,required=True); p.add_argument('--output',type=Path,required=True); a=p.parse_args()
  if a.output.exists() or a.output.resolve().is_relative_to(a.checkpoint.resolve()): p.error('fresh output outside checkpoint required')
  m=json.loads((a.native/'manifest.json').read_text()); gm=json.loads((a.gate/'manifest.json').read_text()); n=len(m['token_ids'])
  if gm['token_ids']!=m['token_ids']: raise ValueError('token IDs mismatch')
  raw=np.load(a.native/'encoder.layer0.ffn_in.npy',allow_pickle=False); x=torch.from_numpy(raw.view(np.uint16).copy()).view(torch.bfloat16)
  ids=torch.tensor(gm['selected_experts'],dtype=torch.int64).reshape(n,6); rw=torch.from_numpy(np.load(a.gate/'encoder.layer0.route_weights.npy',allow_pickle=False).copy()).reshape(n,6)
- native=np.load(a.native/'encoder.layer0.moe_out.npy',allow_pickle=False)
+ native_root=a.native_output or a.native; native=np.load(native_root/'encoder.layer0.moe_out.npy',allow_pickle=False)
  weights=Weights(a.checkpoint,'artifacts/checkpoint/summary.json','artifacts/checkpoint/verification.json'); cache={}; shared=Expert(weights,'layers.0.ffn.shared_experts')
  outputs=[]; shared_rows=[]; routed_rows=[]; used=[]
  with torch.inference_mode():
