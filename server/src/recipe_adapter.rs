@@ -66,6 +66,7 @@ pub fn encode_file(messages: &[Value], tokenizer_path: &str) -> Result<Vec<u32>,
 }
 
 /// Reusable, immutable recipe encoder intended for application state.
+#[derive(Clone)]
 pub struct RecipeEncoder {
     tokenizer: Arc<tokenizers::Tokenizer>,
 }

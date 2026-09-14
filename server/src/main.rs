@@ -136,13 +136,23 @@ async fn main() {
         .ok()
         .map(|path| recipe_adapter::RecipeEncoder::from_file(&path).expect("failed to load DSV41_TOKENIZER"))
         .map(Arc::new);
+    #[cfg(all(feature = "native-bridge", feature = "recipe-adapter"))]
+    let backend: Arc<dyn RuntimeBackend> = if env::var("DSV41_NATIVE_BRIDGE").as_deref() == Ok("1") {
+        recipe.as_ref()
+            .and_then(|encoder| native::NativeBridge::connect().map(|bridge| Arc::new(backend::NativeRuntimeBackend::new(bridge, (**encoder).clone())) as Arc<dyn RuntimeBackend>))
+            .unwrap_or_else(|| Arc::new(UnconnectedBackend))
+    } else {
+        Arc::new(UnconnectedBackend)
+    };
+    #[cfg(not(all(feature = "native-bridge", feature = "recipe-adapter")))]
+    let backend: Arc<dyn RuntimeBackend> = Arc::new(UnconnectedBackend);
     let app = Router::new()
         .route("/health", get(health))
         .route("/v1/models", get(models))
         .route("/v1/chat/completions", post(chat))
         .with_state(AppState {
             model: Arc::new(model),
-            backend: Arc::new(UnconnectedBackend),
+            backend,
             #[cfg(feature = "recipe-adapter")]
             recipe,
         });

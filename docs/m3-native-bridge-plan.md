@@ -173,3 +173,17 @@ bridgeが未接続なら従来どおり`runtime_unavailable` (501)となる。
 `seed`をC ABIへ渡し、TOKEN eventを収集するfeature-gated実装である。現在のC++ shellは
 unavailableを返すため、接続テストは501境界の確認に留まる。実モデルbridgeへ昇格する
 前に、event終端・usage・cancelの統合テストを追加する。
+
+developer serverでこの経路を有効にするには、C++ bridge libraryをbuildした上で次の
+環境変数を指定する。
+
+```sh
+DSV41_NATIVE_BRIDGE=1 \
+DSV41_TOKENIZER=/Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-Flash/tokenizer.json \
+DSV41_BRIDGE_LIB_DIR="$PWD/build-mlx" \
+cargo run --manifest-path server/Cargo.toml --features 'native-bridge recipe-adapter'
+```
+
+現時点ではshell bridgeがunavailableを返すため、healthは`native-bridge`、completionは
+`501 runtime_unavailable`となる。tokenizer未指定またはfeature未指定時はunconnectedへ
+フォールバックする。
