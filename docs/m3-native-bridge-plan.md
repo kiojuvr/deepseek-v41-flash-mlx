@@ -99,6 +99,11 @@ tool fixtureも45 tokenのDSML promptから16 tokenをcommitし、`next_position
 となった。記録は`artifacts/recipe/native-generation-tool-reviewed-20260915.json`
 に保存した。
 
+structured image fixtureはtext native pathが`encoder reference requires text token IDs`
+でexit 1となった。画像pixel処理へ誤って流入しない明示的な境界であり、
+`artifacts/recipe/native-generation-structured-image-reviewed-20260915.json`へ記録した。
+vision projectorとimage spanはM6で別接続する。
+
 Rust adapterのfeature付きunit testもC++ shellへリンクして実行し、error eventの
 kind/code、request ID、callback変換を確認済みである。
 

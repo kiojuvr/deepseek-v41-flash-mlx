@@ -1,0 +1,10 @@
+{
+  "scope": "Official encoding.py structured image fixture sent to text native path; expected rejection",
+  "run": "artifacts/text-generate/run-20260915-002117-31856",
+  "token_file": "artifacts/recipe/runtime-tokens-structured_image-20260915-002117-31852.txt",
+  "prompt_token_count": 8,
+  "exit_code": 1,
+  "error": "encoder reference requires text token IDs",
+  "vision_path_executed": false,
+  "qualified": false
+}
