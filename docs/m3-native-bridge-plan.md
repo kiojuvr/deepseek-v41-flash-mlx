@@ -91,6 +91,10 @@ chat fixtureの実行結果は`artifacts/recipe/native-generation-chat-reviewed-
 となることを確認済みである。これはrecipe encodingとnative generationの接続証拠で
 あり、Rust API bridgeや公式生成oracleの証拠ではない。
 
+thinking fixtureも34 tokenのrendered promptから16 tokenをcommitし、
+`next_position=50`となった。記録は
+`artifacts/recipe/native-generation-thinking-reviewed-20260915.json`に保存した。
+
 Rust adapterのfeature付きunit testもC++ shellへリンクして実行し、error eventの
 kind/code、request ID、callback変換を確認済みである。
 

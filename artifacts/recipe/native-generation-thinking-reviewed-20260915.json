@@ -1,0 +1,12 @@
+{
+  "scope": "Official encoding.py thinking fixture token IDs through native generation; no API or oracle qualification",
+  "run": "artifacts/text-generate/run-20260915-001217-31591",
+  "token_file": "artifacts/recipe/runtime-tokens-thinking-20260915-001217-31587.txt",
+  "prompt_token_count": 34,
+  "generated_tokens": [2581, 1309, 3287, 3967, 28, 582, 65106, 270, 11284, 2148, 21017, 15490, 5148, 33, 2454, 344],
+  "committed_tokens": 16,
+  "next_position": 50,
+  "stopped": false,
+  "exit_code": 0,
+  "full_model_qualified": false
+}
