@@ -95,6 +95,10 @@ thinking fixtureも34 tokenのrendered promptから16 tokenをcommitし、
 `next_position=50`となった。記録は
 `artifacts/recipe/native-generation-thinking-reviewed-20260915.json`に保存した。
 
+tool fixtureも45 tokenのDSML promptから16 tokenをcommitし、`next_position=61`
+となった。記録は`artifacts/recipe/native-generation-tool-reviewed-20260915.json`
+に保存した。
+
 Rust adapterのfeature付きunit testもC++ shellへリンクして実行し、error eventの
 kind/code、request ID、callback変換を確認済みである。
 

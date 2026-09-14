@@ -1,0 +1,12 @@
+{
+  "scope": "Official encoding.py tool fixture token IDs through native generation; no API or oracle qualification",
+  "run": "artifacts/text-generate/run-20260915-001908-31728",
+  "token_file": "artifacts/recipe/runtime-tokens-tool-20260915-001908-31724.txt",
+  "prompt_token_count": 45,
+  "generated_tokens": [0, 5, 223, 2971, 13199, 1137, 9854, 14479, 201, 2054, 223, 582, 12066, 3362, 582, 5197],
+  "committed_tokens": 16,
+  "next_position": 61,
+  "stopped": false,
+  "exit_code": 0,
+  "full_model_qualified": false
+}
