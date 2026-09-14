@@ -28,6 +28,14 @@ parsing; C++ owns tensor execution and committed token events. The bridge must
 define request cancellation, backpressure, client disconnect, error propagation,
 buffer lifetime and usage/finish accounting before the dependency is enabled.
 
+The first ABI draft is [`include/dsv41/runtime_bridge.h`](../include/dsv41/runtime_bridge.h).
+Requests borrow token IDs only for the synchronous submit call. Events are
+delivered in committed-token order; token and error strings are borrowed until
+the callback returns. A callback can request cooperative cancellation, which
+must end in an explicit `cancelled` finish event or an error before submit
+returns. The header is an interface contract only and is not a runtime
+qualification result.
+
 Protocol smoke checks can run against the stub before M3 runtime integration:
 
 ```sh
