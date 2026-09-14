@@ -29,6 +29,12 @@ class CPUReferenceTests(unittest.TestCase):
                                          torch.ones(512, dtype=torch.bfloat16)),
                                     torch.zeros(1, 512, dtype=torch.bfloat16)))
 
+    def test_fp4_code_order(self):
+        lut = torch.tensor([0., .5, 1., 1.5, 2., 3., 4., 6., -0., -.5, -1., -1.5, -2., -3., -4., -6.])
+        packed = torch.tensor([[0x10, 0x32, 0x54, 0x76]], dtype=torch.uint8)
+        codes = torch.stack((packed & 15, packed >> 4), -1).reshape(1, -1).long()
+        self.assertTrue(torch.equal(lut[codes], torch.tensor([[0., .5, 1., 1.5, 2., 3., 4., 6.]])))
+
 
 if __name__ == '__main__':
     unittest.main()

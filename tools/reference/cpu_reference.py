@@ -89,24 +89,41 @@ class Linear:
         w, self.kind = weights.tensor(prefix + '.weight')
         self.raw = w
         self.scale = None
-        if self.kind == 'F8_E4M3':
+        if self.kind in ('F8_E4M3', 'I8'):
             s, kind = weights.tensor(prefix + '.scale')
             if kind != 'F8_E8M0':
                 raise ValueError('unsupported linear scale')
-            self.scale = s.float().repeat_interleave(32, 0)[:w.shape[0]]
+            self.scale = s.float() if self.kind == 'I8' else s.float().repeat_interleave(32, 0)[:w.shape[0]]
+        elif self.kind == 'I8':
+            self.bits = 4
         elif self.kind != 'BF16':
             raise ValueError('attention CPU linear requires BF16 or FP8')
-        self.weight = w.float()
+        if self.kind == 'I8':
+            lut = torch.tensor([0., .5, 1., 1.5, 2., 3., 4., 6., -0., -.5, -1., -1.5, -2., -3., -4., -6.])
+            codes = torch.stack((w & 15, w >> 4), -1).reshape(w.shape[0], -1).long()
+            self.weight = lut[codes]
+        else:
+            self.weight = w.float()
 
     def decoded_weight(self):
+        if self.kind == 'I8':
+            return (self.weight * self.scale.repeat_interleave(32, 1)).to(torch.bfloat16)
         if self.scale is None:
             return self.raw
         return (self.weight * self.scale.repeat_interleave(32, 1)).to(torch.bfloat16)
 
     def __call__(self, x):
-        if self.scale is None:
+        if self.kind == 'BF16':
             return F.linear(x.float(), self.weight).to(x.dtype)
         q, scale, _ = activation(x)
+        if self.kind == 'I8':
+            # E2M1 values are already decoded in self.weight; use the same
+            # explicit ascending 32-channel accumulation as the FP8 path.
+            out = torch.zeros(x.shape[0], self.weight.shape[0], dtype=torch.float32)
+            for b in range(q.shape[1]):
+                part = F.linear(q[:, b].float(), self.weight[:, b*32:(b+1)*32])
+                out = out + (part * scale[:, b:b+1]) * self.scale[:, b]
+            return out.to(torch.bfloat16)
         out = torch.zeros(x.shape[0], self.weight.shape[0], dtype=torch.float32)
         # Explicit ascending 32-channel block sum; not CUDA reduction order.
         for b in range(q.shape[1]):

@@ -1,0 +1,21 @@
+{
+  "scope": "CPU FP4 expert linear fixture and SwiGLU clamp diagnostic; no six-expert or full-model qualification",
+  "w1": {
+    "bit_mismatch": 0,
+    "max_abs": 0.0,
+    "mean_abs": 0.0
+  },
+  "w2": {
+    "bit_mismatch": 0,
+    "max_abs": 0.0,
+    "mean_abs": 0.0
+  },
+  "swiglu_finite": true,
+  "swiglu_range": [
+    1.3589859008789062e-05,
+    100.0
+  ],
+  "fixture_manifest_sha256": "25b82f1415af527e1594e0d3254a1aedae8b42dec9fea32aee4032c92db93491",
+  "script_sha256": "36d848b0b6eb23af2abed5c47a467b52e1e373f54cf519be3408bd038b536f3e",
+  "full_model_qualified": false
+}
