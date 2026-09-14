@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "run": "artifacts/api-smoke/run-20260915-005652-36419",
+  "runtime": "native-bridge",
+  "release": false,
+  "health": "200",
+  "statuses": {
+    "chat": 501,
+    "options": 501,
+    "model_not_found": 404,
+    "empty_messages": 400,
+    "negative_temperature": 400,
+    "zero_max_tokens": 400,
+    "max_tokens_over_256k": 400
+  },
+  "notes": "Recipe-enabled native bridge shell accepted protocol requests and returned runtime_unavailable as expected; no model generation qualification."
+}

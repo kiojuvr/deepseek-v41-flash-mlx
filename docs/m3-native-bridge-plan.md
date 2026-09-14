@@ -201,3 +201,7 @@ bash tools/benchmark/run_api_smoke.sh
 
 結果は`artifacts/api-smoke/run-.../`に保存される。shell bridgeではchat statusが501で
 あることを維持し、healthのruntimeだけ`native-bridge`になることを検査する。
+
+2026-09-15にこの構成を実行し、healthが`native-bridge`、chat/optionsが501、model
+未検出が404、入力制約が400となることを確認した。レビュー記録は
+`artifacts/api-smoke/native-bridge-reviewed-20260915.json`に保存した。
