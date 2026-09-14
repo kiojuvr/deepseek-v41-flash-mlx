@@ -80,6 +80,14 @@ mx::array ExpertReference::forward(const mx::array& x,const mx::array& weight) c
  if(x.dtype()!=mx::bfloat16||x.shape()!=mx::Shape({1,5120}))throw std::runtime_error("expert requires one BF16 token");
  return w2_.forward(expert_activation_reference(w1_.forward(x),w3_.forward(x),weight));
 }
+ExpertComponents ExpertReference::components(const mx::array& x,const mx::array& weight) const {
+ auto gate=w1_.forward(x), up=w3_.forward(x);
+ auto g=mx::clip(mx::astype(gate,mx::float32),mx::array(-1e30f),mx::array(10.0f));
+ auto u=mx::clip(mx::astype(up,mx::float32),mx::array(-10.0f),mx::array(10.0f));
+ auto act=mx::astype(mx::multiply(mx::multiply(g,mx::sigmoid(g)),u),mx::bfloat16);
+ auto out=mx::multiply(mx::astype(w2_.forward(act),mx::float32),weight);
+ return {gate,up,act,mx::astype(out,mx::bfloat16)};
+}
 MoEReference::MoEReference(WeightCatalog& c,int layer):catalog_(&c),layer_(layer),gate_(c,layer),shared_(c,-1,layer){}
 ExpertReference& MoEReference::expert(int id) const{
  auto it=experts_.find(id);
@@ -103,5 +111,9 @@ MoEComponents MoEReference::forward_components(const mx::array& x) const{
 mx::array MoEReference::expert_contribution(const mx::array& x, int id, const mx::array& weight) const {
  if (id < 0 || id >= 384) throw std::runtime_error("invalid routed expert");
  return expert(id).forward(x, weight);
+}
+ExpertComponents MoEReference::expert_components(const mx::array& x, int id, const mx::array& weight) const {
+ if (id < 0 || id >= 384) throw std::runtime_error("invalid routed expert");
+ return expert(id).components(x,weight);
 }
 }

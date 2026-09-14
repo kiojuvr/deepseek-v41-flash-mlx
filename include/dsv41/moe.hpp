@@ -8,6 +8,7 @@ namespace dsv41 {
 struct RouteReference { std::array<int,6> ids; mlx::core::array weights; };
 struct GateDiagnostic { mlx::core::array raw_scores, corrected_scores; RouteReference route; };
 struct MoEComponents { mlx::core::array shared, routed, total; };
+struct ExpertComponents { mlx::core::array gate, up, activation, output; };
 struct RouteTieRecord { int layer; std::uint64_t token; int sixth_id,seventh_id; float sixth_score,seventh_score; bool tied; };
 // Text layer 0, one token. CPU selection is an explicit reference synchronization.
 // strict throws on an exact top-6 boundary tie; otherwise ties break to the lowest expert ID.
@@ -37,6 +38,7 @@ public:
  // expert -1 selects the shared FP8 expert; 0..383 select canonical FP4 experts.
  ExpertReference(WeightCatalog& catalog,int expert,int layer=0);
  mlx::core::array forward(const mlx::core::array& input,const mlx::core::array& route_weight) const;
+ ExpertComponents components(const mlx::core::array& input,const mlx::core::array& route_weight) const;
 private:
  PackedLinearReference w1_,w2_,w3_;
 };
@@ -49,6 +51,8 @@ public:
  MoEComponents forward_components(const mlx::core::array& input) const;
  mlx::core::array expert_contribution(const mlx::core::array& input, int expert_id,
                                       const mlx::core::array& route_weight) const;
+ ExpertComponents expert_components(const mlx::core::array& input, int expert_id,
+                                    const mlx::core::array& route_weight) const;
  // Number of top-6 boundary ties broken by lowest expert ID (unqualified oracle gap).
  std::size_t tie_count() const{return tie_count_;}
 private:
