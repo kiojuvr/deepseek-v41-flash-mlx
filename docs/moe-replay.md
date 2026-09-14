@@ -45,3 +45,18 @@ This proves deterministic native MLX replay and on-demand expert lifecycle for
 this input. It is not a CPU oracle, official CUDA match, expert semantic
 qualification, or full-model qualification. An independent expert-formula path
 or second backend remains required before MoE numerical acceptance.
+
+## FP4 expert linear foundation
+
+The existing `artifacts/linear` fixture provides layer 0 expert 0 `w1` and `w2`
+with real packed I8/E2M1 weights, E8M0 group-32 scales, and ten fixed BF16
+inputs. Its native verification reports zero mismatches for CPU block reference,
+tokenwise MLX QMM and packed-weight reconstruction for both expert linears
+(`w1`: 23,040 elements; `w2`: 51,200 elements). Partial threadgroup and
+invalid-input checks also pass. This establishes the FP4 decode/projection
+building block needed by an independent MoE expert path.
+
+The fixture also records a separate attention activation/QMM difference in the
+oMLX comparison; oMLX remains an external reference. Routed expert activation,
+SwiGLU clamps, route-weight scaling and the six-expert sum still require an
+end-to-end comparison.
