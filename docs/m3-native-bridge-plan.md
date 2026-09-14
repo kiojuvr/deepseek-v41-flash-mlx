@@ -225,3 +225,5 @@ C ABI shellもserverと同じく空prompt、`max_new_tokens=0`、非有限温度
 recipe encoderが有効なserverでは、encoded prompt token数と`max_tokens`（未指定時16）の
 合算も256K以下に制限し、超過は`context_length_exceeded` (400)とする。これはtotal-context
 admissionであり、recipe adapter未使用のunconnected stubには適用されない。
+C ABIでは`input_token_count + max_new_tokens`も同じ256K上限で検査し、API層を迂回した
+requestでもtotal-context契約を維持する。

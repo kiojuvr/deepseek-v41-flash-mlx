@@ -22,6 +22,8 @@ int main() {
     assert(dsv41_bridge_submit(bridge, &invalid, on_event, nullptr, nullptr) == DSV41_BRIDGE_INVALID_ARGUMENT);
     invalid.temperature = 0.0f; invalid.max_new_tokens = DSV41_BRIDGE_MAX_NEW_TOKENS + 1;
     assert(dsv41_bridge_submit(bridge, &invalid, on_event, nullptr, nullptr) == DSV41_BRIDGE_INVALID_ARGUMENT);
+    invalid.input_token_count = DSV41_BRIDGE_MAX_NEW_TOKENS - 4; invalid.max_new_tokens = 16;
+    assert(dsv41_bridge_submit(bridge, &invalid, on_event, nullptr, nullptr) == DSV41_BRIDGE_INVALID_ARGUMENT);
     dsv41_request_t request{DSV41_BRIDGE_ABI_VERSION, tokens, 4, 16, 0.0f, 0};
     Seen seen;
     uint64_t request_id = 0;
