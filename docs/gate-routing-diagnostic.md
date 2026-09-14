@@ -25,6 +25,13 @@ provisional `2e-6` continuous score bound is paired with a `4×` margin safety
 band, and close rows stay indeterminate. This does not alter runtime routing or
 the full-model promotion contract.
 
+The native trace was regenerated with route weights and compared against the CPU
+formula in `gate-cpu-compare-20260914-v3.json`. Route-weight maximum absolute
+difference is `3.5762786865234375e-7` (mean `7.332612739219257e-8`), with no
+nonfinite values. IDs remain identical for all 60 tokens. This supports treating
+route weights as a separate continuous diagnostic quantity; it does not permit
+skipping expert-output comparison or accepting an ID change.
+
 ```sh
 /Volumes/SDXC-512/deltafin/.venv/bin/python tools/reference/compare_gate_cpu.py \
   --checkpoint /Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-Flash \
