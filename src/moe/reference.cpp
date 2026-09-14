@@ -100,4 +100,8 @@ MoEComponents MoEReference::forward_components(const mx::array& x) const{
  auto shared=mx::astype(shared_.forward(x,mx::array(1.0f)),mx::float32);
  return {mx::astype(shared,mx::bfloat16),mx::astype(y,mx::bfloat16),mx::astype(mx::add(y,shared),mx::bfloat16)};
 }
+mx::array MoEReference::expert_contribution(const mx::array& x, int id, const mx::array& weight) const {
+ if (id < 0 || id >= 384) throw std::runtime_error("invalid routed expert");
+ return expert(id).forward(x, weight);
+}
 }

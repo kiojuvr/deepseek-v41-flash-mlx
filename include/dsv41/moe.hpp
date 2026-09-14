@@ -47,6 +47,8 @@ public:
  explicit MoEReference(WeightCatalog& catalog,int layer=0);
  mlx::core::array forward(const mlx::core::array& input) const;
  MoEComponents forward_components(const mlx::core::array& input) const;
+ mlx::core::array expert_contribution(const mlx::core::array& input, int expert_id,
+                                      const mlx::core::array& route_weight) const;
  // Number of top-6 boundary ties broken by lowest expert ID (unqualified oracle gap).
  std::size_t tie_count() const{return tie_count_;}
 private:

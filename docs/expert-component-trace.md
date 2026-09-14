@@ -1,0 +1,28 @@
+# Routed expert component trace
+
+`dsv41-expert-trace` records the route-weighted contribution of one routed
+layer-0 FP4 expert for every token in a frozen native trace. It uses native MLX
+expert weights and the saved native route IDs/weights. The trace is intended to
+pair with the independent CPU expert implementation and isolate w1/SwiGLU/w2
+and route-weighted contribution differences.
+
+The first token selects expert 251. Build and run a fresh trace directory:
+
+```sh
+cmake -S . -B build-mlx
+cmake --build build-mlx --target dsv41-expert-trace -j 4
+build-mlx/dsv41-expert-trace \
+  /Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-Flash \
+  artifacts/checkpoint/summary.json \
+  artifacts/logits-trace/native-20260914-145608-21879 \
+  artifacts/cpu-attention/gate-native-weights-20260914 \
+  <fresh-output-directory> 251
+```
+
+The expert slab load and GPU execution may take tens of seconds or longer. The
+tool saves `encoder.layer0.expert_contribution.npy` and a manifest with token
+IDs, expert ID and occurrence count. Checkpoint data remains read-only. An
+existing output directory is rejected; rerun with a fresh path after failure.
+
+This is a native component trace, not an official CUDA oracle or full-model
+qualification. Route tolerance does not apply to expert contribution equality.
