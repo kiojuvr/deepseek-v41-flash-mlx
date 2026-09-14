@@ -14,7 +14,7 @@
 | RMSNorm | native primitive、実weightを用いた比較 | CPU oracleとのBF16 1 ULP差が5要素。未qualified |
 | 共通linear / mHC | fixed-schedule FP8/FP4 reference、mHC mix / collapse / 展開、layer 0 Block接続 | mHC係数のCPU差 |
 | SWA | layer 0のQ/KV → bounded state → masked attention → inverse RoPE → wo_a / wo_b、Block接続 | 公式oracle / padding / reduction比較、Bounded Replay |
-| layer 0 MoE / Block | 全384 expert resident、ユーザーrunでhidden / pre-mix / KVのchunk-token bit一致、reset / position拒否 | 公式oracle比較、実token入口・次layerへの接続 |
+| layer 0 MoE / Block | routed expert on-demand load、ユーザーrunでhidden / pre-mix / KVのchunk-token bit一致、独立CPU MoE比較でcast/加算順を整合 | 公式oracle比較、実token入口・次layerへの接続 |
 | encoder / decoder / logits | encoder 0..19、decoder 20..39、final collapse / norm / headを接続し、token→logits local pathを確認 | 公式oracle比較、長文qualification |
 | layer 0 → Engram 1 → layer 1 | ユーザーrunでchunk/token bits・hash継続・fork/reset・不正入力拒否を確認 | 公式oracle比較、layer 2以降への接続 |
 | layer 2 global KV producer | layer 2 Attentionへcompressor・FP4 cache・index query・SWA/global計算を接続、短いlocal検査通過 | FP4 / scoreの独立oracle比較、shared cache接続 |
