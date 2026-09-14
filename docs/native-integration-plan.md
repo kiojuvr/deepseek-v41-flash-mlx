@@ -23,7 +23,7 @@
 | encoder 0..19 text経路 | producer 2/8/14、reuse 3–7/9–13/15–19、Engram 1/14を接続し、ユーザーrunでchunk/token bits・継続・fork/reset・不正token拒否を確認 | 公式oracle比較、decoderへの接続 |
 | decoder 20..39 / head | ratio-1 producer 20、candidate二段Top-K、index source 24/28/32/36、reuse 21..39、final collapse/norm/headを接続し、ユーザーrunでchunk/token bit・継続・fork/resetを確認 | 公式logits oracle比較 |
 | token → logits full backbone | encoder 0..19 → decoder 20..39 → logitsを接続し、ユーザーrunでchunk/token bit・継続・fork/reset・不正token拒否を確認（routing tie 3件は最小ID break、未qualified） | 公式logits oracle比較、sampling / generation |
-| logits oracle比較 | native / 固定oMLX traceと公式式CPU転記で最初の分岐を `encoder.layer0.attn_in` に特定。RMSNormの分散reduction差、Q projection差、Attention算術差を局所化。layer 0 gateはscore差≈2e-6でもID一致、MoE native replayはbit一致 | M2のlogits差基準を広いteacher-forced入力で固定、CPU expert式比較 |
+| logits oracle比較 | native / 固定oMLX traceと公式式CPU転記で最初の分岐を `encoder.layer0.attn_in` に特定。RMSNormの分散reduction差、Q projection差、Attention算術差を局所化。layer 0 gateはscore差≈2e-6でもID一致、MoE native replayはbit一致。独立CPU FP4 MoEは152 expertsを通し、差270,799/307,200要素を検出 | M2のlogits差基準を広いteacher-forced入力で固定、expert projection / SwiGLU / shared / sum component trace |
 | sampling / generation | greedy / temperatureの参照samplingと生成loop、RNG再現性の高速検査 | 公式RNGとのtoken列一致、stop sequence、API接続 |
 
 既存の数値差を未解決として記録しながら、独立したfull-path接続を進める。CPUとMLXの全bit一致を各primitiveの実装着手条件にせず、公式oracle → local referenceの判定をM2 exit条件として保持する。local reference → optimized pathのbitwise条件は維持する。
