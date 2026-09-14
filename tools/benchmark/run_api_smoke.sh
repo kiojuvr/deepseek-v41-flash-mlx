@@ -9,7 +9,15 @@ DSV41_BIND="127.0.0.1:${port}" cargo run --quiet --manifest-path server/Cargo.to
 pid=$!
 cleanup() { kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; }
 trap 'status=$?; cleanup; echo "$status" > "$run_dir/exit-code.txt"' EXIT
-for _ in $(seq 1 50); do curl -fsS "http://127.0.0.1:${port}/health" >/dev/null && break; sleep 0.2; done
+ready=0
+for _ in $(seq 1 100); do
+  if curl -fsS "http://127.0.0.1:${port}/health" >/dev/null 2>/dev/null; then ready=1; break; fi
+  sleep 0.2
+done
+if [[ "$ready" -ne 1 ]]; then
+  echo "server did not become ready; inspect $run_dir/server.log" >&2
+  exit 1
+fi
 
 curl -fsS "http://127.0.0.1:${port}/health" >"$run_dir/health.json"
 curl -fsS "http://127.0.0.1:${port}/v1/models" >"$run_dir/models.json"
