@@ -14,6 +14,7 @@ extern "C" {
 #define DSV41_BRIDGE_OK 0
 #define DSV41_BRIDGE_INVALID_ARGUMENT -1
 #define DSV41_BRIDGE_UNAVAILABLE -2
+#define DSV41_BRIDGE_MAX_NEW_TOKENS 262144u
 
 typedef struct dsv41_bridge dsv41_bridge_t;
 

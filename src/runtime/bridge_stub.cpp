@@ -21,6 +21,7 @@ extern "C" int dsv41_bridge_submit(dsv41_bridge_t *bridge, const dsv41_request_t
     if (!bridge || !request || request->abi_version != DSV41_BRIDGE_ABI_VERSION ||
         (!request->input_tokens && request->input_token_count) || !callback ||
         request->input_token_count == 0 || request->max_new_tokens == 0 ||
+        request->max_new_tokens > DSV41_BRIDGE_MAX_NEW_TOKENS ||
         !std::isfinite(request->temperature) || request->temperature < 0.0f) {
         return DSV41_BRIDGE_INVALID_ARGUMENT;
     }

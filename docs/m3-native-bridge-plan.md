@@ -221,3 +221,4 @@ checkpoint/tokenizer/bridge libraryの存在を検査し、結果を
 
 C ABI shellもserverと同じく空prompt、`max_new_tokens=0`、非有限温度、負温度を
 `DSV41_BRIDGE_INVALID_ARGUMENT`で拒否する。bridge smokeでこの境界を検査している。
+生成上限`DSV41_BRIDGE_MAX_NEW_TOKENS=262144`も同じ境界で適用する。
