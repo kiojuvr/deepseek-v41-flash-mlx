@@ -163,3 +163,8 @@ HTTP application stateで所有してnative bridgeへtoken列をborrowする構�
 
 `RecipeEncoder`はtokenizerを`Arc`で一度だけ所有し、複数requestから共有できる。
 生成requestの寿命中だけ返却`Vec<u32>`を保持し、そのsliceをbridge requestへborrowする。
+
+serverを`--features recipe-adapter`で起動し`DSV41_TOKENIZER`にtokenizer JSONを指定すると、
+application stateの初期化時に一度だけtokenizerをロードする。HTTP requestはこのencoderで
+検証・encodingされ、失敗は`recipe_encoding_error` (400)として返る。encoding成功後も
+bridgeが未接続なら従来どおり`runtime_unavailable` (501)となる。

@@ -10,6 +10,8 @@ use serde_json::{Value, json};
 use std::{env, net::SocketAddr, sync::Arc};
 mod backend;
 mod native;
+#[cfg(feature = "recipe-adapter")]
+mod recipe_adapter;
 use backend::{GenerationOptions, RuntimeBackend, UnconnectedBackend};
 
 const MAX_QUALIFIED_OUTPUT_TOKENS: u32 = 262_144;
@@ -18,6 +20,8 @@ const MAX_QUALIFIED_OUTPUT_TOKENS: u32 = 262_144;
 struct AppState {
     model: Arc<String>,
     backend: Arc<dyn RuntimeBackend>,
+    #[cfg(feature = "recipe-adapter")]
+    recipe: Option<Arc<recipe_adapter::RecipeEncoder>>,
 }
 
 #[derive(Deserialize)]
@@ -103,6 +107,15 @@ async fn chat(
         temperature: req.temperature,
         seed: req.seed,
     };
+    #[cfg(feature = "recipe-adapter")]
+    if let Some(encoder) = &state.recipe {
+        if let Err(error) = encoder.encode(&req.messages) {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error":{"message":error,"type":"invalid_request_error","code":"recipe_encoding_error"}})),
+            );
+        }
+    }
     match state.backend.complete(&req.messages, req.stream, options) {
         Ok(value) => (StatusCode::OK, Json(value)),
         Err(backend::BackendError::Unavailable) => (
@@ -118,6 +131,11 @@ async fn chat(
 async fn main() {
     let bind = env::var("DSV41_BIND").unwrap_or_else(|_| "127.0.0.1:8080".into());
     let model = env::var("DSV41_MODEL").unwrap_or_else(|_| "DeepSeek-V4.1-Flash".into());
+    #[cfg(feature = "recipe-adapter")]
+    let recipe = env::var("DSV41_TOKENIZER")
+        .ok()
+        .map(|path| recipe_adapter::RecipeEncoder::from_file(&path).expect("failed to load DSV41_TOKENIZER"))
+        .map(Arc::new);
     let app = Router::new()
         .route("/health", get(health))
         .route("/v1/models", get(models))
@@ -125,6 +143,8 @@ async fn main() {
         .with_state(AppState {
             model: Arc::new(model),
             backend: Arc::new(UnconnectedBackend),
+            #[cfg(feature = "recipe-adapter")]
+            recipe,
         });
     let listener =
         tokio::net::TcpListener::bind(bind.parse::<SocketAddr>().expect("invalid DSV41_BIND"))
