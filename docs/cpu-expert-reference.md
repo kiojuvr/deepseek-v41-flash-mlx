@@ -44,6 +44,11 @@ Results and progress logs are saved under
 was written, not that outputs agree. A failed run leaves logs; retrying creates a
 fresh directory. Mid-token resume is not implemented.
 
+The comparison now also writes CPU `shared` and `routed` component arrays next
+to the report (`report.shared.bf16.npy` and `report.routed.bf16.npy`). Run the
+script again after a native component replay to obtain directly comparable
+components; the previous CPU result predates these files.
+
 ## Reviewed six-expert comparison (2026-09-14)
 
 The first real 60-token run loaded 152 unique routed experts. CPU output differs
