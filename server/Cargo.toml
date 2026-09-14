@@ -1,0 +1,16 @@
+[package]
+name = "dsv41-developer-server"
+version = "0.1.0-dev"
+edition = "2024"
+publish = false
+
+[dependencies]
+axum = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
+tower-http = { version = "0.6", features = ["trace"] }
+
+# Integration is intentionally deferred until the C ABI event contract is fixed.
+# The prompt/stream semantics will be wired to this pinned recipe revision then.
+# deepseek-recipe = { git = "https://github.com/deepseek-ai/deepseek-recipe", rev = "8cadfede7063c896b944e7bae05daa3549ae97ea" }
