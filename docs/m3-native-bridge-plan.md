@@ -215,3 +215,6 @@ bash tools/benchmark/run_native_bridge_preflight.sh
 checkpoint/tokenizer/bridge libraryの存在を検査し、結果を
 `artifacts/api-smoke/preflight-.../`へ保存する。checkpointは変更せず、Cargo buildは
 起動しない。実runtime置換後も同じ入口でAPI lifecycleを再検証できる。
+
+初回preflightは成功し、前提条件、native-bridge health、501/404/400のAPI契約を確認した。
+記録は`artifacts/api-smoke/native-bridge-preflight-reviewed-20260915.json`に保存した。

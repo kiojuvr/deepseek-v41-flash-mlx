@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "preflight_run": "artifacts/api-smoke/preflight-20260915-005947-36601",
+  "smoke_run": "artifacts/api-smoke/run-20260915-005947-36605",
+  "runtime": "native-bridge",
+  "release": false,
+  "preflight_exit_code": 0,
+  "smoke_exit_code": 0,
+  "statuses": {"chat": 501, "options": 501, "model_not_found": 404, "input_constraints": 400},
+  "notes": "Prerequisite paths and recipe-enabled bridge shell API contract passed. Model generation remains unavailable in the shell bridge."
+}
