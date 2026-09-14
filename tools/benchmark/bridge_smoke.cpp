@@ -16,6 +16,10 @@ int main() {
     const uint32_t tokens[] = {0, 42, 1000, 42};
     dsv41_request_t invalid{DSV41_BRIDGE_ABI_VERSION, tokens, 4, 0, 0.0f, 0};
     assert(dsv41_bridge_submit(bridge, &invalid, on_event, nullptr, nullptr) == DSV41_BRIDGE_INVALID_ARGUMENT);
+    invalid.max_new_tokens = 4; invalid.temperature = -1.0f;
+    assert(dsv41_bridge_submit(bridge, &invalid, on_event, nullptr, nullptr) == DSV41_BRIDGE_INVALID_ARGUMENT);
+    invalid.temperature = __builtin_nanf("");
+    assert(dsv41_bridge_submit(bridge, &invalid, on_event, nullptr, nullptr) == DSV41_BRIDGE_INVALID_ARGUMENT);
     dsv41_request_t request{DSV41_BRIDGE_ABI_VERSION, tokens, 4, 16, 0.0f, 0};
     Seen seen;
     uint64_t request_id = 0;
