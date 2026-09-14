@@ -73,3 +73,8 @@ special-token check. A missing `model` field produced the expected 422 JSON
 deserialization error. The checklist is recorded in
 `artifacts/api-smoke-20260914.json`. These results validate only the stub's
 HTTP/error contract and do not qualify recipe encoding or native inference.
+
+The reproducible runner was then executed successfully at
+`artifacts/api-smoke/run-20260914-221558-29823/` (exit code 0). Its readiness
+loop suppresses transient connection errors and fails explicitly when the
+server does not become ready within 20 seconds.
