@@ -88,3 +88,8 @@ After generation option coverage was added, the runner passed again at
 `artifacts/api-smoke/run-20260915-002706-32404/` (exit code 0). Valid
 `max_tokens/temperature/seed` reached the explicit 501 backend response, while
 negative temperature returned 400.
+
+The zero-limit validation was then exercised at
+`artifacts/api-smoke/run-20260915-002902-32537/` (exit code 0). The complete
+status set was 501 for valid backend requests, 404 for an unknown model, and
+400 for empty messages, negative temperature, and `max_tokens=0`.
