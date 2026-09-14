@@ -62,6 +62,25 @@ expert projection accumulation, SwiGLU cast placement, shared-expert arithmetic,
 and MoE summation order. Component traces are required before any numerical
 policy change.
 
+## Corrected native comparison (2026-09-14)
+
+After fixing route-weight placement to after `w2`, the CPU comparison was rerun
+against the corrected native replay. The aggregate difference fell from 270,799
+to 72,351 BF16 elements; max_abs fell from `0.03125` to `0.015625`, and mean
+abs from `0.0016184431733563542` to `7.552796159870923e-05`. All values remain
+finite. Shared expert remains close (215 mismatches, max_abs `0.0009765625`),
+while routed sum has 101,146 mismatches, max_abs `0.0078125`, mean
+`7.550499140052125e-05`. The reviewed result is
+`artifacts/cpu-attention/cpu-moe-20260914-212331-reviewed.json`.
+
+This validates the semantic correction and localizes the remaining difference to
+routed FP4 arithmetic/reduction or expert-specific inputs. It is no longer a
+route-weight placement error and cannot be addressed by gate tolerance. Expert
+251's three selected contributions were bit-identical in the separate stage
+trace; broader expert IDs still need sampling before attributing the residual to
+a universal backend reduction effect. No MoE or full-model qualification is
+claimed.
+
 ## Reviewed component comparison (2026-09-14)
 
 The corrected 60-token CPU run was compared with the native component replay.
