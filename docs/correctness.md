@@ -1,14 +1,32 @@
 # Correctness contract
 
-状態: M0。速度よりcorrectnessを優先し、未検証をpassに数えない。
+状態: M2終盤。速度よりcorrectnessを優先し、未検証をpassに数えない。
 
 ## Canonical source
 
-公式checkpointのtensorとconfigをcanonical sourceとする。[architecture](architecture.md)の公式minimal inferenceを意味論のoracleにする。vLLMはproduction構造の参考で、公式tensorや意味論を上書きしない。
+公式checkpointのtensorとconfigをcanonical sourceとする。[architecture](architecture.md)の公式minimal inferenceを意味論のoracleにする。omlx v0.7.0.dev2はApple Silicon上の実装・差分診断の第一reference、vLLMは補助referenceとし、いずれも公式tensorや意味論を上書きしない。omlxでの公式checkpoint動作確認と、本projectの数値exactness合格は別の証拠である。[baseline更新](omlx-baseline.md)に伴う比較でも、公式oracle → local reference → optimized pathの二段階を維持する。
 
 checkpoint storage dtype、packed logical dtype、scale encoding、group size、rounding、clamping、accumulation dtype、cast境界を別々に記録する。I8等の保存dtypeを見ただけで数値形式を決めない。公式FP4 weights / KVのdecodeは許可するが、unofficial quantization、再量子化、非可逆変換をbaselineへ導入しない。変換物は元tensor、revision、digest、変換規則へ逆引きできるようにする。
 
 ## Referenceを二段階で検証する
+
+### M2のMLX reference着地点（2026-09-15）
+
+PyTorch/CUDA公式実装とMLX/Metalでは、FP32 reduction順、RoPE fusion、量子化
+GEMMの実行経路が異なる。公式CUDAとのbit一致をこの環境のM2 exit条件には
+しない。M2のcanonical referenceは、公式checkpoint tensorと公式式の意味論を
+保った未融合MLX/C++ pathとし、次を完了条件とする。
+
+- token IDからencoder 0..19、decoder 20..39、Engram、final norm/headまで接続する。
+- chunk/tokenwise、continuation、fork/reset、不正入力拒否を同一state契約で通す。
+- local referenceとnative optimized pathの境界tensor、logits、persistent stateを
+  同一MLX/Metal条件でbitwise一致させる。
+- cross-framework差は公式式CPU転記・固定oMLX・公式CUDA（実行できる場合）を
+  別証拠として保存し、M2のbitwise判定へ混ぜない。
+
+この着地点は公式CUDA一致やproduction qualificationを意味しない。M3以降の
+最適化では、canonical MLX referenceを削除せず、同一backend条件のexactnessを
+昇格gateとして維持する。
 
 1. **公式oracle → local reference。** C++ / MLX / Metal上に読みやすいlocal referenceを保持する。CUDA等との算術差は演算・tensorごとに記録し、absolute / relative / ULP errorとdiscrete decisionを比較する。許容値が必要なら公式oracleの観測に基づきM2で事前固定する。現時点で数値許容値は未設定でありoracle一致は未達。小型fixtureだけでreleased checkpointの一致を主張しない。
 2. **local reference → optimized path。** 同じ入力、weights、state、backend条件に対して、境界tensor、logits、persistent stateの有効領域をbitwise一致させる。token列の一致、近いlogits、task scoreだけではexactnessを満たさない。演算順やfusionによりbitが変わったcandidateは不合格とする。
@@ -16,6 +34,20 @@ checkpoint storage dtype、packed logical dtype、scale encoding、group size、
 異なるstorage layoutはlogical順に正規化して比較する。packed KVはpayload / scaleと、公式のcastを再現してdecodeした値の両方を検証する。padding等の未定義領域は明示的に除外し、有効領域の不一致を隠さない。referenceの算術をcandidateに合わせて変更する場合は別の意味論変更としてoracleから再検証する。
 
 cross-backendでbitwise一致を保証できないことをoptimized pathの許容差へ転用しない。Top-Kやroutingのtie policyが未定義ならfixtureとreference規則を先に確定し、結果の違いを浮動小数点誤差として片付けない。
+
+## 数値許容差（2026-09-14）
+
+比較段階ごとに許容差を分ける。cross-framework比較に限定した暫定値であり、M2合格を意味しない。
+
+1. **公式／外部reference → local reference。** 現時点でbit一致を要求するのはRMSNorm等の要素数が小さい演算に限る。mHC mix projectionのような大きいFP32 reductionは、暫定的に次の許容差で比較する。
+   - 対象: `HCReference::mixes`のFP32 `pre` / `post` / `comb`。
+   - 基準: `max_abs ≤ 1e-6`、非有限値ゼロ。
+   - 比較条件: 同じ入力hidden / pre-mix、同じFP32 `hc_*_fn` / `scale` / `base`、同じepsとSinkhorn反復数、同じ実装revisionとdtypeを固定する。入力・revisionが異なる比較を許容差の根拠にしない。
+   - この許容差はcross-framework（NumPy / PyTorch CPU転記、固定oMLX）比較に限る。公式CUDA kernel実行との差とは呼ばない。reduction順の完全再現は現時点で要求しない（再現不能と断定しない）。
+2. **local reference → optimized path。** 従来どおりbit一致を必須とする。許容差を転用しない。
+3. **M2判定。** 上記係数許容差とlogits argmax一致だけでは合格にしない。`logits`差の基準は、4 tokenのtraceではなく、より広いteacher-forced入力（context段階とcoding-agent workload）で別途評価して固定する。基準固定前にM2合格やproduction昇格を宣言しない。
+
+許容差は公式oracleの観測と比較対象の固定を条件に更新する。candidateの結果に合わせて緩めない。routing tieの最小ID方針、index tie停止も未確定のpolicyとして保持し、許容差で隠さない。
 
 ## 必須の比較境界
 

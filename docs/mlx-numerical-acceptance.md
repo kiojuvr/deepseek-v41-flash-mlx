@@ -1,6 +1,6 @@
 # MLX referenceの数値的な着地点
 
-2026-09-14: 調査方針。M2合格基準の数値確定や既存契約の緩和ではない。
+2026-09-15: M2のMLX reference着地点を固定する。これは公式CUDA一致の宣言でも、既存の長文qualificationを完了するものでもない。
 
 公式checkpoint・演算の意味論・cast境界・KV形式を維持したMLX referenceを
 目標とする。異なるGPU backendのreduction順を全面的に再実装することを

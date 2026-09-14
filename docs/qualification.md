@@ -2,7 +2,7 @@
 
 状態: M1の[checkpoint atlas / integrity検証](checkpoint-atlas.md)が完了。本runtimeのnumerical / performance qualificationは未達。2026-09-13にユーザー報告のomlx v0.7.0.dev2を外部性能baselineとして採用した。同条件の比較runは未実行。[改訂計画](omlx-baseline.md)を適用する。
 
-2026-09-14時点で、修正版native pathはencoder 0..19、decoder 20..39、Engram、final collapse/norm/headを接続し、実token IDからlogitsまでの継続・fork/reset・不正token契約を通過した。layer-0 MoEの独立CPU比較は、expert出力のBF16 cast境界とexpert ID昇順加算を合わせた後、59要素の局所差（最大 `0.0009765625`）まで縮小している。これはM2の構造進捗であり、公式oracle比較・sampling/generation・長文qualificationを含むM2 exit gateは未達のままとする。
+2026-09-14時点で、修正版native pathはencoder 0..19、decoder 20..39、Engram、final collapse/norm/headを接続し、実token IDからlogitsまでの継続・fork/reset・不正token契約を通過した。layer-0 MoEの独立CPU比較は、expert出力のBF16 cast境界とexpert ID昇順加算を合わせた後、59要素の局所差（最大 `0.0009765625`）まで縮小している。M2は公式CUDAとのbit一致ではなく、[MLX reference着地点](correctness.md)に定義したcanonical referenceとnative pathの同一backend exactnessを判定する。長文qualification、API接続、公式実装との差分資料はM3以降の独立gateとして保持する。
 
 ## Milestones
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | M0 — Repository contract | 5文書でarchitecture / correctness / memory / reference / performance契約と禁止事項を固定。GLMは知見inventoryのみ |
 | M1 — Checkpoint atlas | 全tensorの所在・形式・owner・bytesを確定。Engram backingを分離し、512 GB予算を作る。missing / unknownと総数の不一致を解消 |
-| M2 — End-to-end reference | C++ / MLX / Metalでtoken→encoder→decoder→logits。Engramを含むtext targetを公式oracleと比較。最小SSD reader、state比較、referenceを保持。omlxの直接load / state / 数値境界を対照し、部分probeの拡張よりfull path接続を優先 |
+| M2 — End-to-end MLX reference | C++ / MLX / Metalでtoken→encoder→decoder→logits。Engramを含むtext path、generation、state契約をcanonical MLX referenceとnative pathで一致させる。公式CPU/oMLX/CUDA比較は別証拠として保存し、M2のbackend exactnessへ混ぜない |
 | M3 — Native execution graph | Python往復のないprefill / decode / replayを形成。固定omlxを第一reference、vLLMを補助として、CED scheduleとpacked KVのexactnessを検証。ここから性能最適化 |
 | M4 — 32K→256K | 32K correctnessから64K / 128K / 200K比較点 / 256Kへ進み、長時間session後半のdecode TPTをhard gateとして測定 |
 | M5 — Engram storage engine | OS page-cache基準のmmap / pread、working-set telemetryとpressure検証。独自cache / async prefetchは必要性が示された場合のみ。全state exactnessとM4再実行 |
