@@ -1,0 +1,1122 @@
+{
+  "scope": "Q substitution on common CPU sparse attention, identical quantized KV; no output projection, routing or logits test",
+  "cpu_baseline_replay": {
+    "shape": [
+      60,
+      64,
+      512
+    ],
+    "native_dtype": "bfloat16",
+    "oracle_dtype": "bfloat16",
+    "dtype_mismatch": false,
+    "exact_bits": true,
+    "bit_mismatch_count": 0,
+    "max_abs_diff": 0.0,
+    "mean_abs_diff": 0.0,
+    "nonfinite_native": 0,
+    "nonfinite_oracle": 0,
+    "argmax_equal": true
+  },
+  "q_effect_on_common_cpu_attention": {
+    "shape": [
+      60,
+      64,
+      512
+    ],
+    "native_dtype": "bfloat16",
+    "oracle_dtype": "bfloat16",
+    "dtype_mismatch": false,
+    "exact_bits": false,
+    "bit_mismatch_count": 155,
+    "max_abs_diff": 0.0009765625,
+    "mean_abs_diff": 1.768251678413435e-08,
+    "nonfinite_native": 0,
+    "nonfinite_oracle": 0,
+    "argmax_equal": true
+  },
+  "native_attention_vs_cpu_on_native_q": {
+    "shape": [
+      60,
+      64,
+      512
+    ],
+    "native_dtype": "bfloat16",
+    "oracle_dtype": "bfloat16",
+    "dtype_mismatch": false,
+    "exact_bits": false,
+    "bit_mismatch_count": 46,
+    "max_abs_diff": 0.001953125,
+    "mean_abs_diff": 1.049581133116817e-08,
+    "nonfinite_native": 0,
+    "nonfinite_oracle": 0,
+    "argmax_equal": true
+  },
+  "original_native_vs_cpu_attention": {
+    "shape": [
+      60,
+      64,
+      512
+    ],
+    "native_dtype": "bfloat16",
+    "oracle_dtype": "bfloat16",
+    "dtype_mismatch": false,
+    "exact_bits": false,
+    "bit_mismatch_count": 201,
+    "max_abs_diff": 0.001953125,
+    "mean_abs_diff": 2.817832900348094e-08,
+    "nonfinite_native": 0,
+    "nonfinite_oracle": 0,
+    "argmax_equal": true
+  },
+  "per_token_q_effect": [
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 3,
+      "max_abs_diff": 0.0009765625,
+      "mean_abs_diff": 5.960464477539063e-08,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 2,
+      "max_abs_diff": 0.000244140625,
+      "mean_abs_diff": 1.4901161193847656e-08,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 16,
+      "max_abs_diff": 0.0009765625,
+      "mean_abs_diff": 2.146698534488678e-07,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 1,
+      "max_abs_diff": 0.000244140625,
+      "mean_abs_diff": 7.450580596923828e-09,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 92,
+      "max_abs_diff": 0.0009765625,
+      "mean_abs_diff": 4.6670902520418167e-07,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 8,
+      "max_abs_diff": 0.0009765625,
+      "mean_abs_diff": 9.359791874885559e-08,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 27,
+      "max_abs_diff": 0.0009765625,
+      "mean_abs_diff": 1.5186378732323647e-07,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 6,
+      "max_abs_diff": 0.00048828125,
+      "mean_abs_diff": 5.21540641784668e-08,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    {
+      "shape": [
+        64,
+        512
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    }
+  ],
+  "token_ids": [
+    3476,
+    477,
+    260,
+    20255,
+    22896,
+    16,
+    47266,
+    270,
+    2502,
+    15255,
+    2019,
+    832,
+    436,
+    10340,
+    270,
+    2595,
+    294,
+    23256,
+    294,
+    260,
+    2310,
+    294,
+    18392,
+    339,
+    3465,
+    2595,
+    4731,
+    79316,
+    88287,
+    3395,
+    361,
+    3452,
+    438,
+    223,
+    18,
+    201,
+    361,
+    362,
+    1990,
+    295,
+    3785,
+    1137,
+    528,
+    3452,
+    7004,
+    1990,
+    201,
+    361,
+    1354,
+    3452,
+    271,
+    19462,
+    270,
+    37370,
+    2019,
+    305,
+    8470,
+    270,
+    15398,
+    16
+  ],
+  "input_sha256": {
+    "artifacts/logits-trace/native-20260914-145608-21879/encoder.layer0.attn_q.npy": "18d67c4953b906110eb404bbb1832db8e5edae624019f710693fde7e6a2a678e",
+    "artifacts/cpu-attention/run-20260914-160650-23333/trace/encoder.layer0.attn_q.npy": "c49ae3369d385648949e5c3413732fee4e3ba14f288f5ad78964c033b4f3ffa3",
+    "artifacts/logits-trace/native-20260914-145608-21879/encoder.layer0.attn_kv_quant.npy": "3b7f3c8c53bad54655e51981d7b097477ccdfa63ed29300d07d522526ccc2b3c",
+    "artifacts/cpu-attention/run-20260914-160650-23333/trace/encoder.layer0.attn_kv_quant.npy": "29c3792a1010af2f57cfccd56dfef29d82905178b3a61d834088a7d0ddb5cd78",
+    "artifacts/logits-trace/native-20260914-145608-21879/encoder.layer0.attn_o_raw.npy": "560f68ef80d5a0a20df5110893de9bc8f53e1742dfbafd7bb702c1154dd15aa0",
+    "artifacts/cpu-attention/run-20260914-160650-23333/trace/encoder.layer0.attn_o_raw.npy": "f95db31343676cf53b74d80fdd8475944027505f1510989758f3ccf56525287e"
+  },
+  "manifest_sha256": {
+    "artifacts/logits-trace/native-20260914-145608-21879/manifest.json": "892267f43326eaa4a574383ae7085ad23699998c7345489f4b2ea02ae3db393d",
+    "artifacts/cpu-attention/run-20260914-160650-23333/trace/manifest.json": "0d7c47f119fba8ede8ee67fcc680b68785debbdd36af01d438372c2dd3924961"
+  },
+  "source_sha256": {
+    "inference/model.py": "4e9ae23620edc8028ccc5d5fef552ab7fdc7dcd6f79608754fe9f67644056f65",
+    "inference/kernel.py": "1236c3507019ed176f5dba5e04bcea58867cf654818c6cf138ed4845398c2455",
+    "inference/config.json": "2e84f45cf1dac8c7fcbb200e96667d4b913275690668ed496f24c7747207a809"
+  },
+  "tensor_sha256": {
+    "layers.0.attn.attn_sink": "8017bf7692016398f5b28fee5afe99d3f2f3a54cb68fc66d86a5b7a58c241457"
+  },
+  "script_sha256": {
+    "/Volumes/SDXC-512/deepseek-v41-flash-mlx/tools/reference/diagnose_attention_q_effect.py": "832ff030b63c34735bf709a876658050e9e2fb127ad2cae340d5970a67c5b637",
+    "/Volumes/SDXC-512/deepseek-v41-flash-mlx/tools/reference/cpu_reference.py": "507871767d27a4421b5a9479d4b2b35b62a61048051cfc2da38a22fec561fb81",
+    "/Volumes/SDXC-512/deepseek-v41-flash-mlx/tools/reference/compare_traces.py": "db05df4f39dde964010cdd574afb368ef01e79192854433cc272e4c540976537"
+  },
+  "torch_version": "2.13.0",
+  "full_model_qualified": false
+}
