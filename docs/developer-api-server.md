@@ -89,6 +89,10 @@ After generation option coverage was added, the runner passed again at
 `max_tokens/temperature/seed` reached the explicit 501 backend response, while
 negative temperature returned 400.
 
+The server also rejects `max_tokens=0` and values above the current 262,144-token
+admission limit with HTTP 400. This limit is an admission guard, not a 256K
+qualification result; prompt tokens plus output reserve still require M4 testing.
+
 The zero-limit validation was then exercised at
 `artifacts/api-smoke/run-20260915-002902-32537/` (exit code 0). The complete
 status set was 501 for valid backend requests, 404 for an unknown model, and
