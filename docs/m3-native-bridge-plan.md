@@ -205,3 +205,13 @@ bash tools/benchmark/run_api_smoke.sh
 2026-09-15にこの構成を実行し、healthが`native-bridge`、chat/optionsが501、model
 未検出が404、入力制約が400となることを確認した。レビュー記録は
 `artifacts/api-smoke/native-bridge-reviewed-20260915.json`に保存した。
+
+配置確認を含むpreflightは次で実行できる。
+
+```sh
+bash tools/benchmark/run_native_bridge_preflight.sh
+```
+
+checkpoint/tokenizer/bridge libraryの存在を検査し、結果を
+`artifacts/api-smoke/preflight-.../`へ保存する。checkpointは変更せず、Cargo buildは
+起動しない。実runtime置換後も同じ入口でAPI lifecycleを再検証できる。
