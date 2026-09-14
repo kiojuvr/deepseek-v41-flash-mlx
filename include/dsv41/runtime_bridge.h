@@ -11,8 +11,14 @@ extern "C" {
 #endif
 
 #define DSV41_BRIDGE_ABI_VERSION 1u
+#define DSV41_BRIDGE_OK 0
+#define DSV41_BRIDGE_INVALID_ARGUMENT -1
+#define DSV41_BRIDGE_UNAVAILABLE -2
 
 typedef struct dsv41_bridge dsv41_bridge_t;
+
+dsv41_bridge_t *dsv41_bridge_create(uint32_t abi_version);
+void dsv41_bridge_destroy(dsv41_bridge_t *bridge);
 
 typedef struct {
     uint32_t abi_version;

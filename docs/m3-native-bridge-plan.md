@@ -33,3 +33,8 @@ tree・Cargo metadataを`artifacts/recipe/prepare-.../`へ保存する。取得�
 
 `include/dsv41/runtime_bridge.h`はこの契約のABIドラフトである。ABI実装とrecipe
 依存を有効化するまではdeveloper serverをRELEASEと呼ばない。
+
+`dsv41_runtime_bridge`は現在、ABI smoke用のunconnected shellを提供する。
+create/submit/destroyとinvalid argument検査を実装し、submitは推論を実行せず
+`runtime_unavailable` error eventを返す。native generationを返すbridgeへ置換する
+まで、このshellの成功をAPI inference成功として扱わない。
