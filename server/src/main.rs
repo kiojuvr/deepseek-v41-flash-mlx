@@ -12,6 +12,8 @@ mod backend;
 mod native;
 use backend::{GenerationOptions, RuntimeBackend, UnconnectedBackend};
 
+const MAX_QUALIFIED_OUTPUT_TOKENS: u32 = 262_144;
+
 #[derive(Clone)]
 struct AppState {
     model: Arc<String>,
@@ -82,6 +84,17 @@ async fn chat(
             StatusCode::BAD_REQUEST,
             Json(
                 json!({"error":{"message":"max_tokens must be greater than zero","type":"invalid_request_error"}}),
+            ),
+        );
+    }
+    if req
+        .max_tokens
+        .is_some_and(|v| v > MAX_QUALIFIED_OUTPUT_TOKENS)
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({"error":{"message":"max_tokens exceeds the current 256K admission limit","type":"invalid_request_error"}}),
             ),
         );
     }
