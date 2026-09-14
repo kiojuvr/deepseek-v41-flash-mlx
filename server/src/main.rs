@@ -77,6 +77,14 @@ async fn chat(
             ),
         );
     }
+    if req.max_tokens == Some(0) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({"error":{"message":"max_tokens must be greater than zero","type":"invalid_request_error"}}),
+            ),
+        );
+    }
     let options = GenerationOptions {
         max_tokens: req.max_tokens,
         temperature: req.temperature,
