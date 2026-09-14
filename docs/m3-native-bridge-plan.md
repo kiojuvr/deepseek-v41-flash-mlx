@@ -168,3 +168,8 @@ serverを`--features recipe-adapter`で起動し`DSV41_TOKENIZER`にtokenizer JS
 application stateの初期化時に一度だけtokenizerをロードする。HTTP requestはこのencoderで
 検証・encodingされ、失敗は`recipe_encoding_error` (400)として返る。encoding成功後も
 bridgeが未接続なら従来どおり`runtime_unavailable` (501)となる。
+
+`NativeRuntimeBackend`はrecipe encoding済みのtoken列、`max_tokens`、`temperature`、
+`seed`をC ABIへ渡し、TOKEN eventを収集するfeature-gated実装である。現在のC++ shellは
+unavailableを返すため、接続テストは501境界の確認に留まる。実モデルbridgeへ昇格する
+前に、event終端・usage・cancelの統合テストを追加する。
