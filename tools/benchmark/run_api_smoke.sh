@@ -65,6 +65,8 @@ assert (r/'max-tokens-400.status').read_text().strip() == '400'
 assert (r/'max-tokens-limit-400.status').read_text().strip() == '400'
 if os.environ['DSV41_EXPECTED_RUNTIME'] == 'native-bridge':
     assert (r/'context-limit-400.status').read_text().strip() == '400'
+    context=json.loads((r/'context-limit-400.json').read_text())
+    assert context['error']['code'] == 'context_length_exceeded'
 print('PASS: developer API smoke contract')
 PY
 echo "API smoke completed: $run_dir"
