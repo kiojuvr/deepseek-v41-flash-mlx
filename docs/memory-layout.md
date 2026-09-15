@@ -2,6 +2,10 @@
 
 状態: M0の契約を維持し、M1のstatic accountingと実機budgetを[checkpoint atlas report](checkpoint-atlas.md)で確定した。実機のphysical memoryは512 GiB、Metal推奨working setは464 GiB。runtimeが全量を予約できる意味ではない。GBは10^9 bytes、GiBは2^30 bytes、MiBは2^20 bytes。本projectの1K tokensは1,024 tokens。
 
+## 外部実測との比較（2026-09-13）
+
+ユーザー報告のomlx peakは32K–200Kで292.82–292.96 GB（報告表記）。omlxのadmin benchmarkは`mx.get_peak_memory()`を取得し、表示時に`1024**3`で割るため、この経路なら実単位はGiBでありMLX allocationの指標となる。元の測定経路は未確認。M1の307.528 GBというstatic weights集計や、process physical footprint / OS file cache込みの総予算へ直接置換しない。比較時はraw bytes、Engram residency、DSpark / visionのload範囲、load peak、file-backed resident、swapを対応付ける。[baseline](omlx-baseline.md)を参照。
+
 ## Residency
 
 | 領域 | 配置 | 方針 |

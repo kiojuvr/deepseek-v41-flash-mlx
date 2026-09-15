@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <cstdlib>
 namespace mx=mlx::core;
 int main(int argc,char** argv){try{
  if(argc<5||argc>8)throw std::runtime_error("usage: dsv41-text-generate checkpoint m1-summary metadata max-new [temperature] [seed] [tokens-file]");
@@ -22,6 +23,24 @@ int main(int argc,char** argv){try{
  else prompt={0,42,1000,42};
  dsv41::SamplingConfig config{temperature,seed};
  auto result=generator.generate(prompt,max_new,config);
+ if(std::getenv("DSV41_CHECK_GENERATION_LIFECYCLE")){
+  if(max_new<2)throw std::runtime_error("lifecycle check requires max-new >= 2");
+  auto require=[](bool ok){if(!ok)throw std::runtime_error("model generation lifecycle mismatch");};
+  dsv41::GenerationControl cancelled;
+  cancelled.is_cancelled=[]{return true;};
+  auto early=generator.generate(prompt,max_new,config,{},cancelled);
+  require(early.cancelled && early.tokens.empty() && early.next_position==prompt.size());
+  cancelled.is_cancelled={};
+  cancelled.on_token=[&](auto token,auto index){require(index==0 && token==result.tokens.at(0));return false;};
+  auto partial=generator.generate(prompt,max_new,config,{},cancelled);
+  require(partial.cancelled && partial.tokens.size()==1 && partial.next_position==prompt.size()+1);
+  std::vector<std::uint32_t> observed;
+  dsv41::GenerationControl streamed;
+  streamed.on_token=[&](auto token,auto index){require(index==observed.size());observed.push_back(token);return true;};
+  auto replay=generator.generate(prompt,max_new,config,{},streamed);
+  require(observed==result.tokens && replay.tokens==result.tokens && !replay.cancelled && !replay.stopped && replay.next_position==result.next_position);
+  std::cout<<"PASS: full-model callback parity, cancellation, and fresh request after cancellation"<<std::endl;
+ }
  std::cout<<"prompt_tokens: ";for(std::size_t i=0;i<prompt.size();++i)std::cout<<(i?" ":"")<<prompt[i];std::cout<<std::endl;
  std::cout<<"generated:";for(auto token:result.tokens)std::cout<<" "<<token;std::cout<<std::endl;
  std::cout<<"next_position: "<<result.next_position<<" stopped: "<<(result.stopped?"true":"false")<<std::endl;

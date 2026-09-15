@@ -41,4 +41,4 @@ completion markerに記録されたprobe全体のwall timeはmmapで1.310–1.32
 
 このrunでは実際の所要時間は短かった。今後も予想所要時間に応じて運用し、数分以上かかる見込みの検証はユーザー実行にする。今回の結果を得るための再実行は不要。
 
-次はM2のEngram projection / gate / convolution / residualと、token→logitsのlocal reference接続を優先する。mmapとpreadのexactな読み出しを維持し、lookup単独の追加最適化は先行しない。backboneをloadしたfull pathができた段階で、memory pressure、実入力、SSD missを含むstall、長context後半のTPTを測る。本結果によるperformance promotion、M4 / M5完了判定は行わない。
+次はM2のEngram projection / gate / residualと、token→logitsのlocal reference接続を優先する。2026-09-12のsource追跡で、以前この箇所に記載したconvolutionは本snapshotに存在しないと確認し訂正した。[native forwardの進捗](engram-forward.md)を参照。mmapとpreadのexactな読み出しを維持し、lookup単独の追加最適化は先行しない。backboneをloadしたfull pathができた段階で、memory pressure、実入力、SSD missを含むstall、長context後半のTPTを測る。本結果によるperformance promotion、M4 / M5完了判定は行わない。

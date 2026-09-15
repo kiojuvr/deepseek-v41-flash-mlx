@@ -1,0 +1,101 @@
+#include "dsv41/text_encoder.hpp"
+#include "dsv41/layer_owner.hpp"
+#include <stdexcept>
+namespace dsv41 {
+namespace mx=mlx::core;
+namespace {
+std::shared_ptr<const EngramMetadata> validate(std::shared_ptr<const EngramMetadata> m){
+ if(!m||m->layer_ids!=std::vector<std::uint64_t>{1,14})throw std::runtime_error("invalid encoder Engram metadata");
+ return m;
+}
+int producer_slot(int layer){
+ if(layer==2)return 0;
+ if(layer==8)return 1;
+ if(layer==14)return 2;
+ throw std::runtime_error("invalid encoder producer layer");
+}
+int reuse_slot(int layer){
+ if(layer>=3&&layer<=7)return layer-3;
+ if(layer>=9&&layer<=13)return layer-9+5;
+ if(layer>=15&&layer<=19)return layer-15+10;
+ throw std::runtime_error("invalid encoder reuse layer");
+}
+}
+void TextEncoderState::reset(){
+ hash.reset();for(auto& s:swa)s.reset();for(auto& s:producer)s.reset();for(auto& s:reuse)s.reset();
+}
+TextEncoderReference::TextEncoderReference(WeightCatalog& c,std::shared_ptr<const EngramMetadata> m)
+ :metadata_(validate(std::move(m))),entry_(c),
+  engram1_(c,*metadata_,0,1e-20f,EngramReadMode::Mmap),engram14_(c,*metadata_,1,1e-20f,EngramReadMode::Mmap){
+ swa_[0]=std::make_unique<BlockReference>(c,0);
+ swa_[1]=std::make_unique<BlockReference>(c,1);
+ producer_[0]=std::make_unique<CompressedBlockReference>(c,2);
+ producer_[1]=std::make_unique<CompressedBlockReference>(c,8);
+ producer_[2]=std::make_unique<CompressedBlockReference>(c,14);
+ for(int layer=0;layer<20;++layer){
+  if(layer<=1||layer==2||layer==8||layer==14)continue;
+  reuse_[reuse_slot(layer)]=std::make_unique<ReusedBlockReference>(c,layer);
+ }
+}
+BlockResult TextEncoderReference::forward(std::span<const std::uint32_t> ids,TextEncoderState& state,std::uint64_t start,TraceSink* trace) const{
+ if(state.metadata!=metadata_||state.hash.position()!=start||
+    state.swa[0].position()!=start||state.swa[1].position()!=start||
+    ids.empty()||ids.size()>128||start>=1048576||ids.size()>1048576-start)throw std::runtime_error("invalid encoder request state");
+ for(int i=0;i<3;++i)if(state.producer[i].position()!=start)throw std::runtime_error("invalid encoder producer position");
+ for(auto& s:state.reuse)if(s.position()!=start)throw std::runtime_error("invalid encoder reuse position");
+ for(auto id:ids)if(id>=129280||id==129264)throw std::runtime_error("encoder reference requires text token IDs");
+ set_active_trace_sink(trace);
+ auto next=state;std::vector<mx::array> hidden,pre;
+ std::array<std::vector<mx::array>,20> layer_hidden,layer_pre;
+ std::vector<mx::array> entry_hidden,entry_pre;
+ auto capture=[&](int layer,const BlockResult& r){layer_hidden[layer].push_back(r.hidden);layer_pre[layer].push_back(r.pre_mix);};
+ for(std::size_t t=0;t<ids.size();++t){
+  auto token=ids.subspan(t,1);
+  std::uint64_t pos=start+t;
+  set_route_trace_token(pos);
+  auto hashes=next.hash.append(token,{},pos);
+  if(hashes.size()!=48)throw std::runtime_error("unexpected encoder Engram hash width");
+  auto entry=entry_.forward(token);
+  if(trace){entry_hidden.push_back(entry.hidden);entry_pre.push_back(entry.pre_mix);}
+  // Layer 0: pure SWA.
+  auto h=swa_[0]->forward(entry.hidden,entry.pre_mix,next.swa[0],pos);capture(0,h);
+  // Layer 1: Engram then pure SWA.
+  auto e1=engram1_.forward(h.hidden,std::span<const std::uint64_t>(hashes).first(24));
+  h=swa_[1]->forward(e1.output,h.pre_mix,next.swa[1],pos);capture(1,h);
+  // Layer 2: compressed producer, then layers 3..7 reuse its publication.
+  h=producer_[0]->forward(h.hidden,h.pre_mix,next.producer[0],pos);capture(2,h);
+  for(int layer=3;layer<=7;++layer){
+   auto& pub=next.producer[producer_slot(2)].publication();
+   if(!pub)throw std::runtime_error("missing encoder publication layer 2");
+   h=reuse_[reuse_slot(layer)]->forward(h.hidden,h.pre_mix,next.reuse[reuse_slot(layer)],*pub,pos);capture(layer,h);
+  }
+  // Layer 8: compressed producer, then layers 9..13 reuse.
+  h=producer_[1]->forward(h.hidden,h.pre_mix,next.producer[1],pos);capture(8,h);
+  for(int layer=9;layer<=13;++layer){
+   auto& pub=next.producer[producer_slot(8)].publication();
+   if(!pub)throw std::runtime_error("missing encoder publication layer 8");
+   h=reuse_[reuse_slot(layer)]->forward(h.hidden,h.pre_mix,next.reuse[reuse_slot(layer)],*pub,pos);capture(layer,h);
+  }
+  // Layer 14: Engram then compressed producer, then layers 15..19 reuse.
+  auto e14=engram14_.forward(h.hidden,std::span<const std::uint64_t>(hashes).subspan(24,24));
+  h=producer_[2]->forward(e14.output,h.pre_mix,next.producer[2],pos);capture(14,h);
+  for(int layer=15;layer<=19;++layer){
+   auto& pub=next.producer[producer_slot(14)].publication();
+   if(!pub)throw std::runtime_error("missing encoder publication layer 14");
+   h=reuse_[reuse_slot(layer)]->forward(h.hidden,h.pre_mix,next.reuse[reuse_slot(layer)],*pub,pos);capture(layer,h);
+  }
+  hidden.push_back(h.hidden);pre.push_back(h.pre_mix);
+ }
+ if(trace){
+  trace->record("encoder.entry.hidden",mx::concatenate(entry_hidden,0));
+  trace->record("encoder.entry.pre_mix",mx::concatenate(entry_pre,0));
+  for(int layer=0;layer<20;++layer){
+   auto name=[&](const char* suffix){return "encoder.layer"+std::to_string(layer)+"."+suffix;};
+   trace->record(name("hidden"),mx::concatenate(layer_hidden[layer],0));
+   trace->record(name("pre_mix"),mx::concatenate(layer_pre[layer],0));
+  }
+ }
+ BlockResult result{mx::concatenate(hidden,0),mx::concatenate(pre,0)};
+ mx::eval(result.hidden,result.pre_mix);set_active_trace_sink(nullptr);state=std::move(next);return result;
+}
+}

@@ -36,7 +36,7 @@ weightとscaleは離れたtensor領域にある。各領域が1 pageに収まっ
 - `EngramStore`: 最大4,096 rows / gather（packed約1.03 MiB）。mmap / preadの両方が同じowned packed bytesを返す。mmapのviewはmappingとfdの寿命を共有し、catalog破棄後も有効。
 - `engram_lookup_mlx`: packed bytesをMLX所有arrayへコピーし、Metalで公式のFP32 multiply → BF16と一致するbit列へ復元する。整数演算でsubnormalも保持する。full backingをGPU bufferにせず、GPU consumerの入力寿命をgraphに持たせる。
 
-Engramのprojection、gate、short convolution、残差への接続はまだない。このMetal kernelはreference接続に必要な実装で、speedupによるpromotion対象ではない。64 GiBのworking-set予算はOS cacheへの計画上の余裕であり、runtimeが設定できるhard capではない。
+2026-09-12追記: [native forward](engram-forward.md)でprojection・gate・residualを接続したが、公式gateとの数値差が残るため未qualified。以前記載したshort convolutionは公式の本snapshotには存在せず、訂正する。Metal kernelはreference接続に必要な実装で、speedupによるpromotion対象ではない。64 GiBのworking-set予算はOS cacheへの計画上の余裕であり、runtimeが設定できるhard capではない。
 
 ## 確認済みの証拠
 

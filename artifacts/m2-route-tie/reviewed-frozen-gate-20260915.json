@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "status": "reviewed_diagnostic",
+  "native_source_run": "artifacts/m2-route-tie/run-20260915-162023-52563",
+  "omlx_run": "artifacts/m2-route-tie/frozen-gate-20260915-163847-52834",
+  "official_torch_cpu_run": "artifacts/m2-route-tie/official-frozen-gate-20260915-164059-52892",
+  "exit_codes": {"omlx": 0, "official_torch_cpu": 0},
+  "layer": 8,
+  "token": 14,
+  "token_id": 270,
+  "boundary_ids_stable_score_order": [104, 117],
+  "score_bits": 1095107359,
+  "score": 12.375761985778809,
+  "native_selected_sixth": 104,
+  "omlx_mx_argsort_selected_sixth": 104,
+  "official_torch_2_13_cpu_topk_selected_sixth": 117,
+  "conclusion": "Frozen-input score arithmetic and the exact tie agree. Native deterministic lowest-ID and pinned oMLX select 104; official Gate.forward on torch 2.13 CPU selects 117. torch topk does not specify tie ordering, so the CPU observation is not generalized to CUDA or future versions. The canonical MLX policy remains explicit lowest-ID and the cross-framework discrete difference remains recorded.",
+  "qualified": {
+    "canonical_mlx_determinism": true,
+    "official_cuda_tie_policy": false,
+    "portable_torch_tie_policy": false,
+    "m2_by_this_fixture_alone": false,
+    "performance": false,
+    "context_256k": false
+  }
+}

@@ -1,0 +1,684 @@
+{
+  "scope": "CPU RMSNorm on frozen native Q; no routing/logits/CUDA qualification",
+  "stages": {
+    "variance": {
+      "shape": [
+        76,
+        1
+      ],
+      "native_dtype": "float32",
+      "oracle_dtype": "float32",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 33,
+      "max_abs_diff": 137438953472.0,
+      "mean_abs_diff": 4521018368.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    "adjusted": {
+      "shape": [
+        76,
+        1
+      ],
+      "native_dtype": "float32",
+      "oracle_dtype": "float32",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 23,
+      "max_abs_diff": 137438953472.0,
+      "mean_abs_diff": 4521018368.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    "inv": {
+      "shape": [
+        76,
+        1
+      ],
+      "native_dtype": "float32",
+      "oracle_dtype": "float32",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 11,
+      "max_abs_diff": 512.0,
+      "mean_abs_diff": 20.21053123474121,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    "normalized": {
+      "shape": [
+        76,
+        1280
+      ],
+      "native_dtype": "float32",
+      "oracle_dtype": "float32",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 13643,
+      "max_abs_diff": 4.76837158203125e-07,
+      "mean_abs_diff": 1.2833184293015165e-08,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    "weighted": {
+      "shape": [
+        76,
+        1280
+      ],
+      "native_dtype": "float32",
+      "oracle_dtype": "float32",
+      "dtype_mismatch": false,
+      "exact_bits": false,
+      "bit_mismatch_count": 13122,
+      "max_abs_diff": 9.5367431640625e-07,
+      "mean_abs_diff": 1.231221435915586e-08,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    }
+  },
+  "substitutions": {
+    "inv_rsqrt_on_native_adjusted": {
+      "shape": [
+        76,
+        1
+      ],
+      "native_dtype": "float32",
+      "oracle_dtype": "float32",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    "inv_sqrt_on_native_adjusted": {
+      "shape": [
+        76,
+        1
+      ],
+      "native_dtype": "float32",
+      "oracle_dtype": "float32",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    "normalized_on_native_inv": {
+      "shape": [
+        76,
+        1280
+      ],
+      "native_dtype": "float32",
+      "oracle_dtype": "float32",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    "weighted_on_native_normalized": {
+      "shape": [
+        76,
+        1280
+      ],
+      "native_dtype": "float32",
+      "oracle_dtype": "float32",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    "cast_native_weighted_vs_native_qr": {
+      "shape": [
+        76,
+        1280
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    "cpu_output_vs_native_qr": {
+      "shape": [
+        76,
+        1280
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    },
+    "cpu_output_on_native_inv_vs_native_qr": {
+      "shape": [
+        76,
+        1280
+      ],
+      "native_dtype": "bfloat16",
+      "oracle_dtype": "bfloat16",
+      "dtype_mismatch": false,
+      "exact_bits": true,
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0,
+      "nonfinite_native": 0,
+      "nonfinite_oracle": 0,
+      "argmax_equal": true
+    }
+  },
+  "examples": [],
+  "per_sample": [
+    {
+      "sample": "zero",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "constant/-60",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "alternating/-60",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "sparse/-60",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-60/0",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-60/1",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-60/2",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-60/3",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-60/4",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-60/5",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "constant/-34",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "alternating/-34",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "sparse/-34",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-34/0",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-34/1",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-34/2",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-34/3",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-34/4",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-34/5",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "constant/-33",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "alternating/-33",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "sparse/-33",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-33/0",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-33/1",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-33/2",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-33/3",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-33/4",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-33/5",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "constant/-32",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "alternating/-32",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "sparse/-32",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-32/0",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-32/1",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-32/2",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-32/3",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-32/4",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-32/5",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "constant/-10",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "alternating/-10",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "sparse/-10",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-10/0",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-10/1",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-10/2",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-10/3",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-10/4",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/-10/5",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "constant/0",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "alternating/0",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "sparse/0",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/0/0",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/0/1",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/0/2",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/0/3",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/0/4",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/0/5",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "constant/10",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "alternating/10",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "sparse/10",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/10/0",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/10/1",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/10/2",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/10/3",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/10/4",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/10/5",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "constant/30",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "alternating/30",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "sparse/30",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/30/0",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/30/1",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/30/2",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/30/3",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/30/4",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "normal/30/5",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "neighbor/-1",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "neighbor/0",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    },
+    {
+      "sample": "neighbor/1",
+      "bit_mismatches": 0,
+      "max_bf16_ulp": 0,
+      "max_abs": 0.0
+    }
+  ],
+  "max_bf16_ulp": 0,
+  "input_sha256": {
+    "encoder.layer0.qnorm_variance.npy": "c475e19067181ee4474e731ca353c1b5f3386f7f25bd99c6bd7014eac8946dfa",
+    "encoder.layer0.qnorm_inv.npy": "2b4ebc168682f25fd048606bc46b908eb4018886f2ea6d985b816b02621f8d3c",
+    "encoder.layer0.qnorm_adjusted.npy": "d870b45f0889838c64428e7ea24a161ed782a9f2667fab3dc0bf91aeae5a8331",
+    "encoder.layer0.attn_qr.npy": "15db8f22c3e710c00e2ad8b126df70071f545da4d6f24efbb9a14c5efc9349e0",
+    "encoder.layer0.qnorm_weighted.npy": "6504cbc8e12dd2139c3e1a7f51536b8a875f097648a5b9b326641a98bbd12cac",
+    "manifest.json": "66929eaeb531fbe1e6efceace274486a94946c767a85c848fd775cbd89ddd3d3",
+    "encoder.layer0.attn_qa.npy": "47da681174d42ac907e70702fe1cbc4b495f4d80fc40a0d901deef43bf9d41c2",
+    "encoder.layer0.qnorm_normalized.npy": "04851c059ea02d0477e7b8a3a2b10487efb2e56da04930ebc9fe1a387c70d789"
+  },
+  "source_sha256": {
+    "inference/model.py": "4e9ae23620edc8028ccc5d5fef552ab7fdc7dcd6f79608754fe9f67644056f65",
+    "inference/kernel.py": "1236c3507019ed176f5dba5e04bcea58867cf654818c6cf138ed4845398c2455",
+    "inference/config.json": "2e84f45cf1dac8c7fcbb200e96667d4b913275690668ed496f24c7747207a809"
+  },
+  "tensor_sha256": {
+    "layers.0.attn.q_norm.weight": "bc33729956bf59c4c8cedeee3583e2c1e12415f42ea5653d7137c6f16226fc28"
+  },
+  "script_sha256": {
+    "/Volumes/SDXC-512/deepseek-v41-flash-mlx/tools/reference/diagnose_qnorm_stages.py": "3dcfbe24c86064b600bd565321e2f9495f2d7700812e7080741caff7d26dc8e2",
+    "/Volumes/SDXC-512/deepseek-v41-flash-mlx/tools/reference/cpu_reference.py": "507871767d27a4421b5a9479d4b2b35b62a61048051cfc2da38a22fec561fb81",
+    "/Volumes/SDXC-512/deepseek-v41-flash-mlx/tools/reference/compare_traces.py": "db05df4f39dde964010cdd574afb368ef01e79192854433cc272e4c540976537"
+  },
+  "torch_version": "2.13.0",
+  "full_model_qualified": false
+}

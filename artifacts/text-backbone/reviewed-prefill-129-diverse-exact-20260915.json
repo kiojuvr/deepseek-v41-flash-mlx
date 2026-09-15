@@ -1,0 +1,41 @@
+{
+  "status": "reviewed_local_prefill_129_diverse_bitwise_exact_pass",
+  "run": "artifacts/text-backbone/run-20260915-155222-51768",
+  "revision": "a961c22edaeabcb4ef9bc9e23acf5b26aa5bffd7",
+  "exit_code": 0,
+  "prompt": {
+    "tokens": 129,
+    "source_pattern_tokens": 60,
+    "unique_token_ids": 45,
+    "cycle_matches_source": true,
+    "sha256": "a1bf42b8251401d3b20937e14086c3c8fcdbbb3ede1f4da7a6b69ecebd83a626"
+  },
+  "comparison": {
+    "chunk_schedule": [128, 1],
+    "serial_schedule": "129 calls of one token",
+    "per_token_hidden_bits_equal": true,
+    "per_token_pre_mix_bits_equal": true,
+    "final_logits_bits_equal": true,
+    "public_state_bits_equal": true,
+    "continuation_bits_equal": true,
+    "fork_preserves_source_state": true,
+    "reset_reproduces_chunk_result": true,
+    "invalid_tokens_rejected_without_state_change": true,
+    "aggregate_route_tie_count_across_all_passes": 3,
+    "route_tie_records_compared_between_schedules": false
+  },
+  "identity": {
+    "checked_entries": 11,
+    "all_match_at_review": true,
+    "identity_sha256": "f3afb3a9ac6b817b90dbe3761012297b70a1301a6acb983e1928b711008ad334",
+    "tracked_patch_sha256": "a9e5796aa30f7e8b71d674e0393b3b05934956e1c4db3f28f8a4982e6193c40f"
+  },
+  "sha256": {
+    "build.log": "9ea243ab65f3ac3aa3320a8ca7da5baf3589587f1c927cfdadcd2ffdefa53bd0",
+    "command.txt": "d850a35e48229894f96524775a16c54734d2a3e1d251634117128ce5780253c2",
+    "prompt-build.log": "b3780e9a8434b001108683db970b2ed32bc3d9f8818959cf1948a4f97e74a6de",
+    "test.log": "7ae71a49d4ef656fee5a0fd883d5192a248e5e1144d7efae508a1caf5bb3dd55"
+  },
+  "scope": "Diverse 129-token local MLX schedule/state bitwise evidence. The aggregate route-tie count is recorded but individual tie boundaries were not yet compared. This is not external oracle equality, optimized production promotion, performance/peak-memory evidence, or 256K qualification.",
+  "m2_full_exit": false
+}

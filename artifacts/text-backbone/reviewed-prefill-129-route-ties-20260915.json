@@ -1,0 +1,47 @@
+{
+  "status": "reviewed_local_prefill_129_route_records_exact_pass",
+  "run": "artifacts/text-backbone/run-20260915-161212-52162",
+  "revision": "a961c22edaeabcb4ef9bc9e23acf5b26aa5bffd7",
+  "exit_code": 0,
+  "prompt": {
+    "tokens": 129,
+    "source_pattern_tokens": 60,
+    "unique_token_ids": 45,
+    "cycle_matches_source": true,
+    "sha256": "a1bf42b8251401d3b20937e14086c3c8fcdbbb3ede1f4da7a6b69ecebd83a626"
+  },
+  "comparison": {
+    "chunk_schedule": [128, 1],
+    "serial_schedule": "129 calls of one token",
+    "per_token_hidden_and_pre_mix_bits_equal": true,
+    "final_logits_bits_equal": true,
+    "public_state_bits_equal": true,
+    "continuation_fork_reset_exact": true,
+    "route_tie_records_equal_between_chunk_serial_and_reset": true,
+    "canonical_route_ties": [
+      {
+        "layer": 8,
+        "token": 14,
+        "sixth_id": 104,
+        "seventh_id": 117,
+        "sixth_score_bits": 1095107359,
+        "seventh_score_bits": 1095107359,
+        "score_float32": 12.375761985778809
+      }
+    ]
+  },
+  "identity": {
+    "checked_entries": 11,
+    "all_match_at_review": true,
+    "identity_sha256": "9d18bc11aa5764f80ad9e1753ae7d972a14325aa6c4fa411b406f0f2b32f6e28",
+    "tracked_patch_sha256": "a9e5796aa30f7e8b71d674e0393b3b05934956e1c4db3f28f8a4982e6193c40f"
+  },
+  "sha256": {
+    "build.log": "9ea243ab65f3ac3aa3320a8ca7da5baf3589587f1c927cfdadcd2ffdefa53bd0",
+    "command.txt": "bdab6a99a1611ecd51926194fb8624bd145d53a5b374b263fad154a8f3ebbf63",
+    "prompt-build.log": "b3780e9a8434b001108683db970b2ed32bc3d9f8818959cf1948a4f97e74a6de",
+    "test.log": "8ca67c63a72495c98ada07406020c1f6f912d3979a15d9da71514f5dd644ec01"
+  },
+  "scope": "Local MLX schedule/state and routing-discrete-decision exactness across chunk, serial, and reset paths. The chosen lowest-ID tie policy is not specified by the official torch.topk expression and remains unqualified pending external diagnostic evidence or an explicit policy contract.",
+  "m2_full_exit": false
+}

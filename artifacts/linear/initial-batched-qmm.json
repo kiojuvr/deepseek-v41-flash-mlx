@@ -1,0 +1,103 @@
+{
+  "full_model_qualified": false,
+  "manifest_sha256": "25b82f1415af527e1594e0d3254a1aedae8b42dec9fea32aee4032c92db93491",
+  "official_cuda_executed": false,
+  "omlx_comparison_sha256": "42c553f7cd2b94c3a963e77674edf7dd02579f0d5b5e1411935bf0cf9f0a4eef",
+  "optimized_path_promoted": false,
+  "partial_threadgroups_exact": true,
+  "runs": [
+    {
+      "activation_exact": true,
+      "cpu_block_reference": {
+        "bit_mismatches": 1,
+        "elements": 12800,
+        "first_mismatch": {
+          "actual_bits": 13830,
+          "expected_bits": 13831,
+          "index": 3868
+        },
+        "max_abs": 1.4901161193847656e-08,
+        "max_bf16_ulp": 1
+      },
+      "invalid_inputs_rejected": true,
+      "owner_destroyed_before_evaluation": true,
+      "prefix": "layers.0.attn.wq_a",
+      "repack_exact": true,
+      "same_input_omlx_qmm": {
+        "bit_mismatches": 0,
+        "elements": 12800,
+        "first_mismatch": null,
+        "max_abs": 0.0,
+        "max_bf16_ulp": 0
+      },
+      "tokenwise_vs_batch": {
+        "bit_mismatches": 1,
+        "elements": 12800,
+        "first_mismatch": {
+          "actual_bits": 13831,
+          "expected_bits": 13830,
+          "index": 3868
+        },
+        "max_abs": 1.4901161193847656e-08,
+        "max_bf16_ulp": 1
+      }
+    },
+    {
+      "activation_exact": true,
+      "cpu_block_reference": {
+        "bit_mismatches": 0,
+        "elements": 23040,
+        "first_mismatch": null,
+        "max_abs": 0.0,
+        "max_bf16_ulp": 0
+      },
+      "invalid_inputs_rejected": true,
+      "owner_destroyed_before_evaluation": true,
+      "prefix": "layers.0.ffn.experts.0.w1",
+      "repack_exact": true,
+      "same_input_omlx_qmm": {
+        "bit_mismatches": 0,
+        "elements": 23040,
+        "first_mismatch": null,
+        "max_abs": 0.0,
+        "max_bf16_ulp": 0
+      },
+      "tokenwise_vs_batch": {
+        "bit_mismatches": 0,
+        "elements": 23040,
+        "first_mismatch": null,
+        "max_abs": 0.0,
+        "max_bf16_ulp": 0
+      }
+    },
+    {
+      "activation_exact": true,
+      "cpu_block_reference": {
+        "bit_mismatches": 0,
+        "elements": 51200,
+        "first_mismatch": null,
+        "max_abs": 0.0,
+        "max_bf16_ulp": 0
+      },
+      "invalid_inputs_rejected": true,
+      "owner_destroyed_before_evaluation": true,
+      "prefix": "layers.0.ffn.experts.0.w2",
+      "repack_exact": true,
+      "same_input_omlx_qmm": {
+        "bit_mismatches": 0,
+        "elements": 51200,
+        "first_mismatch": null,
+        "max_abs": 0.0,
+        "max_bf16_ulp": 0
+      },
+      "tokenwise_vs_batch": {
+        "bit_mismatches": 0,
+        "elements": 51200,
+        "first_mismatch": null,
+        "max_abs": 0.0,
+        "max_bf16_ulp": 0
+      }
+    }
+  ],
+  "status": "numerical_mismatch"
+}

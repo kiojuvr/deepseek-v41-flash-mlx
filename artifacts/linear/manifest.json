@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "revision": "dba1be0a40aa45a94ad051997016db3960a90277",
+  "source_sha256": {
+    "inference/model.py": "4e9ae23620edc8028ccc5d5fef552ab7fdc7dcd6f79608754fe9f67644056f65",
+    "inference/kernel.py": "1236c3507019ed176f5dba5e04bcea58867cf654818c6cf138ed4845398c2455"
+  },
+  "exporter_sha256": "7406ad548a0505e97a28928ace77f5e376d956532d8f4cb2464c6e8e9364975f",
+  "torch_version": "2.13.0",
+  "entry_manifest_sha256": "092b6e541456eb4b649b42856f2c1c38b3118514c8d8a61190a7b8dcefe7baf2",
+  "scope": "Real FP8/FP4 weights; official-formula CPU activation/block-GEMM transcription. CUDA kernels not executed.",
+  "cases": [
+    {
+      "tag": "case-0",
+      "prefix": "layers.0.attn.wq_a",
+      "bits": 8,
+      "tokens": 10,
+      "input_dims": 5120,
+      "output_dims": 1280,
+      "storage_shape": [
+        1280,
+        5120
+      ],
+      "scale_shape": [
+        40,
+        160
+      ],
+      "storage_dtype": "F8_E4M3",
+      "packed_weight_sha256": "d75dd17b5fd33533ab8269412e23c01a44314fd719b8e0d274cd437b3f125af7",
+      "expanded_scale_sha256": "bfdac4b70603ce4fd9a01f4e21b549c4b1ca31bfcdd430927f0552aab0110d81"
+    },
+    {
+      "tag": "case-1",
+      "prefix": "layers.0.ffn.experts.0.w1",
+      "bits": 4,
+      "tokens": 10,
+      "input_dims": 5120,
+      "output_dims": 2304,
+      "storage_shape": [
+        2304,
+        2560
+      ],
+      "scale_shape": [
+        2304,
+        160
+      ],
+      "storage_dtype": "I8",
+      "packed_weight_sha256": "84c55fa21fcbf91d97372c49ab1556220d50fd613219b9fe975da493e071d9a4",
+      "expanded_scale_sha256": "4df334ae5e4ade9cc3930a2bdc1037f11c86c2d9e983265a2b99fc934523f124"
+    },
+    {
+      "tag": "case-2",
+      "prefix": "layers.0.ffn.experts.0.w2",
+      "bits": 4,
+      "tokens": 10,
+      "input_dims": 2304,
+      "output_dims": 5120,
+      "storage_shape": [
+        5120,
+        1152
+      ],
+      "scale_shape": [
+        5120,
+        72
+      ],
+      "storage_dtype": "I8",
+      "packed_weight_sha256": "45bf4d6f7d2c9e6b6bd6b12e8cafcbae83dca2b769061c6c952ee9274df77079",
+      "expanded_scale_sha256": "2952c7e29c793783ce608363d9cc81149821a94e8f5d988fd2591c4730f18a17"
+    }
+  ],
+  "fixture_sha256": {
+    "case-0-weight.raw": "d75dd17b5fd33533ab8269412e23c01a44314fd719b8e0d274cd437b3f125af7",
+    "case-0-scale.raw": "3255c77dccd9bd2a2932f44b3f3ca3901d5fa1a3c2d05b7455605ebd2691710d",
+    "case-0-input.bf16": "7ddafa5b98a5b3e7dbb71291a3065eaa2f16c33d89ec8dbbc6b9ebccdeb38a8d",
+    "case-0-quant.u8": "6a497779cf142de1abfc72b19f8756bf8e7eebf9a38e947106cd5bb9c1baed1b",
+    "case-0-activation-scale.u8": "a8c434db989c3b72205f36ce7e4d2876f919df950fd0f6d186ee124a9c7bee6c",
+    "case-0-decoded.bf16": "71d6157635c00af5375b490c4b5b85f5b5670345b6a60f8ec04a4b5a7eb0de8f",
+    "case-0-cpu-projection.bf16": "abdc508a38dee20ff90b36b26a21c319105d5bb82e6c29400632826f89262509",
+    "case-1-weight.raw": "84c55fa21fcbf91d97372c49ab1556220d50fd613219b9fe975da493e071d9a4",
+    "case-1-scale.raw": "4df334ae5e4ade9cc3930a2bdc1037f11c86c2d9e983265a2b99fc934523f124",
+    "case-1-input.bf16": "7ddafa5b98a5b3e7dbb71291a3065eaa2f16c33d89ec8dbbc6b9ebccdeb38a8d",
+    "case-1-quant.u8": "6a497779cf142de1abfc72b19f8756bf8e7eebf9a38e947106cd5bb9c1baed1b",
+    "case-1-activation-scale.u8": "a8c434db989c3b72205f36ce7e4d2876f919df950fd0f6d186ee124a9c7bee6c",
+    "case-1-decoded.bf16": "71d6157635c00af5375b490c4b5b85f5b5670345b6a60f8ec04a4b5a7eb0de8f",
+    "case-1-cpu-projection.bf16": "ef52126a2899a4b86f9b4341395c9e18df9af96379200421945a44fec3f10d46",
+    "case-2-weight.raw": "45bf4d6f7d2c9e6b6bd6b12e8cafcbae83dca2b769061c6c952ee9274df77079",
+    "case-2-scale.raw": "2952c7e29c793783ce608363d9cc81149821a94e8f5d988fd2591c4730f18a17",
+    "case-2-input.bf16": "65230859518cf605849f9f79accfcbf97a967cca15be18dfba0b0eddc223b64e",
+    "case-2-quant.u8": "534454e40a596c0abeaf8615467398bc761c3cc9f182daad9428d93aad670329",
+    "case-2-activation-scale.u8": "738fea144db5d98acdc3b01f0ed459921ea484ff0515ca7321ed0c662d44eddd",
+    "case-2-decoded.bf16": "7e418753c0d48c67e633d2268de8f270d311033c0d7784a0dfc77342ffa8807f",
+    "case-2-cpu-projection.bf16": "d76a897d9d33d839d5fe675b585db1da370cf76fc1e6ff193b4a0d4322501f59"
+  }
+}

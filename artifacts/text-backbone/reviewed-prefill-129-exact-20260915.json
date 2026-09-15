@@ -1,0 +1,38 @@
+{
+  "status": "reviewed_local_prefill_129_bitwise_exact_pass",
+  "run": "artifacts/text-backbone/run-20260915-154605-51571",
+  "revision": "a961c22edaeabcb4ef9bc9e23acf5b26aa5bffd7",
+  "exit_code": 0,
+  "prompt": {
+    "tokens": 129,
+    "repeated_token_id": 42,
+    "nonmatching_tokens": 0,
+    "sha256": "3cf564439d868271c6d6f6e71ffea5b0212c086030b8d344bafae1631cc833e7"
+  },
+  "comparison": {
+    "chunk_schedule": [128, 1],
+    "serial_schedule": "129 calls of one token",
+    "per_token_hidden_bits_equal": true,
+    "per_token_pre_mix_bits_equal": true,
+    "final_logits_bits_equal": true,
+    "public_state_bits_equal": true,
+    "continuation_bits_equal": true,
+    "fork_preserves_source_state": true,
+    "reset_reproduces_chunk_result": true,
+    "invalid_tokens_rejected_without_state_change": true,
+    "route_tie_count": 0
+  },
+  "identity": {
+    "checked_entries": 9,
+    "all_match_at_review": true,
+    "identity_sha256": "4d4a3bb5c9dcb57fc62ce2865a382c0f1b1625b5136e0b421ec4b1a1f7286446",
+    "tracked_patch_sha256": "7bdecddb8212e33117f3af9aaf1831d5336c7d4abb529e762736757f2124cf15"
+  },
+  "sha256": {
+    "build.log": "9ea243ab65f3ac3aa3320a8ca7da5baf3589587f1c927cfdadcd2ffdefa53bd0",
+    "command.txt": "365ae5737aa782d8a9b3b9d5bb16d4fe839942de5832fe71540ced8aa5711ee2",
+    "test.log": "fdfbc3a239480b63139e26bcc7ba3f2571f88e8a666c0ab9b1f609347ae8bc58"
+  },
+  "scope": "Same native MLX reference under 128+1 and tokenwise schedules with a repeated-token prompt. This is local schedule/state bitwise evidence, not a diverse-input result, external oracle comparison, optimized production path promotion, performance/peak-memory evidence, or 256K qualification.",
+  "m2_full_exit": false
+}

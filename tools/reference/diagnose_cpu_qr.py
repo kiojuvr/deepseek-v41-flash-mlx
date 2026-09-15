@@ -14,6 +14,7 @@ def main():
     p.add_argument('--native', type=Path, required=True)
     p.add_argument('--checkpoint', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
+    p.add_argument('--native-q', type=Path, help='optional dsv41-q-projection output')
     a = p.parse_args()
     if a.output.exists() or a.output.resolve().is_relative_to(a.checkpoint.resolve()):
         p.error('output must be fresh and outside checkpoint')
@@ -67,6 +68,28 @@ def main():
         'projection_fp32_vs_fp64': metrics(raw(projections['fp32']), 'bfloat16', raw(projections['fp64']), 'bfloat16'),
         'full_model_qualified': False,
     }
+    if a.native_q:
+        qm = json.loads((a.native_q / 'manifest.json').read_text())
+        if qm['token_ids'] != manifest['token_ids'] or qm['revision'] != weights.summary['revision']:
+            raise ValueError('native Q trace identity mismatch')
+        qdesc = {v['name']: v for v in qm['arrays']}
+        def qread(suffix):
+            return torch.from_numpy(checked_array(a.native_q, qdesc['encoder.layer0.' + suffix]).view(np.uint16).copy()).view(torch.bfloat16)
+        native_qa, native_qr = qread('attn_qa'), qread('attn_qr')
+        def metric(a, b):
+            return metrics(raw(a), 'bfloat16', raw(b), 'bfloat16')
+        result['native_q'] = {
+            'manifest_sha256': sha(a.native_q / 'manifest.json'),
+            'array_sha256': {s: sha(a.native_q / ('encoder.layer0.' + s + '.npy')) for s in ('attn_qa', 'attn_qr')},
+            'reproduced_qr_vs_original_trace': metric(target, native_qr),
+            'qa_vs_cpu_fp32': metric(native_qa, projections['fp32']),
+            'qa_vs_cpu_fp64': metric(native_qa, projections['fp64']),
+            'cpu_norm_on_native_qa_vs_native_qr': metric(native_qr, norm(native_qa, w)),
+        }
+        result['scope'] = 'Native pre-norm Q vs CPU projection; CPU norm on frozen native Q; no CUDA qualification'
+        for name, m in result['native_q'].items():
+            if isinstance(m, dict) and 'bit_mismatch_count' in m:
+                print(name, m['bit_mismatch_count'], m['max_abs_diff'])
     a.output.write_text(json.dumps(result, indent=2) + '\n')
     for name, m in results.items():
         print(name, m['bit_mismatch_count'], m['max_abs_diff'])

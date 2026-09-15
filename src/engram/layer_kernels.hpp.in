@@ -1,0 +1,4 @@
+#pragma once
+inline constexpr const char* dsv41_fp8_header = R"dsv41metal(@DSV41_FP8_HEADER@)dsv41metal";
+inline constexpr const char* dsv41_activation_quant = R"dsv41metal(@DSV41_ACTIVATION_QUANT@)dsv41metal";
+inline constexpr const char* dsv41_projection = R"dsv41metal(@DSV41_PROJECTION@)dsv41metal";

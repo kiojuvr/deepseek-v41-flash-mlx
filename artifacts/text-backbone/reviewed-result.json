@@ -1,0 +1,38 @@
+{
+  "review_date": "2026-09-14",
+  "user_run": "artifacts/text-backbone/run-20260914-063742-8680",
+  "status": "local_text_backbone_consistency_passed",
+  "exit_code": 0,
+  "log": "Loading full backbone layers 0..39 on-demand experts and Engram 1/14 mmap backing\nPASS: token IDs -> encoder 0..19 -> decoder 20..39 -> logits; chunk/token bits, continuation, fork, reset, invalid token rejection; top-6 route ties broken by lowest ID = 3 (unqualified oracle gap); oracle/full model NOT qualified.\n",
+  "recorded_identity": "de93d11e710052fd638925450cb0f286955c3b7bf2e9915523e71154ab8349fd  build-mlx/dsv41-text-backbone-test\na031e177105d53c404ff573bac9072a72a0c99ba3537e23728bd7890c00de028  artifacts/checkpoint/summary.json\ndec64db3cd1dcce2a49291111f73bfc890240d4a3c58015dbc4b22e6ce311210  artifacts/engram/metadata.json\na22f2e5fd833a29ed56ae356542c1ffd6870f0fb981569026d05075d186f5c86  artifacts/engram/fixture-provenance.json\n",
+  "verified_sha256": {
+    "build-mlx/dsv41-text-backbone-test": "de93d11e710052fd638925450cb0f286955c3b7bf2e9915523e71154ab8349fd",
+    "artifacts/checkpoint/summary.json": "a031e177105d53c404ff573bac9072a72a0c99ba3537e23728bd7890c00de028",
+    "artifacts/engram/metadata.json": "dec64db3cd1dcce2a49291111f73bfc890240d4a3c58015dbc4b22e6ce311210",
+    "artifacts/engram/fixture-provenance.json": "a22f2e5fd833a29ed56ae356542c1ffd6870f0fb981569026d05075d186f5c86"
+  },
+  "identity_matches_current_files": true,
+  "log_sha256": "e3a8d323c293699743944dc69ce758c16da61f4f1a69c9ebaec08bf322490d58",
+  "token_ids": [
+    0,
+    42,
+    1000
+  ],
+  "continuation_token_id": 42,
+  "route_ties_broken_by_lowest_id": 3,
+  "checks": [
+    "chunk/token hidden and pre-mix bits across encoder 0..19 and decoder 20..39",
+    "producer 2/8/14/20 and reuse 3-7/9-13/15-19/21..39 state",
+    "Engram layer 1 and layer 14 hash slices",
+    "candidate source 20 and index sources 24/28/32/36",
+    "final collapse/norm/head logits chunk/tokenwise bits",
+    "continuation",
+    "fork isolation",
+    "reset outputs and states",
+    "invalid/image token rejection"
+  ],
+  "official_oracle_compared": false,
+  "full_model_qualified": false,
+  "performance_measured": false,
+  "mid_execution_failure_injected": false
+}

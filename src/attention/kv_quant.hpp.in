@@ -1,0 +1,2 @@
+#pragma once
+inline constexpr const char* dsv41_kv_quant_source=R"kvquant(@DSV41_KV_QUANT@)kvquant";

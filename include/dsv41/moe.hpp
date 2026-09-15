@@ -12,7 +12,8 @@ struct ExpertComponents { mlx::core::array gate, up, activation, output; };
 struct RouteTieRecord { int layer; std::uint64_t token; int sixth_id,seventh_id; float sixth_score,seventh_score; bool tied; };
 // Text layer 0, one token. CPU selection is an explicit reference synchronization.
 // strict throws on an exact top-6 boundary tie; otherwise ties break to the lowest expert ID.
-// The official topk tie-break is not oracle-verified, so callers that proceed must record it.
+// Official torch 2.13 CPU selected the other boundary candidate in one reviewed fixture;
+// torch does not specify tie ordering, so callers that use this canonical policy must record it.
 RouteReference select_routes_reference(const mlx::core::array& scores,const mlx::core::array& bias,
  bool strict=true,RouteTieRecord* tie=nullptr);
 class GateReference {

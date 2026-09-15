@@ -1,0 +1,106 @@
+{
+  "status": "diagnostic_complete",
+  "omlx_commit": "b390b31e0c6831225fed0f24d278eb1db7fcb68b",
+  "mlx_version": "0.32.2",
+  "source_sha256": {
+    "omlx/patches/deepseek_v41/convert.py": "f720f23021839dffd95706252afde64350df2f36a3f32ed71377e9d71d710699",
+    "omlx/patches/deepseek_v41/activation.py": "a63e22498e8273551f7188e580383726981ae2eca47d09f0ed119055ceea8271"
+  },
+  "script_sha256": "be6e52e87d10878cf3b735d11667aecaf5962fee5111080c9ee565af046b6669",
+  "manifest_sha256": "25b82f1415af527e1594e0d3254a1aedae8b42dec9fea32aee4032c92db93491",
+  "generated_sha256": {
+    "case-0-omlx-qmm.bf16": "e774a96e665ade62aafe008088486ec842184bf952a9a96a9153f02c3487b0f6",
+    "case-1-omlx-qmm.bf16": "ef52126a2899a4b86f9b4341395c9e18df9af96379200421945a44fec3f10d46",
+    "case-2-omlx-qmm.bf16": "d76a897d9d33d839d5fe675b585db1da370cf76fc1e6ff193b4a0d4322501f59"
+  },
+  "runs": [
+    {
+      "prefix": "layers.0.attn.wq_a",
+      "repack_exact": true,
+      "qmm_vs_cpu_block_mismatches": 1,
+      "omlx_vs_official_activation_mismatches_by_token": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        5120,
+        0
+      ],
+      "omlx_vs_common_input_qmm_mismatches_by_token": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1280,
+        0
+      ]
+    },
+    {
+      "prefix": "layers.0.ffn.experts.0.w1",
+      "repack_exact": true,
+      "qmm_vs_cpu_block_mismatches": 0,
+      "omlx_vs_official_activation_mismatches_by_token": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        5120,
+        0
+      ],
+      "omlx_vs_common_input_qmm_mismatches_by_token": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        2302,
+        0
+      ]
+    },
+    {
+      "prefix": "layers.0.ffn.experts.0.w2",
+      "repack_exact": true,
+      "qmm_vs_cpu_block_mismatches": 0,
+      "omlx_vs_official_activation_mismatches_by_token": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        2304,
+        0
+      ],
+      "omlx_vs_common_input_qmm_mismatches_by_token": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        5115,
+        0
+      ]
+    }
+  ],
+  "scope": "Pinned oMLX repack; MLX QMM with identical official-quantized input. Separate original oMLX activation diagnostic. No full model/CUDA execution."
+}

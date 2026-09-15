@@ -1,0 +1,33 @@
+{
+  "scope": "CPU versus native routed expert internal stages; no qualification",
+  "expert": 251,
+  "occurrences": [
+    0,
+    18,
+    40
+  ],
+  "stages": {
+    "gate": {
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0
+    },
+    "up": {
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0
+    },
+    "activation": {
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0
+    },
+    "contribution": {
+      "bit_mismatch_count": 0,
+      "max_abs_diff": 0.0,
+      "mean_abs_diff": 0.0
+    }
+  },
+  "full_model_qualified": false,
+  "script_sha256": "dc5232c25301e5fbe46fc89eedffd53d4baf5be934071edb1df661313c4f91f0"
+}

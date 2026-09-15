@@ -1,0 +1,79 @@
+{
+  "recorded_at_utc": "2026-09-12T18:17:54.420705+00:00",
+  "tag": "v0.7.0.dev2",
+  "commit": "b390b31e0c6831225fed0f24d278eb1db7fcb68b",
+  "checkout": "/Users/kioju/omlx-0.7.0.dev2",
+  "source_url": "https://github.com/jundot/omlx/tree/b390b31e0c6831225fed0f24d278eb1db7fcb68b",
+  "scope": "Read-only source identity verification; installed runtime configuration and benchmark execution not attested.",
+  "source_sha256": {
+    "pyproject.toml": "77076b44ed81bdb1a4415d87f8681e5b5f75abc5ebff96910259482754dfa7fa",
+    "LICENSE": "de69b4352c9952cd5f0f4b8cb4584782a07f02c9ba82aeb5d496aa2b7fe5457d",
+    "omlx/admin/benchmark.py": "acc5923217e055ad38009d59eb3a2dfd511a6cd4ec757c1fb0f3633dbd5ba6eb",
+    "omlx/patches/deepseek_v4/switch_layers.py": "ffae0b5064fc572c1373c290533274c6985e793ccc9e91671e1069ead93eca23",
+    "omlx/custom_kernels/glm_moe_dsa/csrc/deepseek_v41_grouped_expert.cpp": "d15674ffce5d0c1a64952764adad1b2f645f21cc96bdfa2dcd8324ad1673f778",
+    "omlx/patches/deepseek_v41/LICENSE": "1c8f573e830ca9b3ebfeb7ace1823146e22b66f99ee223840e7637c9e745e1c7",
+    "omlx/patches/deepseek_v41/__init__.py": "59a2125f3d8ff465a684d3d7e62bc4978469c06ab7a4c1245f5a99e5c0478826",
+    "omlx/patches/deepseek_v41/activation.py": "a63e22498e8273551f7188e580383726981ae2eca47d09f0ed119055ceea8271",
+    "omlx/patches/deepseek_v41/cache.py": "dc2b4794b7416fe1704fc2c15b0772dcd3737cdaf30fecb4b0d69dfec97b62e2",
+    "omlx/patches/deepseek_v41/calibration.py": "128e1e3b3493295a9f7a91930e482288861b10a341c71f3f01bd24c223c7396e",
+    "omlx/patches/deepseek_v41/config.py": "b7a06ea375b71169497d77d02b77a82e495c19e8916c22a726e9197302793ad6",
+    "omlx/patches/deepseek_v41/convert.py": "f720f23021839dffd95706252afde64350df2f36a3f32ed71377e9d71d710699",
+    "omlx/patches/deepseek_v41/dspark.py": "bb1eb7c859d0855acd76415a02b4f1857b0e3e8699390bda2462567063e01aad",
+    "omlx/patches/deepseek_v41/encoding.py": "13f678b10c73da6fb8e4c231fae1ed29542538e5a62fe75176a202cd82dd327a",
+    "omlx/patches/deepseek_v41/engram.py": "10ee6e12298adcb095836206840fd66d170cbf63db617f19232a9f6f94c438be",
+    "omlx/patches/deepseek_v41/head.py": "4cc40064caa7b304d4a8288dbc91c085cc6b10b9ce3704415cfce1ef03893a43",
+    "omlx/patches/deepseek_v41/hyper_connection.py": "9b1043dc8a85caaa6feebe90ae2f962b544ce709a281cad59358c588cf14086b",
+    "omlx/patches/deepseek_v41/kernels.py": "9f76d46359282c5fb23b0979dd8e550c9c1e355b9aca46a71fe97c842c376882",
+    "omlx/patches/deepseek_v41/language.py": "2c64bef36c9fc4a6007cd34e7b120142ced072a8d491cf1f83f2c5b1a956763f",
+    "omlx/patches/deepseek_v41/loading.py": "490e5e6b135d2959ef138f9436a93f083d04387aae7750dc9ff3e61017ec5ec4",
+    "omlx/patches/deepseek_v41/model.py": "77c7012b5ce2aa757157b350eb38e1a3694c0b3fb7730ce1be2ac4fe99b43a24",
+    "omlx/patches/deepseek_v41/moe_offload.py": "ea76640882ba78850c6f83af5e28cf9d7f021518efb14822388fad689e6ad426",
+    "omlx/patches/deepseek_v41/mtp.py": "2fe5dffa0d2c0b9780c07a7a9d1db072a5795127181f350a6011c0278a1a786e",
+    "omlx/patches/deepseek_v41/oq.py": "298124c2f1ffd2cd048e8d9741988b7742c7897b09aa11878f8bd37c15a7465e",
+    "omlx/patches/deepseek_v41/oq_inventory.py": "b574a2610c9b40d1d5ebe1d0ce6b29770ba31b63ed4f85dd66f2a402f8cadd3b",
+    "omlx/patches/deepseek_v41/output_parser.py": "0c94169463f0bf282d0ac9f31bd9ca1f19552565d3786e89cc3193b6dcbc0843",
+    "omlx/patches/deepseek_v41/packed_attention.py": "77974fe61e28ba3a83f042cf1e9abbea4443f7508ae91d3c6b7db92a0f5745e5",
+    "omlx/patches/deepseek_v41/processing.py": "55ca42a0e3e4b79e6fc84687f987b31f63e1816ed6b1d578275170d74d9b8b57",
+    "omlx/patches/deepseek_v41/quantization.py": "02e42848d40c8b0ef6a665d6d169abd0df38042b5bba6f55b631df92b5821950",
+    "omlx/patches/deepseek_v41/residency.py": "a6bd4ea11ca907cdc3de6601847c8d553845c5d060c26bb1f40ddb41b9dda478",
+    "omlx/patches/deepseek_v41/routing.py": "7bcabb327134ff0f42c9911b8e0c2d6d6f1e41f59740dddabfd010598c77767d",
+    "omlx/patches/deepseek_v41/sensitivity.py": "91d4bbcda92448e15452e956a19d800e504f06075ca1a652163dccb1d033b583",
+    "omlx/patches/deepseek_v41/sharding.py": "8560c61e1f4a416428122e523ba342fa12f7b646649e7c0fc35656521e6cd018",
+    "omlx/patches/deepseek_v41/storage.py": "2fdef0bacfc56cd7bb119dafc564335eb2c44c15226d4a0314b34e85c4468c5f",
+    "omlx/patches/deepseek_v41/tool_parser.py": "6ae791189781c6ff05d4fe0f225ed9713227680d659f09d0f5bfa7d3b11efc79",
+    "omlx/patches/deepseek_v41/vision.py": "dcaf449e199cfa16ecb4b08c7b17c75d3f80ed46a7bab82a64cdd03db3264f05"
+  },
+  "user_reported_benchmark": [
+    {
+      "context_label": "32K",
+      "prefill_tokens_per_second": 193.6,
+      "decode_tokens_per_second": 35.5,
+      "ttft_seconds": 169,
+      "peak_memory_reported_GB": 292.82
+    },
+    {
+      "context_label": "64K",
+      "prefill_tokens_per_second": 190.8,
+      "decode_tokens_per_second": 36.3,
+      "ttft_seconds": 344,
+      "peak_memory_reported_GB": 292.85
+    },
+    {
+      "context_label": "128K",
+      "prefill_tokens_per_second": 176.4,
+      "decode_tokens_per_second": 29.0,
+      "ttft_seconds": 743,
+      "peak_memory_reported_GB": 292.9
+    },
+    {
+      "context_label": "200K",
+      "prefill_tokens_per_second": 183.9,
+      "decode_tokens_per_second": 36.9,
+      "ttft_seconds": 1088,
+      "peak_memory_reported_GB": 292.96
+    }
+  ],
+  "benchmark_source": "User report; no raw run files supplied or benchmark launched in this audit.",
+  "benchmark_configuration_verified": false,
+  "native_full_model_qualified": false
+}

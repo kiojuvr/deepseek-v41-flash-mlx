@@ -1,0 +1,38 @@
+{
+  "review_date": "2026-09-14",
+  "status": "local_text_generation_consistency_passed",
+  "binary": "build-mlx/dsv41-text-generate",
+  "binary_sha256": "1430313459a2693f90c3fbe7fb8b1a815fcce43cf471fa3dca7644ce2dc7ebf8",
+  "identity_matches_current_files": true,
+  "prompt_token_ids": [0, 42, 1000, 42],
+  "runs": [
+    {
+      "user_run": "artifacts/text-generate/run-20260914-124922-18696",
+      "exit_code": 0,
+      "temperature": 0.0,
+      "seed": 0,
+      "generated": [20, 49, 438, 223, 20, 28, 19, 271, 80, 26402, 20, 49, 11, 438, 223, 18],
+      "next_position": 20,
+      "stopped": false,
+      "log_sha256": "94800bbb0a53b96df15c915fa7f16bbafb8899634e50a892f23aa3a0ef1735ea"
+    },
+    {
+      "user_run": "artifacts/text-generate/run-20260914-125105-18707",
+      "exit_code": 0,
+      "temperature": 0.7,
+      "seed": 0,
+      "generated": [20, 49, 438, 223, 20, 982, 223, 19, 1492, 223, 864, 438, 223, 18, 16, 779],
+      "next_position": 20,
+      "stopped": false,
+      "log_sha256": "51d94e3dea63f18728c6230280165100804ad2bf4bf700da0eca8e0d0103a0dd"
+    }
+  ],
+  "checks": [
+    "greedy path committed 16 tokens with continued state",
+    "temperature 0.7 path committed 16 tokens with the reference RNG",
+    "both runs exit code 0 and identity matches current binary"
+  ],
+  "official_rng_compared": false,
+  "official_logits_compared": false,
+  "m2_qualified": false
+}

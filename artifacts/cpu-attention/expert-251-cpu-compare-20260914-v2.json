@@ -1,0 +1,31 @@
+{
+  "scope": "Single routed FP4 expert CPU contribution vs native; no full-model qualification",
+  "expert": 251,
+  "occurrences": [
+    0,
+    18,
+    40
+  ],
+  "bit_mismatch_count": 14581,
+  "max_abs_diff": 0.0087890625,
+  "mean_abs_diff": 5.1083494327031076e-05,
+  "nonfinite_cpu": 0,
+  "nonfinite_native": 0,
+  "full_model_qualified": false,
+  "native_manifest_sha256": "319f211c59c20cccffef8e69de54c81696add6c35bdcd1c7885c133ab0633359",
+  "gate_manifest_sha256": "27f71d50841257ddc54c263dbf6b93a7d7f8b6fc8ec57552f55db430b659f57b",
+  "source_sha256": {
+    "inference/model.py": "4e9ae23620edc8028ccc5d5fef552ab7fdc7dcd6f79608754fe9f67644056f65",
+    "inference/kernel.py": "1236c3507019ed176f5dba5e04bcea58867cf654818c6cf138ed4845398c2455",
+    "inference/config.json": "2e84f45cf1dac8c7fcbb200e96667d4b913275690668ed496f24c7747207a809"
+  },
+  "tensor_sha256": {
+    "layers.0.ffn.experts.251.w1.weight": "ef4078c6022fe30932ff8a3a600c8f1bd9a89932e08c99b7f438024049459cff",
+    "layers.0.ffn.experts.251.w1.scale": "de0dd505546130887297302facbaaeb959b0166d1fcfe69fcabc3fd35de857c3",
+    "layers.0.ffn.experts.251.w2.weight": "35204892f9a1af6cddb1bdb6d2a88fba3bf77cdd4faa43b9887a402874b55915",
+    "layers.0.ffn.experts.251.w2.scale": "c3f9d296a65f4daeba4afbd864e3c178c0e8a388728cd8c7c8f9d6c433b33086",
+    "layers.0.ffn.experts.251.w3.weight": "776978ba7fdb999ecf65458ca506c3af1d8dfc4c563b75819b12f39e3e928fff",
+    "layers.0.ffn.experts.251.w3.scale": "1a834e3301ceb90e583ffd5f2fc662ce073eccf6ee22d878f3552460ac20be93"
+  },
+  "script_sha256": "53ee71dbc84cebde721f2c415d650344f0611aee0d9e0f872b5ddf724433e84c"
+}

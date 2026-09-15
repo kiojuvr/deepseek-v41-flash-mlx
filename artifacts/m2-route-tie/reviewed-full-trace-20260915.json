@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "status": "reviewed_diagnostic",
+  "run": "artifacts/m2-route-tie/run-20260915-162023-52563",
+  "exit_code": 0,
+  "token_count": 129,
+  "native_route_ties": 1,
+  "external_route_ties": 0,
+  "native_tie": {
+    "layer": 8,
+    "token": 14,
+    "sixth_id": 104,
+    "seventh_id": 117,
+    "score_bits": 1095107359
+  },
+  "first_cross_runtime_bit_difference": "encoder.layer0.attn_q",
+  "layer8_ffn_in": {
+    "shape": [129, 5120],
+    "bit_mismatch_count": 647255,
+    "max_abs_diff": 0.346923828125,
+    "mean_abs_diff": 0.018449077382683754,
+    "token14_bit_mismatch_count": 5045,
+    "token14_max_abs_diff": 0.106201171875,
+    "token14_mean_abs_diff": 0.022444358095526695
+  },
+  "logits_argmax_equal_tokens": 125,
+  "logits_tokens": 129,
+  "conclusion": "The external non-tie is confounded by upstream activation drift and cannot determine tie-break policy. A same-frozen-input Gate replay is required.",
+  "qualified": {
+    "official_torch_topk_tie_policy": false,
+    "m2": false,
+    "performance": false,
+    "context_256k": false
+  }
+}

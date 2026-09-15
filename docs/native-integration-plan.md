@@ -24,11 +24,13 @@
 | decoder 20..39 / head | ratio-1 producer 20、candidate二段Top-K、index source 24/28/32/36、reuse 21..39、final collapse/norm/headを接続し、ユーザーrunでchunk/token bit・継続・fork/resetを確認 | 公式logits oracle比較 |
 | token → logits full backbone | encoder 0..19 → decoder 20..39 → logitsを接続し、ユーザーrunでchunk/token bit・継続・fork/reset・不正token拒否を確認（routing tie 3件は最小ID break、未qualified） | 公式logits oracle比較、長文qualification |
 | logits oracle比較 | native / 固定oMLX traceと公式式CPU転記で最初の分岐を `encoder.layer0.attn_in` に特定。RMSNormの分散reduction差、Q projection差、Attention算術差を局所化。layer 0 gateはscore差≈2e-6でもID一致、MoE native replayはbit一致。独立CPU FP4 MoEは152 expertsを通し、差270,799/307,200要素を検出 | M2のlogits差基準を広いteacher-forced入力で固定、expert projection / SwiGLU / shared / sum component trace |
-| sampling / generation | greedy / temperatureの参照samplingと生成loop、RNG再現性、修正版full backboneで16 token生成を確認 | 公式RNGとのtoken列一致、stop sequence、API接続 |
+| sampling / generation | greedy / temperatureの参照samplingと生成loop、RNG再現性、修正版full backboneで16 token生成を確認 | 公式RNGとのtoken列一致、stop sequence |
 
-既存の数値差を未解決として記録しながら、独立したfull-path接続を進める。CPUとMLXの全bit一致を各primitiveの実装着手条件にせず、公式oracle → local referenceの判定をM2 exit条件として保持する。local reference → optimized pathのbitwise条件は維持する。full backboneとnative generationは接続済みだが、公式oracle・長文qualification・API接続は未完了である。
+既存の数値差を未解決として記録しながら、独立したfull-path接続を進める。CPUとMLXの全bit一致を各primitiveの実装着手条件にせず、公式oracle → local referenceの判定をM2 exit条件として保持する。local reference → optimized pathのbitwise条件は維持する。full backbone、native generation、Rust API、SSE、recipe tool callは接続済みだが、公式oracle・長文qualification・stop sequence・性能/memoryは未完了である。
 
 ## 統合進捗と共通linearの契約
+
+2026-09-15追記: Rust/native API、SSE、reasoning、tool call、128-token prefill chunking、request-local stop parserを接続し、単一ASCII stopの短い実モデル検証を確認した。次の独立gateは公式logits oracle比較、stop sequenceとsampling / generationの広い確認である。
 
 進捗追記: [共通packed linear](packed-linear.md)を実装し、実FP8 / FP4の3行列でfixed-schedule referenceの短い比較が通過した。一括QMMには1 ULP差があるため診断用に保持する。[mHC](mhc.md)と[layer 0 SWA attention](swa-reference.md)を追加した。[layer 0 MoE / Block](moe-block.md)も接続し、ユーザーrunのlocal整合性検査を確認した。実token入口からlayer 3まで、Engram、layer 2のcompressor / indexer / FP4 global KV、layer 3のreuseを接続し、4層のユーザーrunを確認した。layer 3〜7のconsumer ownerを一般化し、追加4層のattentionを短く検査した。さらにproducerをlayer 2 / 8 / 14、reuse consumerを3–7 / 9–13 / 15–19へ一般化し、[encoder 0..19のtext reference](text-encoder-validation.md)を接続、ユーザーrunのlocal整合性検査を確認した。decoder 20..39（ratio-1 producer、candidate二段Top-K、index source 24/28/32/36）とfull backbone token→logitsも接続し、ユーザーrunのlocal整合性検査を確認した（[decoder / backbone検証](text-decoder-validation.md)）。routed expertはon-demand loadにし、full backboneのmemoryを抑えた。次は公式logits oracle比較とsampling / generationへ進む。attention・MoE・routing tieの公式oracle比較も未完了gateとして保持する。以下の設計上の条件は引き続き適用する。
 

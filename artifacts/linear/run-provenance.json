@@ -1,0 +1,30 @@
+{
+  "recorded_at_utc": "2026-09-12T18:45:54.106261+00:00",
+  "source_and_result_sha256": {
+    "CMakeLists.txt": "94a3d62a68844de1d23c86240a2ae6422d35d98d70efe028764b3582de5ecfd1",
+    "include/dsv41/linear.hpp": "f8ee76c32a05428528aae7900fdf3236ce714db14803e3bb0233f9b728530991",
+    "src/model/linear.cpp": "3d9e7afdaaae2e2c916bfba7357ea41835cd18affbf73a6a72ccbea5e854ca03",
+    "tools/benchmark/linear_probe.cpp": "f1c5b176f3567cbe2df4979bfd87faaca71fb40961318fad5a5a5ab19a3cb69a",
+    "tools/reference/export_linear_fixture.py": "7406ad548a0505e97a28928ace77f5e376d956532d8f4cb2464c6e8e9364975f",
+    "tools/reference/compare_omlx_linear.py": "be6e52e87d10878cf3b735d11667aecaf5962fee5111080c9ee565af046b6669",
+    "metal/engram/activation_quant.metal": "d84b275b68562f00b737c91bcdbcea50dab32b0e619e7d80394bba1ee79c13e5",
+    "metal/engram/fp8_header.metal": "b9ac17408fb6e4750b7190b4e6870e75d9c3ac9e524db56736875483d7f92c13",
+    "metal/engram/dequantize.metal": "678a0fd48e22c0e3fc63554da1300978284bb0b4cde9fa07aceedd642b0a0305",
+    "build-mlx/dsv41-linear-probe": "7feccd1c11984f53b40f2205c3b32028990d00509f8fa2ce2958d60bf276a3a6",
+    "build-mlx-sanitize/dsv41-linear-probe": "666f0568109fac0072d2182d7e5c6db295aa744c027baef435dd6934093c8c59",
+    "artifacts/linear/sanitize-verify.json": "938ecdff339e1893842b7eb9cc9cc25c42967c8be9e9ab05650e9b1b066d72a9",
+    "artifacts/linear/initial-batched-qmm.json": "0e025e91eb1122887505b29b34fe74581af248ec6eba465123427e4e898a624c",
+    "artifacts/linear/native-verify.json": "938ecdff339e1893842b7eb9cc9cc25c42967c8be9e9ab05650e9b1b066d72a9",
+    "artifacts/linear/manifest.json": "25b82f1415af527e1594e0d3254a1aedae8b42dec9fea32aee4032c92db93491",
+    "artifacts/linear/omlx-comparison.json": "42c553f7cd2b94c3a963e77674edf7dd02579f0d5b5e1411935bf0cf9f0a4eef"
+  },
+  "mlx_version": "0.32.2",
+  "reference_schedule": "one row per QMM; no batched promotion",
+  "release_probe_exit": 0,
+  "asan_ubsan_probe_exit": 0,
+  "ctest": "3/3 passed",
+  "official_cuda_executed": false,
+  "full_model_qualified": false,
+  "long_validation_launched": false,
+  "reproduction": "docs/packed-linear.md"
+}

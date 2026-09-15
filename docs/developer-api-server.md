@@ -17,6 +17,20 @@ claim prompt encoding, tool calls, reasoning, image input, streaming, usage,
 stop sequences or generation. Unsupported behavior must remain an explicit
 error rather than a fabricated completion.
 
+When built with `native-model` and `DSV41_NATIVE_MODEL=1`, the same endpoint is
+connected to the native bridge and pinned `deepseek-recipe`. In that mode text
+prompt encoding, reasoning settings, bounded SSE/cancellation, usage snapshots,
+client function tools, historical tool results, and nonstream/SSE tool-call
+parity are implemented. Request-local decoded stop sequences are connected to
+the pinned recipe, including SSE cooperative cancellation. The developer server
+still does not advertise release readiness or 256K qualification; vision input,
+strict tool schemas, broader stop validation, and long-context qualification remain
+separate gates. A short single-string stop passed native-model nonstream/SSE parity,
+usage, cooperative cancellation and post-cancellation recovery checks.
+Nonstream local-stop handling was subsequently changed from post-hoc parsing to a
+bounded incremental parser/cancellation path. Its short full-model recheck passed at
+the same seven-token usage/cancellation boundary for nonstream and SSE.
+
 The handler depends on a `RuntimeBackend` trait in
 `server/src/backend.rs`. `UnconnectedBackend` is the current implementation;
 the future C++ bridge can replace it without changing protocol validation or

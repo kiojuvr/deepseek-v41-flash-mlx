@@ -1,0 +1,31 @@
+#include "dsv41/global_kv.hpp"
+#include "dsv41/kv_quant.hpp"
+#include "dsv41/layer_owner.hpp"
+#include <stdexcept>
+namespace dsv41 {
+namespace mx=mlx::core;
+GlobalKVState::GlobalKVState():main_(mx::zeros({0,256},mx::uint8)),main_scale_(mx::zeros({0,32},mx::uint8)),
+ index_(mx::zeros({0,64},mx::uint8)),index_scale_(mx::zeros({0,4},mx::uint8)){}
+void GlobalKVState::reset(){*this=GlobalKVState();}
+GlobalKVProducerReference::GlobalKVProducerReference(WeightCatalog& c,int layer)
+ :layer_(checked_producer_layer(layer)),ratio_(layer_compress_ratio(layer)),compressor_(c,layer),index_(c,layer){}
+void GlobalKVProducerReference::append(const mx::array& hidden,GlobalKVState& state,std::uint64_t start) const{
+ if(start!=state.position()||state.rows()!=start/std::uint64_t(ratio_))throw std::runtime_error("invalid global KV publication position");
+ auto next=state;
+ auto latent=compressor_.forward(hidden,next.compressor_,start);
+ if(!latent.positions.empty()){
+  for(std::size_t i=0;i<latent.positions.size();++i)
+   if(latent.positions[i]!=std::uint64_t(ratio_)*(state.rows()+i))throw std::runtime_error("non-contiguous global KV group");
+  // Both consumers receive the pre-RoPE latent; neither mutates the other's input.
+  auto index=kv_quant_reference(index_.before_quantization(latent.values,latent.positions),KVQuantFormat::IndexE8M0);
+  auto main=kv_quant_reference(compressed_rope_reference(latent.values,latent.positions),KVQuantFormat::MainE4M3);
+  next.main_=mx::concatenate({state.main_,main.packed},0);
+  next.main_scale_=mx::concatenate({state.main_scale_,main.scales},0);
+  next.index_=mx::concatenate({state.index_,index.packed},0);
+  next.index_scale_=mx::concatenate({state.index_scale_,index.scales},0);
+  mx::eval(next.main_,next.main_scale_,next.index_,next.index_scale_);
+ }
+ // Atomic at the synchronous API boundary: even compressor progress waits for both caches.
+ state=std::move(next);
+}
+}

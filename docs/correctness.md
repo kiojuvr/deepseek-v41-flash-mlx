@@ -47,7 +47,7 @@ cross-backendでbitwise一致を保証できないことをoptimized pathの許�
 2. **local reference → optimized path。** 従来どおりbit一致を必須とする。許容差を転用しない。
 3. **M2判定。** 上記係数許容差とlogits argmax一致だけでは合格にしない。`logits`差の基準は、4 tokenのtraceではなく、より広いteacher-forced入力（context段階とcoding-agent workload）で別途評価して固定する。基準固定前にM2合格やproduction昇格を宣言しない。
 
-許容差は公式oracleの観測と比較対象の固定を条件に更新する。candidateの結果に合わせて緩めない。routing tieの最小ID方針、index tie停止も未確定のpolicyとして保持し、許容差で隠さない。
+許容差は公式oracleの観測と比較対象の固定を条件に更新する。candidateの結果に合わせて緩めない。routing tieはcanonical MLX内で再現可能な最小ID方針に固定する。reviewed layer 8 / token 14 fixtureでは同じFP32 score bitsに対しpinned oMLXも最小IDを選んだが、公式`Gate.forward`のtorch 2.13 CPU `topk`は他方を選択した。torch APIはtie順を保証しないため観測依存policyへ変更せず、このcross-framework discrete差を明示してM2 backend exactnessへ混ぜない。index tie停止も維持し、いずれも許容差で隠さない。
 
 ## 必須の比較境界
 
@@ -74,6 +74,17 @@ APIでは[architecture](architecture.md)に固定したdeepseek-recipeを直接�
 plain reference forward、chunked prefill、CED prefill + Bounded Replay、tokenごとのdecodeが同じ継続状態を作ることを検証する。公式minimalの既存chunk制約を勝手に一般化しない。arbitrary chunk対応にはcompression端数、SWA、Engram、mHCを含めた独立の証拠が必要。
 
 Bounded Replayにはglobal KVとtoken IDsだけで十分と仮定しない。再開位置で必要なhidden / mHC / compression / n-gram stateを特定し、replay対象・必要な前史・最大保持量を証明する。全履歴計算とのexact比較に合格するまでproduction pathへ昇格しない。
+
+2026-09-15にgeneration prefillの128-token分割を共通`run_prefill_chunks`へ切り出した。
+checkpoint不要の`generation_loop` CTestで1 / 127 / 128 / 129 / 255 / 256 / 257 / 262144
+tokenについて、非empty・最大128・連続offset・全範囲の一度だけの被覆と、不正な0 size拒否を
+確認する。これはschedule算術だけの証拠であり、full model state、memory、256K動作をqualifiedに
+しない。129-tokenの実model境界は`run_generation_lifecycle.sh`の`PROMPT_LENGTH`で検査する。
+`run-20260915-153042-51253`をレビューし、129個のtoken 42が128+1 chunkで処理され、
+greedy token `271 51570`、next position 131、callback/cancel/fresh requestが一致した。
+[レビュー記録](../artifacts/generation-lifecycle/reviewed-prefill-129-result-20260915.json)。
+このrunは境界を越えて動作した証拠であり、tokenwise prefillとのtensor/state bit一致は次の
+full-backbone比較で確認する。
 
 最低限、empty / 1 token、window境界127 / 128 / 129、compression ratio境界、candidate block境界、source切替、context上限、複数turn追記、reset / cancel / resumeを対象にする。後段ではDSpark accept / reject、imageとtextの境界、prefix再利用も加える。Engram cache evictionやI/O順序はlogitsとstateを変えてはならない。
 
