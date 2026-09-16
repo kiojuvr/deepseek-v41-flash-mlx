@@ -49,7 +49,7 @@ mx::array SwaLayerReference::forward(const mx::array& h,SwaLayerState& state,std
  auto all_rows=mx::concatenate({state.rows_,qkv.kv},0);
  { std::lock_guard l(attention_telemetry_mutex()); auto& t=attention_telemetry(); ++t.concat_calls; t.concat_input_bytes+=(state.rows_.size()+qkv.kv.size())*2; t.concat_output_bytes+=all_rows.size()*2; t.cumulative_bytes_copied+=all_rows.size()*2; }
  for(int i=0;i<h.shape(0);++i){
- { std::lock_guard l(attention_telemetry_mutex()); attention_telemetry().logical_tokens++; attention_telemetry().attention_rows++; }
+ { std::lock_guard l(attention_telemetry_mutex()); auto& t=attention_telemetry();t.logical_tokens++;t.attention_rows++;t.token_serial_attention_calls++; }
   auto pos=start+i;
   auto end=state.rows_.shape(0)+i+1;
   auto begin=std::max(0,end-128);

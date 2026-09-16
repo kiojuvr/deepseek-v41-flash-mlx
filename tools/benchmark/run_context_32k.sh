@@ -27,6 +27,7 @@ export DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS=${DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS
 export DSV41_RUNTIME_COMPACT_EXPERT_BANK=${DSV41_RUNTIME_COMPACT_EXPERT_BANK:-0}
 export DSV41_RUNTIME_ROUTE_DIAGNOSTICS=${DSV41_RUNTIME_ROUTE_DIAGNOSTICS:-0}
 export DSV41_RUNTIME_INDEX_DIAGNOSTICS=${DSV41_RUNTIME_INDEX_DIAGNOSTICS:-1}
+export DSV41_RUNTIME_CHUNK_ATTENTION=${DSV41_RUNTIME_CHUNK_ATTENTION:-0}
 export DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES=${DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES:-0}
 export DSV41_RUNTIME_EXPERT_IO_THREADS=${DSV41_RUNTIME_EXPERT_IO_THREADS:-1}
 export DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK=${DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK:-0}
@@ -59,6 +60,7 @@ printf '%s\n' "checkpoint=$checkpoint" "context=$context" "base_prefill=$((prefi
  "compact_expert_bank=$DSV41_RUNTIME_COMPACT_EXPERT_BANK" \
  "route_diagnostics=$DSV41_RUNTIME_ROUTE_DIAGNOSTICS" \
  "index_diagnostics=$DSV41_RUNTIME_INDEX_DIAGNOSTICS" \
+ "chunk_attention=$DSV41_RUNTIME_CHUNK_ATTENTION" \
  "mlx_cache_limit_bytes=$DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES" \
  "expert_io_threads=$DSV41_RUNTIME_EXPERT_IO_THREADS" \
  "expert_assignment_chunk=$DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK" \
@@ -73,12 +75,12 @@ shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp 
  tools/benchmark/run_resident_layer_component_profile.sh \
  include/dsv41/text_backbone.hpp include/dsv41/generation_loop.hpp include/dsv41/execution_policy.hpp \
  include/dsv41/runtime_profile.hpp \
- include/dsv41/swa_layer.hpp include/dsv41/compressed_layer.hpp include/dsv41/reused_layer.hpp \
+ include/dsv41/swa_layer.hpp include/dsv41/swa_attention.hpp include/dsv41/compressed_layer.hpp include/dsv41/reused_layer.hpp \
  include/dsv41/compressor.hpp include/dsv41/global_kv.hpp include/dsv41/index_key.hpp include/dsv41/index_query.hpp \
  include/dsv41/shared_attention.hpp include/dsv41/attention_telemetry.hpp \
  src/model/text_backbone.cpp src/model/text_encoder.cpp src/model/text_decoder.cpp \
  src/model/block.cpp src/model/compressed_block.cpp src/model/reused_block.cpp \
- src/attention/swa_layer.cpp src/attention/compressed_layer.cpp src/attention/compressor.cpp \
+ src/attention/swa_layer.cpp src/attention/swa_attention.cpp src/attention/compressed_layer.cpp src/attention/compressor.cpp \
  src/attention/index_key.cpp src/attention/index_query.cpp src/attention/shared_attention.cpp src/cache/global_kv.cpp \
  include/dsv41/moe.hpp src/moe/reference.cpp src/moe/expert_bank.cpp \
  metal/moe/route_select.metal metal/moe/route_reduce.metal \

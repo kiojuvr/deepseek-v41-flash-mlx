@@ -1,6 +1,6 @@
 # SWA optimized reduction: non-bitwise promotion gate
 
-状態: 提案中。reference bit-exact contractを変更しないまま、hardware-native SWA候補を評価するための
+状態: reuse chunk-attention候補を評価中。reference bit-exact contractを変更しないまま、hardware-native SWA候補を評価するための
 事前固定gateである。観測結果を見て閾値を緩めない。
 
 ## 進行条件
@@ -29,8 +29,9 @@ commit境界を使う。candidateだけがQK / AV reduction geometryを変更で
 
 1. routing ID、index ID、candidate mask、tie処理、greedy argmax、停止判断は完全一致。
 2. persistent stateのposition、packed KV bytes/scales、pending compressor、hash、publicationは完全一致。
-3. 非有限値は0。candidateのlogits誤差は既存M2 teacher-forced envelopeを超えず、top-2 marginを
-   反転しない。既存M2 envelopeが未確定の間はこの項をpassにできない。
+3. 非有限値は0。40層candidateのhidden / pre-mix / logitsはrelative RMS `<0.002`、全tokenの
+   logits argmaxは一致し、top-2 marginを反転しない。この閾値はDwarfStarのV4.1 batched-attention
+   fixtureと同じで、40層結果を見る前に固定する。
 4. candidate差の最初の発生点がattention reductionであり、projection、mask、cast、state更新差でない。
 
 短いprobeで離散判断またはpersistent stateが一つでも分岐した場合、non-bitwise promotionはrejectする。
@@ -61,3 +62,8 @@ full profile `context-ladder/32k-run-20260916-233434-29168`をreview済み。exi
 layers 0/1が2.627秒、producer 2/8/14/20が9.925秒、reuseが58.514秒。attentionは最大項でなく40%にも
 達しないため、事前固定した進行条件をfailとし、SWA専用Metal kernelは保留する。次のhardware-native
 最適化対象は最大項のMoE pathである。このprofile単体はperformance / 32K qualificationではない。
+
+resident component profile `context-ladder/32k-run-20260917-005021-32331`では構造変更後のattentionが
+69.652秒、layer wallの55.22%で最大項となったため、進行条件を満たした。最初の候補は専用Metal kernel
+ではなく、DwarfStarと同様にreuse attention rowsを一つのbatch graphへまとめる。短いfixtureだけでは
+promoteせず、`run_chunk_attention_backbone_check.sh`の2×128 / 40層gateをreviewしてからfull-pathへ進む。

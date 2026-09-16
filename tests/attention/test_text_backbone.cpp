@@ -17,6 +17,23 @@ void same(const mx::array& a,const mx::array& b,const char* what){
  auto ok=mx::all(mx::equal(mx::view(a,dtype),mx::view(b,dtype)));mx::eval(ok);
  if(!ok.item<bool>())throw std::runtime_error(std::string(what)+": bit mismatch");
 }
+void semantic_same(const mx::array& candidate,const mx::array& reference,const char* what,bool logits=false){
+ if(candidate.shape()!=reference.shape()||candidate.dtype()!=reference.dtype())
+  throw std::runtime_error(std::string(what)+": shape/dtype mismatch");
+ auto c=mx::astype(candidate,mx::float32),r=mx::astype(reference,mx::float32),d=mx::subtract(c,r);
+ auto relative=mx::sqrt(mx::divide(mx::sum(mx::multiply(d,d)),
+  mx::maximum(mx::sum(mx::multiply(r,r)),mx::array(1e-30f))));
+ auto maximum=mx::max(mx::abs(d)),mean=mx::mean(mx::abs(d));
+ auto mismatches=mx::sum(mx::astype(mx::not_equal(candidate,reference),mx::uint32));
+ auto finite=mx::logical_and(mx::all(mx::isfinite(c)),mx::all(mx::isfinite(r)));
+ mx::array decisions(true);
+ if(logits)decisions=mx::all(mx::equal(mx::argmax(c,-1),mx::argmax(r,-1)));
+ mx::eval(relative,maximum,mean,mismatches,finite,decisions);
+ std::cout<<what<<" relative_rms="<<relative.item<float>()<<" max_abs="<<maximum.item<float>()
+          <<" mean_abs="<<mean.item<float>()<<" bit_mismatches="<<mismatches.item<std::uint32_t>()<<std::endl;
+ if(!finite.item<bool>()||relative.item<float>()>=0.002f||!decisions.item<bool>())
+  throw std::runtime_error(std::string(what)+": semantic gate failed");
+}
 void bytes(const mx::array& a,const mx::array& b,const char* what){
  if(a.shape()!=b.shape()||a.dtype()!=b.dtype())throw std::runtime_error(std::string(what)+": shape/dtype mismatch");
  auto ok=mx::all(mx::equal(a,b));mx::eval(ok);if(!ok.item<bool>())throw std::runtime_error(std::string(what)+": byte mismatch");
@@ -66,6 +83,7 @@ int main(int argc,char** argv){try{
  dsv41::TextBackboneReference model(c,metadata);
  if(std::getenv("DSV41_CHECK_LAYER_MAJOR_BACKBONE")){
   const bool compact_check=std::getenv("DSV41_CHECK_COMPACT_LAYER_MAJOR_BACKBONE")!=nullptr;
+  const bool chunk_attention_check=std::getenv("DSV41_CHECK_CHUNK_ATTENTION_BACKBONE")!=nullptr;
   if(dsv41::runtime_packed_expert_bank_enabled())throw std::runtime_error("comparison must start in individual mode");
   if(setenv("DSV41_RUNTIME_PACKED_EXPERT_BANK","1",1)!=0||
      setenv("DSV41_RUNTIME_COMPACT_EXPERT_BANK",compact_check?"1":"0",1)!=0)
@@ -95,16 +113,26 @@ int main(int argc,char** argv){try{
   std::vector<std::uint32_t> input(128);for(int i=0;i<128;++i)input[i]=std::uint32_t((i*7919)%129263);
   for(int chunk_index=0;chunk_index<2;++chunk_index){
    const auto start=std::uint64_t(chunk_index*128);
+   if(chunk_attention_check&&setenv("DSV41_RUNTIME_CHUNK_ATTENTION","0",1)!=0)
+    throw std::runtime_error("cannot select token-serial attention oracle");
    dsv41::reset_route_tie_records();auto expected=model.forward(input,expected_state,start);
    auto expected_ties=dsv41::route_tie_records();dsv41::reset_route_tie_records();
+   if(chunk_attention_check&&setenv("DSV41_RUNTIME_CHUNK_ATTENTION","1",1)!=0)
+    throw std::runtime_error("cannot select chunk attention candidate");
    auto actual=packed.forward_packed_chunk(input,actual_state,start);auto actual_ties=dsv41::route_tie_records();
-   same(actual.hidden,expected.hidden,"layer-major hidden");same(actual.pre_mix,expected.pre_mix,"layer-major pre-mix");
-   same(packed.logits(actual),model.logits(expected),"layer-major logits");full_state_same(actual_state,expected_state);
+   auto actual_logits=packed.logits(actual),expected_logits=model.logits(expected);
+   if(chunk_attention_check){semantic_same(actual.hidden,expected.hidden,"layer-major hidden");
+    semantic_same(actual.pre_mix,expected.pre_mix,"layer-major pre-mix");
+    semantic_same(actual_logits,expected_logits,"layer-major logits",true);
+   }else{same(actual.hidden,expected.hidden,"layer-major hidden");same(actual.pre_mix,expected.pre_mix,"layer-major pre-mix");
+    same(actual_logits,expected_logits,"layer-major logits");}
+   full_state_same(actual_state,expected_state);
    auto order=[](const auto& x,const auto& y){return std::tie(x.token,x.layer)<std::tie(y.token,y.layer);};
    std::sort(actual_ties.begin(),actual_ties.end(),order);std::sort(expected_ties.begin(),expected_ties.end(),order);
    ties_same(actual_ties,expected_ties,"layer-major route ties");
    if(actual_state.decoder.producer.publication()->index_source_layer()!=36)throw std::runtime_error("decoder republishing did not reach layer 36");
-   std::cout<<"PASS: 40-layer chunk "<<chunk_index<<" hidden/pre-mix/logits/state/publication/hash/route ties exact"<<std::endl;
+   std::cout<<"PASS: 40-layer chunk "<<chunk_index<<" hidden/pre-mix/logits "
+            <<(chunk_attention_check?"bounded; state/publication/hash/route ties exact":"and state/publication/hash/route ties exact")<<std::endl;
   }
   auto saved=actual_state;
   for(std::uint32_t invalid:{129264u,129280u}){bool rejected=false;

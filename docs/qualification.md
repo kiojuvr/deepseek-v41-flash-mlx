@@ -568,6 +568,27 @@ cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_resident_atlas_prefill_measurement.sh
 ```
 
+そのrun `context-ladder/32k-run-20260917-084044-36764`をreview済み。exit 0、revision `9bfeb71`、
+tracked patch 0、identity全件一致。prefill 129.090453秒 / 15.9810 tok/s、decode 0.149775秒、生成token
+339。40 model-init banks / 15,360 experts、warm construction 0、route device batch 680、route readback 0、
+index readback 0、expert-major batch 680 / assignment 495,120。直前126.640645秒に対して1.93%遅く、
+単発差はperformance改善に数えない。MLX active/cache/peakは300,171,601,115 / 4,028,291,832 /
+302,822,401,315 bytes、最大RSS 272,842,407,936、peak footprint 305,053,726,576 bytes、swap 0。
+compression/decompressionは約30.80/30.66 GiB。この証拠でdevice index publicationのfull-path
+readback gateを閉じるが、Phase 4 wall-time gateは閉じない。
+
+次のreuse chunk-attention候補はreferenceの64-key online-softmax順とBF16 probability castを維持しつつ、
+token rowsを共通padded GPU graphへ移す。DwarfStarのbatch-attention fixtureに合わせ、実測を見る前に
+hidden/pre-mix/logits relative RMS `<0.002`、全logits argmax一致、route tieと全persistent
+state/publication/hash exactを固定した。3-token device-publication統合fixtureはpass済み。40層2×128の
+長時間gateは以下。約578 GB logical checkpoint read、240 GB Unified Memory予算、所要最大5分、失敗ログ
+保持、resumeなし。エージェント側では起動しない。
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_chunk_attention_backbone_check.sh
+```
+
 そのresident rerun `context-ladder/32k-run-20260916-100044-16544`をreview済み。exit 0、
 全identity一致、bank construction exactly 40。chunk 0は49.217220秒、chunk 1は17.518658秒
 （7.306462 token/s）、256-token prefillは66.739255秒（3.835823 token/s）。attention chunk化前の

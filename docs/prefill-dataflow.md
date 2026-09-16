@@ -223,6 +223,19 @@ Phase 4の第一段として、index top-k relative rowとcandidate maskをdevic
 0にしてreadback telemetryが0でなければ失敗する。token別attention本体とchunk frontierのatomic commitは
 未完了であり、この変更だけでPhase 4完了とはしない。
 
+commit `9bfeb71`のfull-path run `context-ladder/32k-run-20260917-084044-36764`はexit 0、tracked
+patch 0、identity全件一致。prefill 129.090秒 / 15.981 tok/s、生成token 339、model-init bank 40、warm
+construction 0、route/index readbackはともに0だった。直前126.641秒より1.93%遅く、単発差を改善とは
+扱わない。MLX peak 302,822,401,315、process peak footprint 305,053,726,576 bytes、swap 0、
+compression/decompression約30.80/30.66 GiB。このrunはhost境界除去を確認したがperformance gateではない。
+
+DwarfStarの現`ds41_attention_batch`はpublication/indexをbatch化し、raw/mixed/indexed attentionをbatch
+kernelで処理して最後にring frontierをcommitする。対応fixtureはstate/indexをexact、attention outputを
+relative RMS `<0.002`で判定する。この境界を採用し、reuse layerの可変長KVを共通padded tensorへ組み、
+64-key online-softmax blockと公式BF16 probability castを維持するopt-in chunk graphを追加した。3-token
+fixtureではdevice publication併用時もoutput RMS gateとstate/continuation/fork/resetを通過した。40層へ
+昇格する前に2×128でroute/index/state/publication exactとhidden/pre-mix/logits RMS/argmaxを確認する。
+
 2×128 compact promotionでは実route unionの合計loaded expertが10,543（80 bank constructions、
 individual / compact比較の合計）で、full bankの30,720 expert loadの34.3%だった。
 ただし比較用individual modelのcacheが同一processに残るため、測定の156 GB cacheは

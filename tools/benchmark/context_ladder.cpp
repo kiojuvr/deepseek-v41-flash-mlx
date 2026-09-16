@@ -123,6 +123,7 @@ int main(int argc,char** argv) { try {
   {"compact_expert_bank",dsv41::runtime_compact_expert_bank_enabled()},
   {"route_diagnostics",dsv41::runtime_route_diagnostics_enabled()},
   {"index_diagnostics",dsv41::runtime_index_diagnostics_enabled()},
+  {"chunk_attention",dsv41::runtime_chunk_attention_enabled()},
   {"mlx_cache_limit_bytes",dsv41::runtime_mlx_cache_limit_bytes()},
   {"expert_assignment_chunk",dsv41::runtime_expert_assignment_chunk()},
   {"component_profile",dsv41::runtime_component_profile_enabled()},
@@ -283,10 +284,13 @@ int main(int argc,char** argv) { try {
  auto at=dsv41::read_attention_telemetry();
  if(dsv41::runtime_resident_expert_atlas_enabled()&&!dsv41::runtime_index_diagnostics_enabled()&&
     at.index_host_readbacks!=0)throw std::runtime_error("resident production path performed an index result readback");
+ if(dsv41::runtime_chunk_attention_enabled()&&at.chunk_attention_calls==0)
+  throw std::runtime_error("chunk attention was enabled but never invoked");
  report["attention_telemetry"]={{"concat_calls",at.concat_calls},{"concat_input_bytes",at.concat_input_bytes},
   {"concat_output_bytes",at.concat_output_bytes},{"cumulative_bytes_copied",at.cumulative_bytes_copied},
   {"logical_tokens",at.logical_tokens},{"attention_rows",at.attention_rows},{"indexer_rows",at.indexer_rows},
-  {"index_host_readbacks",at.index_host_readbacks}};
+  {"index_host_readbacks",at.index_host_readbacks},{"token_serial_attention_calls",at.token_serial_attention_calls},
+  {"chunk_attention_calls",at.chunk_attention_calls}};
  if(dsv41::runtime_component_profile_enabled()){
   const auto profile=dsv41::read_runtime_profile();J layers=J::array();
   double layer_total=0.0,attention_total=0.0,moe_total=0.0,post_total=0.0;

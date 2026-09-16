@@ -211,19 +211,40 @@ zero and treats any index-result readback as an error.  This removes a host
 boundary but does not yet remove the per-token attention invocation or provide
 an atomic full-chunk frontier commit.
 
-The next long validation is the updated resident full-path observation.  It
-has a reproducible runner because it takes several minutes:
+The clean full-path observation
+`context-ladder/32k-run-20260917-084044-36764` reviewed commit `9bfeb71`
+with exit 0, an empty tracked patch, and all recorded identities matching.
+It retained token 339, 40 model-initialization banks, zero warm bank
+construction, zero route readbacks, and **zero index-result readbacks**.
+Prefill was 129.090 s / 15.981 tok/s, 1.93% slower than the preceding
+126.641-second observation; this single-run difference is not credited as a
+speedup. Peak MLX was 302,822,401,315 bytes, process peak footprint was
+305,053,726,576 bytes, swap remained zero, and VM compression/decompression
+was about 30.80/30.66 GiB. The result qualifies the removed host boundary,
+not Phase 4 performance.
+
+Code-level comparison with DwarfStar's current `ds41_attention_batch` confirms
+that its prefill path publishes/selects in batches, executes raw/mixed/indexed
+attention with batch kernels, and commits the final ring only after the batch.
+Its focused batch fixture requires exact state/index publication and bounded
+attention output error (`relative RMS < 0.002`) rather than scalar/batch bit
+identity. The next candidate follows that split: reuse-layer rows share one
+padded MLX graph, while the token-serial path remains the default oracle.
+
+The next long validation is the 40-layer semantic promotion gate. It has a
+reproducible runner because it takes several minutes:
 
 ```sh
-bash tools/benchmark/run_resident_atlas_prefill_measurement.sh
+bash tools/benchmark/run_chunk_attention_backbone_check.sh
 ```
 
-It runs one model, 2,063-token prefill, and one decode with the same 340 GB
-budget and about 289 GB of one-time checkpoint reads.  It requires exactly 40
-model-lifetime banks, zero warm bank construction, and zero route/index
-diagnostic readbacks.  Logs and failed state remain under
-`artifacts/context-ladder/`; there is no resume, and the result is not passed
-until reviewed.
+It compares a token-serial and chunk-attention model over two 128-token chunks
+and all 40 layers. Hidden/pre-mix/logits must remain finite and below the
+pre-fixed relative-RMS 0.002 bound, every logits argmax must match, and route
+ties plus all persistent state/publication/hash bytes must be exact. It may
+read about 578 GB logically while constructing 80 comparison banks, uses a
+240 GB Unified Memory budget, retains failed logs under `artifacts/attention/`,
+and has no resume. It is not passed until reviewed.
 
 The next loop should be architecture-first and preserve the project's stated
 correctness priority:

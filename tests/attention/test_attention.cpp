@@ -18,6 +18,15 @@ void equal(const mx::array& a,const mx::array& b,const char* message,bool bits=t
  if(a.shape()!=b.shape()||a.dtype()!=mx::bfloat16||b.dtype()!=mx::bfloat16)throw std::runtime_error(message);
  auto e=mx::all(bits?mx::equal(mx::view(a,mx::uint16),mx::view(b,mx::uint16)):mx::equal(a,b));mx::eval(e);if(!e.item<bool>())throw std::runtime_error(message);
 }
+void rms_close(const mx::array& candidate,const mx::array& reference,const char* message){
+ if(candidate.shape()!=reference.shape()||candidate.dtype()!=reference.dtype())throw std::runtime_error(message);
+ auto c=mx::astype(candidate,mx::float32),r=mx::astype(reference,mx::float32),d=mx::subtract(c,r);
+ auto ratio=mx::sqrt(mx::divide(mx::sum(mx::multiply(d,d)),
+  mx::maximum(mx::sum(mx::multiply(r,r)),mx::array(1e-30f))));
+ auto finite=mx::all(mx::isfinite(c));mx::eval(ratio,finite);
+ if(!finite.item<bool>()||ratio.item<float>()>=0.002f)
+  throw std::runtime_error(std::string(message)+" relative_rms="+std::to_string(ratio.item<float>()));
+}
 int main(int argc,char** argv){try{
  mx::set_default_device(mx::Device::gpu);
  {
@@ -110,7 +119,9 @@ int main(int argc,char** argv){try{
     auto intact=mx::all(mx::equal(snapshot,publications.back().cache().main_bytes()));mx::eval(intact);if(!intact.item<bool>())throw std::runtime_error("consumer changed producer bytes");}
    dsv41::ReusedLayerState chunk_target;auto chunk_publications=publications;
    auto chunk_output=consumer.forward_chunk(inputs,chunk_target,chunk_publications,0);
-   equal(chunk_output,mx::concatenate(outputs,0),"consumer chunk output bits");
+   if(dsv41::runtime_chunk_attention_enabled())
+    rms_close(chunk_output,mx::concatenate(outputs,0),"consumer chunk output tolerance");
+   else equal(chunk_output,mx::concatenate(outputs,0),"consumer chunk output bits");
    equal(chunk_target.window(),target.window(),"consumer chunk window bits");
    if(chunk_target.position()!=target.position())throw std::runtime_error("consumer chunk position mismatch");
    auto saved=target;target.reset();
