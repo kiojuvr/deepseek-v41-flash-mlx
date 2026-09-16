@@ -65,17 +65,18 @@ BlockResult TextEncoderReference::forward_packed_chunk(std::span<const std::uint
  }
  mx::eval(out.hidden,out.pre_mix);state=std::move(next);return out;
 }
-TextEncoderReference::TextEncoderReference(WeightCatalog& c,std::shared_ptr<const EngramMetadata> m)
+TextEncoderReference::TextEncoderReference(WeightCatalog& c,std::shared_ptr<const EngramMetadata> m,
+ std::shared_ptr<const ResidentExpertAtlas> atlas)
  :metadata_(validate(std::move(m))),entry_(c),
   engram1_(c,*metadata_,0,1e-20f,EngramReadMode::Mmap),engram14_(c,*metadata_,1,1e-20f,EngramReadMode::Mmap){
- swa_[0]=std::make_unique<BlockReference>(c,0);
- swa_[1]=std::make_unique<BlockReference>(c,1);
- producer_[0]=std::make_unique<CompressedBlockReference>(c,2);
- producer_[1]=std::make_unique<CompressedBlockReference>(c,8);
- producer_[2]=std::make_unique<CompressedBlockReference>(c,14);
+ swa_[0]=std::make_unique<BlockReference>(c,0,atlas);
+ swa_[1]=std::make_unique<BlockReference>(c,1,atlas);
+ producer_[0]=std::make_unique<CompressedBlockReference>(c,2,atlas);
+ producer_[1]=std::make_unique<CompressedBlockReference>(c,8,atlas);
+ producer_[2]=std::make_unique<CompressedBlockReference>(c,14,atlas);
  for(int layer=0;layer<20;++layer){
   if(layer<=1||layer==2||layer==8||layer==14)continue;
-  reuse_[reuse_slot(layer)]=std::make_unique<ReusedBlockReference>(c,layer);
+  reuse_[reuse_slot(layer)]=std::make_unique<ReusedBlockReference>(c,layer,atlas);
  }
 }
 BlockResult TextEncoderReference::forward(std::span<const std::uint32_t> ids,TextEncoderState& state,std::uint64_t start,TraceSink* trace) const{

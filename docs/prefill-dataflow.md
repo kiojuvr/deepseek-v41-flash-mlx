@@ -101,16 +101,21 @@ resident atlasのload pathはMLX allocatorの最終所有bufferを先に確保�
 reviewed probe `expert-bank/run-20260916-083356-14519`では7,219,445,760-byte bankの全比較bitsが一致し、
 構築1.9446秒から0.6915秒、最大RSS 9,855,123,456 bytesから7,438,286,848 bytesへ減少した。
 単一run比較なので速度閾値には使わないが、payloadとほぼ同じsteady allocationで構築できるownership
-gateとして採用する。`DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS=1`では各layerのbankを初回構築後に保持し、
-chunk境界のrelease要求をimmutable atlasに対してno-opにする。1層のrelease/retain検査とfull MoE bitsは
-通過した。後続の40層結果は次段落でreviewする。
+gateとして採用する。`DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS=1`では
+`TextBackboneReference` construction中に全40層をprivate atlasへ構築し、全層成功後だけmodelへpublishする。
+各MoEは同じimmutable atlasを共有し、chunk境界のrelease要求はno-opになる。失敗時は未publish objectの
+destructorが完成済みbankを解放する。token-serial / compact pathのownershipは変更しない。
 
-40層run `context-ladder/32k-run-20260916-083752-15291`ではbank constructionがexactly 40、chunk 0
+旧lazy-resident 40層run `context-ladder/32k-run-20260916-083752-15291`ではbank constructionがexactly 40、chunk 0
 52.155秒、bank再構築のないchunk 1は20.367秒（6.2847 token/s）だった。prefill全体は72.528秒、
 3.5297 token/s。最終MLX activeは300,232,626,504 bytes、最大RSS 274,643,566,592 bytes、peak
 footprint 304,490,591,320 bytes。swapは0だが、OS compression / decompressionは約44 GiBずつ発生した。
 resident atlasによってchunkごとのcheckpoint readは除去できたが、oMLXとの差の主因は残る
 token-serial attention / dispatchであり、memory headroomも未qualifiedである。
+
+model-initialization atlasへの移行後はcontext runnerがmodel constructionのbank count/read timeを別記録し、
+各warm chunkの`bank_constructions`を0として検査する。新ownershipのfresh 40層runは未判定であり、上記
+旧runは数値・memoryの参考値に留める。
 
 次段としてpure SWA、compressed producer、reuse consumerのprojectionをtile単位へまとめ、attention
 内部のtoken順・causal state・index publicationは維持しつつper-token output同期を除去した。短い
@@ -166,6 +171,14 @@ compression / decompression / swap増分0だった。最大RSSは22,865,559,552 
 wall 7.32%短縮、throughput 7.89%上昇した。したがってcache修正に速度regressionはなく、device index
 executionのbounded full-path改善とcache lifecycleを採用する。ただし単発観測であり、反復paired
 performance、32K、外部parity、256Kは未qualifiedである。
+
+2026-09-17の次段では、packed block 3種のmHC pre/postをtoken slice loopから`[T,4,5120]` graphへ
+移した。layer 0の2x128 continuation、layers 0--2のcompressed state/publication、layers 0--3のreuse
+stateまでtoken-serial pathとbit一致した。さらにfull-resident pathではroute auditのCPU readbackを
+通常時0にし、device IDをstable expert-major順へ並べてgate/up/downを実行し、inverse permutation経由で
+既存のexpert-ID昇順reductionを維持する。128-token / 768 assignmentのbounded fixtureは従来batchおよび
+serial accumulationとbit一致した。これはexpert-major orderingの最初の接続であり、non-empty tile
+work-list dispatch、40層、full-path MoE wallは未qualifiedである。
 
 同条件component profile `context-ladder/32k-run-20260916-233434-29168`では、40層×17 chunkの
 GPU-completion wallをattention / MoE / post-MoE境界で測定した。prefill 225.927秒、layer合計

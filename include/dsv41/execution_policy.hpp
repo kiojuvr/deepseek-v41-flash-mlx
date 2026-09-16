@@ -52,6 +52,16 @@ inline bool runtime_compact_expert_bank_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_COMPACT_EXPERT_BANK must be 0 or 1");
 }
 
+// Copy route IDs/boundaries to the host only for qualification diagnostics.
+// Non-resident paths still require host IDs for compact-bank construction;
+// the full resident production path leaves this disabled.
+inline bool runtime_route_diagnostics_enabled() {
+ const char* value=std::getenv("DSV41_RUNTIME_ROUTE_DIAGNOSTICS");
+ if(value==nullptr||std::string_view(value)=="0") return false;
+ if(std::string_view(value)=="1") return true;
+ throw std::runtime_error("DSV41_RUNTIME_ROUTE_DIAGNOSTICS must be 0 or 1");
+}
+
 inline std::size_t runtime_mlx_cache_limit_bytes() {
  const char* value=std::getenv("DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES");
  if(value==nullptr||std::string_view(value).empty()||std::string_view(value)=="0") return 0;

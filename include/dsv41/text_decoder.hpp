@@ -15,7 +15,8 @@ struct TextDecoderState {
 };
 class TextDecoderReference {
 public:
- explicit TextDecoderReference(WeightCatalog& catalog);
+ explicit TextDecoderReference(WeightCatalog& catalog,
+                               std::shared_ptr<const ResidentExpertAtlas> atlas={});
  BlockResult forward_packed_chunk(const mlx::core::array& hidden,const mlx::core::array& pre_mix,
                                   TextDecoderState& state,std::uint64_t start) const;
  // Returns the final collapsed hidden [1,5120] after layer 39 (pre-norm).

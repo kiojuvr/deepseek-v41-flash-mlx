@@ -5,7 +5,8 @@
 namespace dsv41 {
 class ReusedBlockReference {
 public:
- explicit ReusedBlockReference(WeightCatalog& catalog,int layer=3);
+ explicit ReusedBlockReference(WeightCatalog& catalog,int layer=3,
+                               std::shared_ptr<const ResidentExpertAtlas> atlas={});
  BlockResult forward(const mlx::core::array& hidden,const mlx::core::array& pre_mix,
                      ReusedLayerState& state,SharedAttentionReference& publication,std::uint64_t start) const;
  BlockResult forward_packed_chunk(const mlx::core::array& hidden,const mlx::core::array& pre_mix,

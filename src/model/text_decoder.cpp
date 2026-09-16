@@ -13,10 +13,10 @@ mx::array load_bf16(WeightCatalog& c,const std::string& name,mx::Shape shape){
  return mx::view(mx::array(v.begin(),shape,mx::uint16),mx::bfloat16);
 }
 }
-TextDecoderReference::TextDecoderReference(WeightCatalog& c)
- :producer_(std::make_unique<CompressedBlockReference>(c,20)),
+TextDecoderReference::TextDecoderReference(WeightCatalog& c,std::shared_ptr<const ResidentExpertAtlas> atlas)
+ :producer_(std::make_unique<CompressedBlockReference>(c,20,atlas)),
   norm_(load_bf16(c,"norm.weight",{5120})),head_(load_bf16(c,"head.weight",{129280,5120})){
- for(int layer=21;layer<40;++layer)reuse_[reuse_slot(layer)]=std::make_unique<ReusedBlockReference>(c,layer);
+ for(int layer=21;layer<40;++layer)reuse_[reuse_slot(layer)]=std::make_unique<ReusedBlockReference>(c,layer,atlas);
 }
 int TextDecoderReference::reuse_slot(int layer) const{
  if(layer<21||layer>=kBackboneLayers)throw std::runtime_error("invalid decoder reuse layer");

@@ -466,18 +466,19 @@ exit 0、identity一致、選択6 expertのintermediate / weighted output / FP32
 1.9446秒、最大RSS 9,855,123,456 bytesに対する単一run差はqualification速度に使わないが、
 一時的なfull-size source copyを持たないownership gateをpassとする。
 
-40層resident atlas候補は`DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS=1`で、初回使用後のimmutable bankを
-chunk境界で解放しない。packed bank無効時は設定を拒否する。layer 0 / 128-token probeでは明示的な
-release要求後もbankが保持され、serialとのfull MoE bitsが一致した。40層2×128のload / reuse / memory
-検査は次をユーザーが実行する。
+40層resident atlas候補は`DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS=1`で、model construction中に全bankを
+transactionalに構築し、完成後だけ全blockへ共有する。packed bank無効時は設定を拒否する。layer 0 /
+128-token probeでは明示的なrelease要求後もbankが保持され、serialとのfull MoE bitsが一致した。
+40層2×128のmodel-lifetime load / warm reuse / memory検査は次をユーザーが実行する。
 
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_resident_atlas_prefill_check.sh
 ```
 
-1 model、40 layer、2×128 prefillとsample 1 token。chunk 0で40 bankを最終bufferへ直接構築し、
-chunk 1で再利用する。resultの`packed_expert_bank_constructions`がexactly 40でなければ失敗する。
+1 model、40 layer、2×128 prefillとsample 1 token。model initializationで40 bankを最終bufferへ直接構築し、
+両chunkで再利用する。resultの`packed_expert_bank_constructions`がexactly 40、各chunk progressの
+`bank_constructions`が0でなければ失敗する。
 数分、Unified Memory予算340 GB、論理checkpoint read約289 GB。ログは通常の
 `artifacts/context-ladder/32k-run-日時-PID/`へ保存する。checkpointはread-only。途中atlas / model stateの
 resumeはなく、失敗ログを保持してfresh rerunする。これはresident ownership / bounded prefill測定で、

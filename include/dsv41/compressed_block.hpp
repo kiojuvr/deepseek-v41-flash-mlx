@@ -4,7 +4,8 @@
 namespace dsv41 {
 class CompressedBlockReference {
 public:
- explicit CompressedBlockReference(WeightCatalog& catalog,int layer);
+ explicit CompressedBlockReference(WeightCatalog& catalog,int layer,
+                                   std::shared_ptr<const ResidentExpertAtlas> atlas={});
  BlockResult forward(const mlx::core::array& hidden,const mlx::core::array& pre_mix,
                      CompressedLayerState& state,std::uint64_t start) const;
  BlockResult forward_packed_chunk(const mlx::core::array& hidden,const mlx::core::array& pre_mix,

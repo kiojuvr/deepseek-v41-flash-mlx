@@ -170,6 +170,31 @@ PackedExpertBank::PackedExpertBank(WeightCatalog& catalog,int layer,
  }
 }
 
+ResidentExpertAtlas::ResidentExpertAtlas(WeightCatalog& catalog){
+ // Populate the private object completely before make_shared publishes it.
+ // If any layer fails, ordinary stack unwinding releases every completed bank.
+ for(int layer=0;layer<40;++layer){
+  auto bank=std::make_shared<PackedExpertBank>(catalog,layer);
+  packed_bytes_+=bank->packed_bytes();
+  banks_[layer]=std::move(bank);
+ }
+}
+
+const PackedExpertBank& ResidentExpertAtlas::bank(int layer) const{
+ if(layer<0||layer>=int(banks_.size())||!banks_[layer])
+  throw std::runtime_error("resident expert atlas layer is unavailable");
+ return *banks_[layer];
+}
+
+std::shared_ptr<const ResidentExpertAtlas> make_resident_expert_atlas(WeightCatalog& catalog){
+ if(!runtime_resident_expert_atlas_enabled())return {};
+ if(!runtime_packed_expert_bank_enabled())
+  throw std::runtime_error("resident expert atlas requires packed expert banks");
+ if(runtime_compact_expert_bank_enabled())
+  throw std::runtime_error("resident and compact expert banks are mutually exclusive");
+ return std::make_shared<const ResidentExpertAtlas>(catalog);
+}
+
 std::uint32_t PackedExpertBank::local_expert_id(int global_id) const{
  if(global_id<0||global_id>=384||global_to_local_[global_id]<0)
   throw std::runtime_error("route references expert absent from compact bank");
@@ -240,9 +265,63 @@ GroupedExpertBatchResult PackedExpertBank::forward_batch_selected(const mx::arra
  auto down=gather(mx::reshape(down_input,{assignments,1,2304}),w2_,s2_,assignment_ids);
  auto weighted=mx::astype(mx::multiply(mx::astype(down,mx::float32),
   mx::reshape(route_weights,{assignments,1,1})),mx::bfloat16);
+ auto token_base=mx::multiply(mx::expand_dims(mx::arange(tokens,mx::uint32),1),mx::array(std::uint32_t(6)));
+ auto reduction_assignments=mx::add(reduction_slots,token_base);
  static auto reduce=mx::fast::metal_kernel("dsv41_route_reduce_batch",
   {"weighted","reduction_slots","params"},{"accumulated"},dsv41_route_reduce_source);
- auto result=reduce({weighted,reduction_slots,mx::array({std::uint32_t(tokens)})},
+ auto result=reduce({weighted,reduction_assignments,mx::array({std::uint32_t(tokens)})},
+  {{tokens,5120}},{mx::float32},{tokens*5120,1,1},{256,1,1},{},std::nullopt,false,mx::Device::gpu).front();
+ return {result,mx::astype(result,mx::bfloat16)};
+}
+
+GroupedExpertBatchResult PackedExpertBank::forward_batch_expert_major(const mx::array& x,
+ const mx::array& expert_ids,const mx::array& lhs_ids,const mx::array& reduction_slots,
+ const mx::array& route_weights) const{
+ const int tokens=x.ndim()==2?x.shape(0):0,assignments=tokens*6;
+ if(x.dtype()!=mx::bfloat16||tokens<1||tokens>128||x.shape(1)!=5120||
+    expert_ids.dtype()!=mx::uint32||expert_ids.shape()!=mx::Shape({tokens,6})||
+    lhs_ids.dtype()!=mx::uint32||lhs_ids.shape()!=mx::Shape({tokens,6})||
+    reduction_slots.dtype()!=mx::uint32||reduction_slots.shape()!=mx::Shape({tokens,6})||
+    route_weights.dtype()!=mx::float32||route_weights.shape()!=mx::Shape({tokens,6}))
+  throw std::runtime_error("invalid expert-major batch input");
+ {
+  std::lock_guard lock(io_stats_mutex());
+  ++io_stats().expert_major_batches;io_stats().expert_major_assignments+=assignments;
+ }
+ auto flat_rhs=mx::reshape(expert_ids,{assignments});
+ auto flat_lhs=mx::reshape(lhs_ids,{assignments});
+ auto order=mx::argsort(flat_rhs);
+ auto rhs=mx::take(flat_rhs,order);
+ auto lhs=mx::take(flat_lhs,order);
+ auto sorted_weights=mx::take(mx::reshape(route_weights,{assignments}),order);
+ auto gather=[&](const mx::array& value,const mx::array& weight,const mx::array& scale,const mx::array& left){
+  { std::lock_guard lock(io_stats_mutex()); ++io_stats().qmm_dispatches; io_stats().qmm_rows_total+=assignments; io_stats().qmm_rows_max=std::max<std::size_t>(io_stats().qmm_rows_max,assignments); }
+  return mx::gather_qmm(value,weight,scale,std::nullopt,left,rhs,true,32,4,"mxfp4",false,mx::Device::gpu);
+ };
+ auto first_input=linear_activation_reference(x).decoded;
+ auto gate=gather(mx::reshape(first_input,{tokens,1,5120}),w1_,s1_,lhs);
+ auto up=gather(mx::reshape(first_input,{tokens,1,5120}),w3_,s3_,lhs);
+ auto g=mx::clip(mx::astype(gate,mx::float32),mx::array(-1e30f),mx::array(10.0f));
+ auto u=mx::clip(mx::astype(up,mx::float32),mx::array(-10.0f),mx::array(10.0f));
+ auto activation=mx::astype(mx::multiply(mx::multiply(g,mx::sigmoid(g)),u),mx::bfloat16);
+ auto flat_activation=mx::reshape(activation,{assignments,2304});
+ std::vector<mx::array> decoded_parts;
+ const int assignment_chunk=int(runtime_expert_assignment_chunk());
+ for(int offset=0;offset<assignments;offset+=assignment_chunk){
+  int end=std::min(offset+assignment_chunk,assignments);
+  decoded_parts.push_back(linear_activation_reference(mx::slice(flat_activation,{offset,0},{end,2304})).decoded);
+ }
+ auto down_input=decoded_parts.size()==1?decoded_parts.front():mx::concatenate(decoded_parts,0);
+ auto down=gather(mx::reshape(down_input,{assignments,1,2304}),w2_,s2_,mx::arange(assignments,mx::uint32));
+ auto weighted=mx::astype(mx::multiply(mx::astype(down,mx::float32),
+  mx::reshape(sorted_weights,{assignments,1,1})),mx::bfloat16);
+ auto inverse=mx::argsort(order);
+ auto token_base=mx::multiply(mx::expand_dims(mx::arange(tokens,mx::uint32),1),mx::array(std::uint32_t(6)));
+ auto canonical=mx::reshape(mx::add(reduction_slots,token_base),{assignments});
+ auto reduction_assignments=mx::reshape(mx::take(inverse,canonical),{tokens,6});
+ static auto reduce=mx::fast::metal_kernel("dsv41_route_reduce_expert_major",
+  {"weighted","reduction_slots","params"},{"accumulated"},dsv41_route_reduce_source);
+ auto result=reduce({weighted,reduction_assignments,mx::array({std::uint32_t(tokens)})},
   {{tokens,5120}},{mx::float32},{tokens*5120,1,1},{256,1,1},{},std::nullopt,false,mx::Device::gpu).front();
  return {result,mx::astype(result,mx::bfloat16)};
 }

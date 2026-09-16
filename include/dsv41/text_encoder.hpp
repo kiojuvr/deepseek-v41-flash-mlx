@@ -20,7 +20,8 @@ struct TextEncoderState {
 };
 class TextEncoderReference {
 public:
- TextEncoderReference(WeightCatalog& catalog,std::shared_ptr<const EngramMetadata> metadata);
+ TextEncoderReference(WeightCatalog& catalog,std::shared_ptr<const EngramMetadata> metadata,
+                      std::shared_ptr<const ResidentExpertAtlas> atlas={});
  BlockResult forward(std::span<const std::uint32_t> ids,TextEncoderState& state,std::uint64_t start,
                      TraceSink* trace=nullptr) const;
  // Explicit layer-major candidate; releases each packed bank after evaluation.

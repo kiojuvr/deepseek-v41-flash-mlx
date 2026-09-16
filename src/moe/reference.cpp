@@ -12,6 +12,7 @@ std::size_t& tie_counter(){static std::size_t count=0;return count;}
 std::vector<RouteTieRecord>& tie_records(){static std::vector<RouteTieRecord> records;return records;}
 std::uint64_t& current_token(){static std::uint64_t token=0;return token;}
 RouteUnionStats& union_stats(){static RouteUnionStats stats;return stats;}
+RouteExecutionStats& execution_stats(){static RouteExecutionStats stats;return stats;}
 }
 std::size_t route_tie_count(){return tie_counter();}
 void reset_route_tie_count(){tie_counter()=0;}
@@ -21,6 +22,8 @@ void set_route_trace_token(std::uint64_t token){current_token()=token;}
 std::uint64_t route_trace_token(){return current_token();}
 RouteUnionStats route_union_stats(){return union_stats();}
 void reset_route_union_stats(){union_stats()={};}
+RouteExecutionStats route_execution_stats(){return execution_stats();}
+void reset_route_execution_stats(){execution_stats()={};}
 namespace {
 std::string prefix(int expert,int layer){
  if(expert < -1||expert>=384)throw std::runtime_error("invalid expert ID");
@@ -111,7 +114,7 @@ RouteBatchReference select_routes_batch_reference(const mx::array& scores,const 
          mx::array(slots.begin(),{tokens,6},mx::uint32)};
 }
 RouteBatchReference select_routes_batch_device(const mx::array& scores,const mx::array& bias,
- bool strict,int layer,std::uint64_t start){
+ bool strict,int layer,std::uint64_t start,bool diagnostics){
  if(scores.dtype()!=mx::float32||scores.ndim()!=2||scores.shape(0)<1||scores.shape(0)>128||
     scores.shape(1)!=384||bias.dtype()!=mx::float32||bias.shape()!=mx::Shape({384}))
   throw std::runtime_error("invalid device batched route scores");
@@ -123,6 +126,12 @@ RouteBatchReference select_routes_batch_device(const mx::array& scores,const mx:
   {{tokens,7},{tokens,6},{tokens,2},{tokens},{tokens,6},{tokens,6}},
   {mx::uint32,mx::float32,mx::float32,mx::uint8,mx::uint32,mx::uint32},
   {tokens,1,1},{32,1,1},{},std::nullopt,false,mx::Device::gpu);
+ ++execution_stats().device_batches;
+ if(!diagnostics){
+  auto weights=mx::multiply(mx::divide(out[1],mx::add(mx::sum(out[1],1,true),mx::array(1e-20f))),mx::array(1.5f));
+  return {{},std::move(weights),{},mx::slice(out[0],{0,0},{tokens,6}),out[4],out[5]};
+ }
+ ++execution_stats().diagnostic_readbacks;
  auto ids_cpu=mx::astype(out[0],mx::uint32,mx::Device::cpu);
  auto boundary_cpu=mx::astype(out[2],mx::float32,mx::Device::cpu);
  auto errors_cpu=mx::astype(out[3],mx::uint8,mx::Device::cpu);
@@ -161,7 +170,7 @@ RouteReference GateReference::forward(const mx::array& x,RouteTieRecord* tie) co
  auto scores=mx::sqrt(mx::where(mx::greater(z,mx::array(20.0f)),z,mx::log1p(mx::exp(z))));
  return select_routes_reference(scores,bias_,false,tie);
 }
-RouteBatchReference GateReference::forward_batch(const mx::array& x,std::uint64_t start) const{
+RouteBatchReference GateReference::forward_batch(const mx::array& x,std::uint64_t start,bool diagnostics) const{
  if(x.dtype()!=mx::bfloat16||x.ndim()!=2||x.shape(0)<1||x.shape(0)>128||x.shape(1)!=5120)
   throw std::runtime_error("batched gate requires BF16 [1..128,5120]");
  // Keep the canonical one-row matmul reduction schedule while building all
@@ -175,7 +184,7 @@ RouteBatchReference GateReference::forward_batch(const mx::array& x,std::uint64_
   rows.push_back(mx::sqrt(mx::where(mx::greater(z,mx::array(20.0f)),z,mx::log1p(mx::exp(z)))));
  }
  auto scores=rows.size()==1?mx::reshape(rows.front(),{1,384}):mx::stack(rows,0);
- return select_routes_batch_device(scores,bias_,false,layer_,start);
+ return select_routes_batch_device(scores,bias_,false,layer_,start,diagnostics);
 }
 GateDiagnostic GateReference::diagnose(const mx::array& x,RouteTieRecord* tie) const {
  if(x.dtype()!=mx::bfloat16||x.shape()!=mx::Shape({1,5120})) throw std::runtime_error("gate requires one BF16 token");
@@ -212,12 +221,13 @@ ExpertComponents ExpertReference::components(const mx::array& x,const mx::array&
  auto out=mx::multiply(mx::astype(w2_.forward(act),mx::float32),weight);
  return {gate,up,act,mx::astype(out,mx::bfloat16)};
 }
-MoEReference::MoEReference(WeightCatalog& c,int layer)
+MoEReference::MoEReference(WeightCatalog& c,int layer,
+ std::shared_ptr<const ResidentExpertAtlas> atlas)
  :catalog_(&c),layer_(layer),gate_(c,layer),shared_(c,-1,layer),
   packed_experts_(runtime_packed_expert_bank_enabled()),
   group_selected_experts_(runtime_group_selected_experts_enabled()),
   resident_expert_atlas_(runtime_resident_expert_atlas_enabled()),
-  compact_expert_bank_(runtime_compact_expert_bank_enabled()){
+  compact_expert_bank_(runtime_compact_expert_bank_enabled()),resident_atlas_(std::move(atlas)){
  if(packed_experts_&&group_selected_experts_)
   throw std::runtime_error("packed and selected expert grouping modes are mutually exclusive");
  if(resident_expert_atlas_&&!packed_experts_)
@@ -226,9 +236,15 @@ MoEReference::MoEReference(WeightCatalog& c,int layer)
   throw std::runtime_error("compact expert banks require packed expert banks");
  if(compact_expert_bank_&&resident_expert_atlas_)
   throw std::runtime_error("compact expert banks and resident expert atlas are mutually exclusive");
+ if(resident_atlas_&&!resident_expert_atlas_)
+  throw std::runtime_error("resident expert atlas supplied while residency is disabled");
 }
 void MoEReference::release_packed_bank() const{
- if(!resident_expert_atlas_)expert_bank_.reset();
+ if(!resident_atlas_&&!resident_expert_atlas_)expert_bank_.reset();
+}
+bool MoEReference::packed_bank_loaded() const{return bool(resident_atlas_)||bool(expert_bank_);}
+std::size_t MoEReference::packed_bank_expert_count() const{
+ return resident_atlas_?resident_atlas_->bank(layer_).expert_count():(expert_bank_?expert_bank_->expert_count():0);
 }
 ExpertReference& MoEReference::expert(int id) const{
  auto it=experts_.find(id);
@@ -248,8 +264,13 @@ MoEComponents MoEReference::forward_components(const mx::array& x) const{
    std::vector<int> selected(route.ids.begin(),route.ids.end());
    std::sort(selected.begin(),selected.end());
    expert_bank_=std::make_unique<PackedExpertBank>(*catalog_,layer_,selected);
-  }else if(!expert_bank_)expert_bank_=std::make_unique<PackedExpertBank>(*catalog_,layer_);
-  y=expert_bank_->forward_selected(x,route.ids,route.weights).accumulated;
+   y=expert_bank_->forward_selected(x,route.ids,route.weights).accumulated;
+  }else if(resident_atlas_){
+   y=resident_atlas_->bank(layer_).forward_selected(x,route.ids,route.weights).accumulated;
+  }else{
+   if(!expert_bank_)expert_bank_=std::make_unique<PackedExpertBank>(*catalog_,layer_);
+   y=expert_bank_->forward_selected(x,route.ids,route.weights).accumulated;
+  }
  }else if(group_selected_experts_){
   std::array<const ExpertReference*,6> selected;
   for(int k=0;k<6;++k)selected[k]=&expert(route.ids[k]);
@@ -267,7 +288,7 @@ MoEComponents MoEReference::forward_batch_components(const mx::array& x,std::uin
  if(x.dtype()!=mx::bfloat16||x.ndim()!=2||x.shape(0)<1||x.shape(0)>128||x.shape(1)!=5120)
   throw std::runtime_error("batched MoE requires BF16 [1..128,5120]");
  const int tokens=x.shape(0);
- auto routes=gate_.forward_batch(x,start);
+ auto routes=gate_.forward_batch(x,start,!resident_atlas_||runtime_route_diagnostics_enabled());
  tie_count_+=routes.ties.size();
  tie_records().insert(tie_records().end(),routes.ties.begin(),routes.ties.end());
  set_route_trace_token(start+std::uint64_t(tokens-1));
@@ -290,6 +311,9 @@ MoEComponents MoEReference::forward_batch_components(const mx::array& x,std::uin
   previous_compact_ids_=selected;
   if(!exact_reuse) expert_bank_=std::make_unique<PackedExpertBank>(*catalog_,layer_,selected);
   routed=expert_bank_->forward_batch_selected(x,routes.ids,routes.weights);
+ }else if(resident_atlas_){
+  routed=resident_atlas_->bank(layer_).forward_batch_expert_major(x,routes.device_ids,routes.device_lhs,
+                                                          routes.reduction_slots,routes.weights);
  }else{
   if(!expert_bank_)expert_bank_=std::make_unique<PackedExpertBank>(*catalog_,layer_);
   routed=expert_bank_->forward_batch_selected(x,routes.device_ids,routes.device_lhs,

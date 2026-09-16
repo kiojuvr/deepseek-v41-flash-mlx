@@ -67,6 +67,16 @@ int main(){try{
  mx::eval(device_weight_bits_equal);
  if(!device_weight_bits_equal.item<bool>())
   throw std::runtime_error("device batched route weight bit mismatch");
+ auto device_only=dsv41::select_routes_batch_device(
+  batch_array,mx::zeros({384},mx::float32),false,9,1000,false);
+ if(!device_only.ids.empty()||!device_only.ties.empty())
+  throw std::runtime_error("device-only route path published host diagnostics");
+ auto device_only_ids_equal=mx::all(mx::equal(device_only.device_ids,device_batch.device_ids));
+ auto device_only_weights_equal=mx::all(mx::equal(mx::view(device_only.weights,mx::uint32),
+                                                  mx::view(device_batch.weights,mx::uint32)));
+ mx::eval(device_only_ids_equal,device_only_weights_equal);
+ if(!device_only_ids_equal.item<bool>()||!device_only_weights_equal.item<bool>())
+  throw std::runtime_error("device-only route result mismatch");
 
  std::vector<float> index_scores(513);
  for(int i=0;i<513;++i)index_scores[i]=513.0f-i;

@@ -14,7 +14,7 @@ mx::array norm(WeightCatalog& c,const std::string& name){
  return mx::view(mx::array(data.begin(),{5120},mx::uint16),mx::bfloat16);
 }
 }
-ReusedBlockReference::ReusedBlockReference(WeightCatalog& c,int layer):layer_(checked_reused_layer(layer)),attn_mix_(c,layer_,"attn"),ffn_mix_(c,layer_,"ffn"),attention_(c,layer_),moe_(c,layer_),
+ReusedBlockReference::ReusedBlockReference(WeightCatalog& c,int layer,std::shared_ptr<const ResidentExpertAtlas> atlas):layer_(checked_reused_layer(layer)),attn_mix_(c,layer_,"attn"),ffn_mix_(c,layer_,"ffn"),attention_(c,layer_),moe_(c,layer_,std::move(atlas)),
  attn_norm_(norm(c,("layers."+std::to_string(layer_))+".attn_norm.weight")),ffn_norm_(norm(c,("layers."+std::to_string(layer_))+".ffn_norm.weight")){}
 BlockResult ReusedBlockReference::forward(const mx::array& h,const mx::array& pre,ReusedLayerState& state,SharedAttentionReference& publication,std::uint64_t start) const{
  if(h.dtype()!=mx::bfloat16||h.ndim()!=3||h.shape(0)<1||h.shape(0)>1||h.shape(1)!=4||h.shape(2)!=5120||
@@ -62,36 +62,17 @@ BlockResult ReusedBlockReference::forward_packed_chunk(const mx::array& h,const 
   if(!finite.item<bool>())throw std::runtime_error("nonfinite packed reused Block chunk input");
  }
  auto next=state;auto pending_publications=publications;
- std::vector<mx::array> residuals,attn_inputs,ffn_inputs;
- std::vector<HCMixes> attn_mixes,ffn_mixes;
- residuals.reserve(h.shape(0));attn_inputs.reserve(h.shape(0));attn_mixes.reserve(h.shape(0));
- ffn_inputs.reserve(h.shape(0));ffn_mixes.reserve(h.shape(0));
- for(int i=0;i<h.shape(0);++i){
-  auto residual=mx::slice(h,{i,0,0},{i+1,4,5120});auto a=attn_mix_.mixes(residual);
-  auto attn_in=rms_norm_reference(hc_pre_reference(residual,mx::slice(pre,{i,0},{i+1,4})),attn_norm_,1e-20f);
-  residuals.push_back(residual);attn_inputs.push_back(attn_in);attn_mixes.push_back(std::move(a));
- }
- auto batched_attn_input=attn_inputs.size()==1?attn_inputs.front():mx::concatenate(attn_inputs,0);
+ auto attn_mixes=attn_mix_.mixes(h);
+ auto batched_attn_input=rms_norm_reference(hc_pre_reference(h,pre),attn_norm_,1e-20f);
  auto attention_started=runtime_profile_start();
  auto batched_attn_output=attention_.forward_chunk(batched_attn_input,next,pending_publications,start);
  finish_runtime_component(layer_,ProfileComponent::AttentionPath,attention_started,batched_attn_output);
- for(int i=0;i<h.shape(0);++i){
-  auto attn_out=mx::slice(batched_attn_output,{i,0},{i+1,5120});
-  auto residual=residuals[i];auto& a=attn_mixes[i];
-  auto x=hc_post_reference(attn_out,residual,a);auto f=ffn_mix_.mixes(x);
-  residuals[i]=x;ffn_inputs.push_back(rms_norm_reference(hc_pre_reference(x,a.pre),ffn_norm_,1e-20f));
-  ffn_mixes.push_back(std::move(f));
- }
- auto batched_input=ffn_inputs.size()==1?ffn_inputs.front():mx::concatenate(ffn_inputs,0);
+ auto post_attention=hc_post_reference(batched_attn_output,h,attn_mixes);
+ auto ffn_mixes=ffn_mix_.mixes(post_attention);
+ auto batched_input=rms_norm_reference(hc_pre_reference(post_attention,attn_mixes.pre),ffn_norm_,1e-20f);
  auto moe_started=runtime_profile_start();auto moe=moe_.forward_batch_components(batched_input,start);
  finish_runtime_component(layer_,ProfileComponent::MoEPath,moe_started,moe.total);
- std::vector<mx::array> hidden,pre_mix;hidden.reserve(h.shape(0));pre_mix.reserve(h.shape(0));
- for(int i=0;i<h.shape(0);++i){
-  hidden.push_back(hc_post_reference(mx::slice(moe.total,{i,0},{i+1,5120}),residuals[i],ffn_mixes[i]));
-  pre_mix.push_back(ffn_mixes[i].pre);
- }
- BlockResult result{hidden.size()==1?hidden.front():mx::concatenate(hidden,0),
-                    pre_mix.size()==1?pre_mix.front():mx::concatenate(pre_mix,0)};
+ BlockResult result{hc_post_reference(moe.total,post_attention,ffn_mixes),ffn_mixes.pre};
  auto post_started=runtime_profile_start();
  if(runtime_layer_finite_checks_enabled()){
   auto ok=mx::logical_and(mx::all(mx::isfinite(result.hidden)),mx::all(mx::isfinite(result.pre_mix)));

@@ -25,6 +25,7 @@ export DSV41_RUNTIME_PACKED_EXPERT_BANK=${DSV41_RUNTIME_PACKED_EXPERT_BANK:-0}
 export DSV41_RUNTIME_GROUP_SELECTED_EXPERTS=${DSV41_RUNTIME_GROUP_SELECTED_EXPERTS:-0}
 export DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS=${DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS:-0}
 export DSV41_RUNTIME_COMPACT_EXPERT_BANK=${DSV41_RUNTIME_COMPACT_EXPERT_BANK:-0}
+export DSV41_RUNTIME_ROUTE_DIAGNOSTICS=${DSV41_RUNTIME_ROUTE_DIAGNOSTICS:-0}
 export DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES=${DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES:-0}
 export DSV41_RUNTIME_EXPERT_IO_THREADS=${DSV41_RUNTIME_EXPERT_IO_THREADS:-1}
 export DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK=${DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK:-0}
@@ -55,6 +56,7 @@ printf '%s\n' "checkpoint=$checkpoint" "context=$context" "base_prefill=$((prefi
  "group_selected_experts=$DSV41_RUNTIME_GROUP_SELECTED_EXPERTS" \
  "resident_expert_atlas=$DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS" \
  "compact_expert_bank=$DSV41_RUNTIME_COMPACT_EXPERT_BANK" \
+ "route_diagnostics=$DSV41_RUNTIME_ROUTE_DIAGNOSTICS" \
  "mlx_cache_limit_bytes=$DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES" \
  "expert_io_threads=$DSV41_RUNTIME_EXPERT_IO_THREADS" \
  "expert_assignment_chunk=$DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK" \
@@ -64,6 +66,7 @@ printf '%s\n' "checkpoint=$checkpoint" "context=$context" "base_prefill=$((prefi
  "pattern=$pattern" > "$run_dir/config.txt"
 shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp \
  tools/benchmark/run_context_32k.sh tools/benchmark/run_resident_atlas_prefill_check.sh \
+ tools/benchmark/run_resident_atlas_prefill_measurement.sh \
  tools/benchmark/run_layer_component_profile.sh \
  include/dsv41/text_backbone.hpp include/dsv41/generation_loop.hpp include/dsv41/execution_policy.hpp \
  include/dsv41/runtime_profile.hpp \

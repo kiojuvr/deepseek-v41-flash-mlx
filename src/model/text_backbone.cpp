@@ -1,6 +1,11 @@
 #include "dsv41/text_backbone.hpp"
 #include <stdexcept>
 namespace dsv41 {
+TextBackboneReference::TextBackboneReference(WeightCatalog& catalog,
+ std::shared_ptr<const EngramMetadata> metadata)
+ :expert_atlas_(make_resident_expert_atlas(catalog)),
+  encoder_(catalog,std::move(metadata),expert_atlas_),decoder_(catalog,expert_atlas_){}
+
 BlockResult TextBackboneReference::forward_packed_chunk(std::span<const std::uint32_t> ids,
  TextBackboneState& state,std::uint64_t start) const{
  auto next=state;

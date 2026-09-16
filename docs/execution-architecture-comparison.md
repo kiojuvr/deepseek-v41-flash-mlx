@@ -130,6 +130,60 @@ summable and are not claims that the entire bucket can be removed.
 
 ## Implications for the next implementation loop
 
+### Optimized-path qualification boundary
+
+The token-serial path remains the bit-exact diagnostic oracle.  Production
+promotion instead treats the released checkpoint, official FP8/FP4 precision,
+causal ordering, and persistent-state semantics as hard invariants.  Route and
+index decisions (including boundary ties), atomic publication, continuation
+state, logits, and generated tokens are the optimized-path qualification
+surface.  Intermediate tensor bit identity and the reference floating-point
+reduction order are recorded when useful, but neither alone rejects a
+candidate whose qualified observables satisfy their fixed gates.  A partial
+layer/chunk sweep is never publishable.
+
+### Near-term implementation order
+
+| Phase | Structural change | Measured bucket addressed | Current repository action |
+|---:|---|---:|---|
+| 1 | Model-owned, transactionally published 40-layer resident expert atlas | 41.772 s bank construction | Move construction from first request to `TextBackboneReference` initialization; share immutable banks across every request/chunk. |
+| 2 | Chunk-wide mHC pre/post and state expansion | 38.743 s post-MoE, plus part of 9.678 s overhead | Apply the existing batched mHC algebra directly to `[T,4,5120]`; retain token-serial methods as oracle. |
+| 3 | Device route to expert-major work lists and grouped gate/up/down/reduce | Remaining nominal 64.3 s MoE | Replace assignment-major `[6T]` scheduling after Phases 1/2 qualification. |
+| 4 | Chunk-wide attention/index/publication with atomic frontier commit | 71.066 s attention | Remove intermediate host control and token attention loops; do not start an SWA-only kernel first. |
+| 5 | CED/deferred decoder and bounded replay | No 2K saving | Begin only after the 2K structural gates above. |
+
+The prior full-resident experiment proved 40-bank reuse but built those banks
+during the first prefill chunk and experienced substantial VM compression.
+Phase 1 therefore separates model-initialization cost from warm request wall
+and keeps memory pressure as an explicit promotion gate; it does not reinterpret
+the earlier run as production qualification.
+
+Implementation status (2026-09-17): Phase 1 ownership and Phase 2 chunk-wide
+mHC are connected.  Bounded Phase 2 checks passed bitwise for layer 0 at
+2x128 tokens, layers 0--2 including compressed publication, and layers 0--3
+including the first reuse consumer.  Phase 3 has started: the resident path
+omits route diagnostic readback, stable-sorts all `6T` assignments by expert on
+device, runs gate/up/down in that order, and maps the canonical expert-ID
+reduction order through the inverse permutation.  A 128-token/768-assignment
+layer-0 fixture matched the assignment-major and token-serial accumulated and
+BF16 routed outputs bitwise.  This is not yet DwarfStar-style non-empty tile
+dispatch or full-path Phase 3 qualification.
+
+The fresh full-backbone parity and resident full-path measurements are kept as
+user-run validations because each takes several minutes:
+
+```sh
+bash tools/benchmark/run_layer_major_backbone_check.sh
+bash tools/benchmark/run_resident_atlas_prefill_measurement.sh
+```
+
+The first uses a token-serial oracle and checks two 128-token chunks across all
+40 layers (about 578 GB logical reads, 240 GB memory budget, no resume).  The
+second runs one model with a transactionally constructed atlas, 2,063-token
+prefill and one decode (about 289 GB one-time reads, 340 GB memory budget, no
+resume).  Both retain failed run directories under `artifacts/`; neither is
+called passed until its fresh result has been reviewed.
+
 The next loop should be architecture-first and preserve the project's stated
 correctness priority:
 

@@ -40,6 +40,18 @@ int main(int argc,char** argv){try{
  }
  auto weights=mx::array(raw_weights.begin(),{tokens,6},mx::float32);
  auto batched=[&]{return bank.forward_batch_selected(x,ids,weights);};
+ std::vector<std::uint32_t> device_ids,device_lhs,reduction_slots;
+ device_ids.reserve(tokens*6);device_lhs.reserve(tokens*6);reduction_slots.reserve(tokens*6);
+ for(int token=0;token<tokens;++token){
+  std::array<std::uint32_t,6> order{0,1,2,3,4,5};
+  std::sort(order.begin(),order.end(),[&](auto a,auto b){return ids[token][a]<ids[token][b];});
+  for(int slot=0;slot<6;++slot){device_ids.push_back(std::uint32_t(ids[token][slot]));device_lhs.push_back(std::uint32_t(token));}
+  reduction_slots.insert(reduction_slots.end(),order.begin(),order.end());
+ }
+ auto expert_major=[&]{return bank.forward_batch_expert_major(x,
+  mx::array(device_ids.begin(),{tokens,6},mx::uint32),
+  mx::array(device_lhs.begin(),{tokens,6},mx::uint32),
+  mx::array(reduction_slots.begin(),{tokens,6},mx::uint32),weights);};
  auto serial=[&]{
   std::vector<mx::array> accumulated,routed;accumulated.reserve(tokens);routed.reserve(tokens);
   for(int token=0;token<tokens;++token){
@@ -49,10 +61,13 @@ int main(int argc,char** argv){try{
   }
   return dsv41::GroupedExpertBatchResult{mx::concatenate(accumulated,0),mx::concatenate(routed,0)};
  };
- auto batch_result=batched(),serial_result=serial();
- mx::eval(batch_result.accumulated,batch_result.routed,serial_result.accumulated,serial_result.routed);mx::synchronize();
+ auto batch_result=batched(),expert_major_result=expert_major(),serial_result=serial();
+ mx::eval(batch_result.accumulated,batch_result.routed,expert_major_result.accumulated,
+          expert_major_result.routed,serial_result.accumulated,serial_result.routed);mx::synchronize();
  same(batch_result.accumulated,serial_result.accumulated,"batch accumulated");
  same(batch_result.routed,serial_result.routed,"batch routed");
+ same(expert_major_result.accumulated,batch_result.accumulated,"expert-major accumulated");
+ same(expert_major_result.routed,batch_result.routed,"expert-major routed");
  std::set<int> selected_set;
  for(const auto& token_ids:ids)selected_set.insert(token_ids.begin(),token_ids.end());
  std::vector<int> selected(selected_set.begin(),selected_set.end());
@@ -72,7 +87,9 @@ int main(int argc,char** argv){try{
  std::vector<double> compact_times;
  for(int round=0;round<5;++round)compact_times.push_back(timed(compact_run));
  J report={{"schema_version",1},{"status","probe_completed_requires_review"},{"layer",0},{"tokens",tokens},
-  {"routes",tokens*6},{"accumulated_and_routed_bits","exact"},{"serial_median_seconds",median(serial_times)},
+  {"routes",tokens*6},{"accumulated_and_routed_bits","exact"},{"expert_major_bits","exact"},
+  {"expert_major_order","stable device argsort by expert; canonical expert-ID reduction order"},
+  {"serial_median_seconds",median(serial_times)},
   {"batch_median_seconds",median(batch_times)},{"active_bytes",mx::get_active_memory()},
   {"cache_bytes",mx::get_cache_memory()},{"peak_bytes",mx::get_peak_memory()},
   {"full_bank_experts",bank.expert_count()},{"full_bank_bytes",bank.packed_bytes()},

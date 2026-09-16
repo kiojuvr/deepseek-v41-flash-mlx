@@ -8,7 +8,8 @@ struct BlockResult { mlx::core::array hidden,pre_mix; };
 // Pure SWA layers 0/1. Caller applies Engram before layer 1. All experts resident.
 class BlockReference {
 public:
- explicit BlockReference(WeightCatalog& catalog,int layer=0);
+ explicit BlockReference(WeightCatalog& catalog,int layer=0,
+                         std::shared_ptr<const ResidentExpertAtlas> atlas={});
  BlockResult forward(const mlx::core::array& hidden,const mlx::core::array& pre_mix,
                      SwaLayerState& state,std::uint64_t start_position) const;
  // Layer-major chunk candidate: preserves token-serial attention/state while

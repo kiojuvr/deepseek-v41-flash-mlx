@@ -29,6 +29,7 @@ shasum -a 256 build-mlx/dsv41-text-backbone-test tests/attention/test_text_backb
  metal/moe/route_select.metal metal/moe/route_reduce.metal \
  artifacts/checkpoint/summary.json artifacts/engram/metadata.json > "$run_dir/identity.txt"
 printf '%s\n' 'scope=40 layers; 2x128 tokens; device top-7/assignment/reduction; output/logits/state/publication/hash/route ties and invalid-token atomicity' \
+ 'change_under_test=chunk-wide mHC pre/post/state expansion for pure-SWA, producer, and reuse blocks; token-serial path remains oracle' \
  'resources=several minutes; budget 240 GB Unified Memory; approximately 578 GB logical checkpoint reads for 80 bank constructions; checkpoint read-only' \
  'resume=unsupported; retain failed logs and rerun fresh' > "$run_dir/config.txt"
 cmd=(env DSV41_RUNTIME_LAYER_FINITE_CHECKS=0 DSV41_RUNTIME_PACKED_EXPERT_BANK=0 \

@@ -20,10 +20,14 @@ struct RouteUnionStats {
 };
 struct ExpertBankIoStats {
  std::size_t constructions=0, read_calls=0, qmm_dispatches=0, qmm_rows_total=0, qmm_rows_max=0;
+ std::size_t expert_major_batches=0,expert_major_assignments=0;
  double read_seconds=0.0, total_seconds=0.0;
 };
+struct RouteExecutionStats { std::size_t device_batches=0,diagnostic_readbacks=0; };
 ExpertBankIoStats expert_bank_io_stats();
 void reset_expert_bank_io_stats();
+RouteExecutionStats route_execution_stats();
+void reset_route_execution_stats();
 RouteUnionStats route_union_stats();
 void reset_route_union_stats();
 struct GateDiagnostic { mlx::core::array raw_scores, corrected_scores; RouteReference route; };
@@ -48,16 +52,19 @@ RouteReference select_routes_reference(const mlx::core::array& scores,const mlx:
 // The selection and normalization policy is identical to select_routes_reference.
 RouteBatchReference select_routes_batch_reference(const mlx::core::array& scores,
  const mlx::core::array& bias,bool strict=true,int layer=0,std::uint64_t start_position=0);
-// Parallel Metal selector used by the prefill path. It transfers only seven
-// IDs, two boundary scores, and one status byte per token to the host.
+// Parallel Metal selector used by the prefill path. Qualification diagnostics
+// transfer seven IDs, two boundary scores, and one status byte per token;
+// diagnostics=false leaves selection, weights, and assignments on device.
 RouteBatchReference select_routes_batch_device(const mlx::core::array& scores,
- const mlx::core::array& bias,bool strict=true,int layer=0,std::uint64_t start_position=0);
+ const mlx::core::array& bias,bool strict=true,int layer=0,std::uint64_t start_position=0,
+ bool diagnostics=true);
 class GateReference {
 public:
  explicit GateReference(WeightCatalog& catalog,int layer=0);
  RouteReference forward(const mlx::core::array& input,RouteTieRecord* tie=nullptr) const;
  RouteBatchReference forward_batch(const mlx::core::array& input,
-                                   std::uint64_t start_position) const;
+                                   std::uint64_t start_position,
+                                   bool diagnostics=true) const;
  GateDiagnostic diagnose(const mlx::core::array& input,RouteTieRecord* tie=nullptr) const;
 private:
  int layer_;
@@ -104,6 +111,12 @@ public:
   // compact-bank callers should normally use the host-ID overload above.
   const mlx::core::array& expert_ids,const mlx::core::array& lhs_ids,
   const mlx::core::array& reduction_slots,const mlx::core::array& route_weights) const;
+ // Device-only resident path: stable-sort assignments by expert, execute the
+ // three gathered QMMs in expert-major row order, then reduce in canonical
+ // per-token expert-ID order.
+ GroupedExpertBatchResult forward_batch_expert_major(const mlx::core::array& input,
+  const mlx::core::array& expert_ids,const mlx::core::array& lhs_ids,
+  const mlx::core::array& reduction_slots,const mlx::core::array& route_weights) const;
  std::size_t packed_bytes() const{return packed_bytes_;}
  std::size_t expert_count() const{return expert_ids_.size();}
 private:
@@ -113,22 +126,36 @@ private:
  std::array<int,384> global_to_local_{};
  std::size_t packed_bytes_=0;
 };
+// Immutable hardware-native routed weights for the complete backbone.  The
+// constructor builds into an unpublished object; callers receive the shared
+// atlas only after all 40 layer banks have completed successfully.
+class ResidentExpertAtlas {
+public:
+ explicit ResidentExpertAtlas(WeightCatalog& catalog);
+ const PackedExpertBank& bank(int layer) const;
+ std::size_t packed_bytes() const{return packed_bytes_;}
+private:
+ std::array<std::shared_ptr<const PackedExpertBank>,40> banks_;
+ std::size_t packed_bytes_=0;
+};
+std::shared_ptr<const ResidentExpertAtlas> make_resident_expert_atlas(WeightCatalog& catalog);
 GroupedExpertComponents forward_grouped_selected(
  const mlx::core::array& input,const std::array<int,6>& expert_ids,
  const std::array<const ExpertReference*,6>& experts,
  const mlx::core::array& route_weights);
 class MoEReference {
 public:
- // Routed experts load on first use and stay cached; the shared expert loads eagerly.
- // Numerically identical to a fully resident load, but bounds memory for the full backbone.
- explicit MoEReference(WeightCatalog& catalog,int layer=0);
+ // Reference/compact modes retain their existing on-demand ownership.  The
+ // optimized backbone supplies one immutable model-owned resident atlas.
+ explicit MoEReference(WeightCatalog& catalog,int layer=0,
+                       std::shared_ptr<const ResidentExpertAtlas> atlas={});
  mlx::core::array forward(const mlx::core::array& input) const;
  MoEComponents forward_components(const mlx::core::array& input) const;
  MoEComponents forward_batch_components(const mlx::core::array& input,
                                          std::uint64_t start_position) const;
  void release_packed_bank() const;
- bool packed_bank_loaded() const{return bool(expert_bank_);}
- std::size_t packed_bank_expert_count() const{return expert_bank_?expert_bank_->expert_count():0;}
+ bool packed_bank_loaded() const;
+ std::size_t packed_bank_expert_count() const;
  mlx::core::array expert_contribution(const mlx::core::array& input, int expert_id,
                                       const mlx::core::array& route_weight) const;
  ExpertComponents expert_components(const mlx::core::array& input, int expert_id,
@@ -146,6 +173,7 @@ private:
  bool group_selected_experts_;
  bool resident_expert_atlas_;
  bool compact_expert_bank_;
+ std::shared_ptr<const ResidentExpertAtlas> resident_atlas_;
  mutable std::unique_ptr<PackedExpertBank> expert_bank_;
  mutable std::vector<int> previous_compact_ids_;
  mutable std::size_t tie_count_=0;

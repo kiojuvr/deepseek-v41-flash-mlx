@@ -12,13 +12,13 @@ struct TextBackboneState {
 };
 class TextBackboneReference {
 public:
- TextBackboneReference(WeightCatalog& catalog,std::shared_ptr<const EngramMetadata> metadata)
-  :encoder_(catalog,std::move(metadata)),decoder_(catalog){}
+ TextBackboneReference(WeightCatalog& catalog,std::shared_ptr<const EngramMetadata> metadata);
  BlockResult forward(std::span<const std::uint32_t> ids,TextBackboneState& state,std::uint64_t start,TraceSink* trace=nullptr) const;
  BlockResult forward_packed_chunk(std::span<const std::uint32_t> ids,
                                   TextBackboneState& state,std::uint64_t start) const;
  mlx::core::array logits(const BlockResult& final_hidden,TraceSink* trace=nullptr) const{return decoder_.logits(final_hidden,trace);}
 private:
+ std::shared_ptr<const ResidentExpertAtlas> expert_atlas_;
  TextEncoderReference encoder_;
  TextDecoderReference decoder_;
 };

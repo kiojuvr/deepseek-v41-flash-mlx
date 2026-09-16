@@ -120,6 +120,7 @@ int main(int argc,char** argv) { try {
   {"packed_expert_bank",dsv41::runtime_packed_expert_bank_enabled()},
   {"resident_expert_atlas",dsv41::runtime_resident_expert_atlas_enabled()},
   {"compact_expert_bank",dsv41::runtime_compact_expert_bank_enabled()},
+  {"route_diagnostics",dsv41::runtime_route_diagnostics_enabled()},
   {"mlx_cache_limit_bytes",dsv41::runtime_mlx_cache_limit_bytes()},
   {"expert_assignment_chunk",dsv41::runtime_expert_assignment_chunk()},
   {"component_profile",dsv41::runtime_component_profile_enabled()},
@@ -128,19 +129,25 @@ int main(int argc,char** argv) { try {
  std::ofstream progress(output.string()+".progress.jsonl");
  if(!progress) throw std::runtime_error("cannot create progress JSONL");
 
+ dsv41::reset_packed_expert_bank_construction_count();
+ dsv41::reset_expert_bank_io_stats();
  auto started=Clock::now();
  dsv41::WeightCatalog catalog(argv[1],argv[2]);
  auto metadata=dsv41::EngramMetadata::load(argv[3]);
  dsv41::TextBackboneReference model(catalog,metadata);
  mx::synchronize();
- report["phases"]["model_construction"]={{"seconds",seconds(started)},{"memory",memory()}};
+ const auto construction_io=dsv41::expert_bank_io_stats();
+ report["phases"]["model_construction"]={{"seconds",seconds(started)},{"memory",memory()},
+  {"bank_constructions",dsv41::packed_expert_bank_construction_count()},
+  {"loaded_experts",dsv41::packed_expert_bank_loaded_expert_count()},
+  {"bank_read_calls",construction_io.read_calls},{"bank_read_seconds",construction_io.read_seconds},
+  {"bank_total_seconds",construction_io.total_seconds}};
  dsv41::TextBackboneState state(metadata);
- dsv41::reset_packed_expert_bank_construction_count();
- dsv41::reset_expert_bank_io_stats();
  dsv41::reset_attention_telemetry();
  dsv41::reset_runtime_profile();
  dsv41::reset_route_tie_count(); dsv41::reset_route_tie_records();
  dsv41::reset_route_union_stats();
+ dsv41::reset_route_execution_stats();
  dsv41::reset_index_tie_count(); dsv41::reset_index_tie_records();
  std::optional<dsv41::BlockResult> last;
 
@@ -155,6 +162,9 @@ int main(int argc,char** argv) { try {
    auto input=std::span(ids).subspan(offset,size);
    last.emplace(layer_major?model.forward_packed_chunk(input,state,offset):model.forward(input,state,offset));
    evaluate(*last); offset+=size; ++chunks;
+   if(dsv41::runtime_resident_expert_atlas_enabled()&&
+      dsv41::packed_expert_bank_construction_count()!=constructions_before)
+    throw std::runtime_error("resident expert atlas constructed a bank on the request path");
    if(const auto limit=dsv41::runtime_mlx_cache_limit_bytes();limit) mx::set_cache_limit(limit);
    if(layer_major) {
     J chunk_point={{"event","chunk"},{"phase",label},{"position",offset},{"tokens",size},
@@ -246,6 +256,14 @@ int main(int argc,char** argv) { try {
   {"max_seconds",maximum},
   {"generated_token_ids",generated},{"state_position",prefill+decode-1},{"next_position",context},
   {"memory",memory()}};
+ if(dsv41::runtime_resident_expert_atlas_enabled()&&!dsv41::runtime_route_diagnostics_enabled()){
+  const auto route_stats=dsv41::route_execution_stats();
+  const auto expert_stats=dsv41::expert_bank_io_stats();
+  if(route_stats.diagnostic_readbacks!=0)
+   throw std::runtime_error("resident production path performed a route diagnostic readback");
+  if(expert_stats.expert_major_batches!=route_stats.device_batches)
+   throw std::runtime_error("resident route batch did not use expert-major execution");
+ }
  report["route_tie_count"]=dsv41::route_tie_count();
  report["packed_expert_bank_constructions"]=dsv41::packed_expert_bank_construction_count();
  report["packed_expert_bank_loaded_experts"]=dsv41::packed_expert_bank_loaded_expert_count();
@@ -253,8 +271,13 @@ int main(int argc,char** argv) { try {
  report["expert_bank_io_stats"]={{"constructions",bank_io.constructions},
   {"read_calls",bank_io.read_calls},{"qmm_dispatches",bank_io.qmm_dispatches},
   {"qmm_rows_total",bank_io.qmm_rows_total},{"qmm_rows_max",bank_io.qmm_rows_max},
+  {"expert_major_batches",bank_io.expert_major_batches},
+  {"expert_major_assignments",bank_io.expert_major_assignments},
   {"read_seconds",bank_io.read_seconds},
   {"total_seconds",bank_io.total_seconds}};
+ auto route_execution=dsv41::route_execution_stats();
+ report["route_execution_stats"]={{"device_batches",route_execution.device_batches},
+  {"diagnostic_readbacks",route_execution.diagnostic_readbacks}};
  auto at=dsv41::read_attention_telemetry();
  report["attention_telemetry"]={{"concat_calls",at.concat_calls},{"concat_input_bytes",at.concat_input_bytes},
   {"concat_output_bytes",at.concat_output_bytes},{"cumulative_bytes_copied",at.cumulative_bytes_copied},
