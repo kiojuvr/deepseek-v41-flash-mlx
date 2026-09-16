@@ -23,6 +23,9 @@ public:
  TextEncoderReference(WeightCatalog& catalog,std::shared_ptr<const EngramMetadata> metadata);
  BlockResult forward(std::span<const std::uint32_t> ids,TextEncoderState& state,std::uint64_t start,
                      TraceSink* trace=nullptr) const;
+ // Explicit layer-major candidate; releases each packed bank after evaluation.
+ BlockResult forward_packed_chunk(std::span<const std::uint32_t> ids,
+                                  TextEncoderState& state,std::uint64_t start) const;
 private:
  std::shared_ptr<const EngramMetadata> metadata_;
  TextEntryReference entry_;

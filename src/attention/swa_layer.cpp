@@ -1,4 +1,6 @@
 #include "dsv41/swa_layer.hpp"
+#include "dsv41/attention_telemetry.hpp"
+#include "dsv41/execution_policy.hpp"
 #include "dsv41/swa_attention.hpp"
 #include "dsv41/engram.hpp"
 #include <stdexcept>
@@ -38,29 +40,42 @@ mx::array SwaLayerReference::forward(const mx::array& h,SwaLayerState& state,std
  if(h.dtype()!=mx::bfloat16||h.ndim()!=2||h.shape(1)!=5120||h.shape(0)<1||h.shape(0)>128||
     start!=state.position_||start>=1048576||std::uint64_t(h.shape(0))>1048576-start)
   throw std::runtime_error("invalid SWA layer input/position");
- auto finite=mx::all(mx::isfinite(h));mx::eval(finite);if(!finite.item<bool>())throw std::runtime_error("nonfinite SWA input");
+ if(runtime_layer_finite_checks_enabled()){
+  auto finite=mx::all(mx::isfinite(h));mx::eval(finite);if(!finite.item<bool>())throw std::runtime_error("nonfinite SWA input");
+ }
  const std::string prefix="encoder.layer"+std::to_string(layer_)+".";
- auto next=state;std::vector<mx::array> outputs;
+ auto next=state;std::vector<mx::array> outputs;outputs.reserve(h.shape(0));
+ auto qkv=input_.forward(h,start);
+ auto all_rows=mx::concatenate({state.rows_,qkv.kv},0);
+ { std::lock_guard l(attention_telemetry_mutex()); auto& t=attention_telemetry(); ++t.concat_calls; t.concat_input_bytes+=(state.rows_.size()+qkv.kv.size())*2; t.concat_output_bytes+=all_rows.size()*2; t.cumulative_bytes_copied+=all_rows.size()*2; }
  for(int i=0;i<h.shape(0);++i){
-  auto pos=start+i;auto qkv=input_.forward(mx::slice(h,{i,0},{i+1,5120}),pos);
-  auto rows=mx::concatenate({next.rows_,qkv.kv},0);
-  if(rows.shape(0)>128)rows=mx::slice(rows,{rows.shape(0)-128,0},{rows.shape(0),512});
+ { std::lock_guard l(attention_telemetry_mutex()); attention_telemetry().logical_tokens++; attention_telemetry().attention_rows++; }
+  auto pos=start+i;
+  auto end=state.rows_.shape(0)+i+1;
+  auto begin=std::max(0,end-128);
+  auto rows=mx::slice(all_rows,{begin,0},{end,512});
   // Decode lists unseen ring slots first, then chronological live rows.
   int pad=pos==0?0:128-rows.shape(0);
   auto ordered=pad?mx::concatenate({mx::zeros({pad,512},mx::bfloat16),rows},0):rows;
   auto valid=mx::greater_equal(mx::arange(ordered.shape(0),mx::int32),mx::array(pad));
-  auto o=swa_attention_masked_reference(mx::reshape(qkv.query,{64,512}),ordered,sink_,valid);
+  auto query=mx::reshape(mx::slice(qkv.query,{i,0,0},{i+1,64,512}),{64,512});
+  auto o=swa_attention_masked_reference(query,ordered,sink_,valid);
   trace_record(prefix+"attn_o_raw",mx::reshape(o,{1,64,512}));
   o=swa_rope_reference(mx::reshape(o,{1,64,512}),pos,true);
   trace_record(prefix+"attn_o",o);
   auto groups=mx::reshape(o,{8,1,4096});
   auto projected=mx::matmul(groups,mx::transpose(grouped_weight_,{0,2,1}));
   auto y=output_.forward(mx::reshape(projected,{1,8192}));
-  auto ok=mx::logical_and(mx::all(mx::isfinite(y)),mx::all(mx::isfinite(rows)));
-  mx::eval(y,rows,ok);if(!ok.item<bool>())throw std::runtime_error("nonfinite SWA output/state");
-  next.rows_=rows;next.position_=pos+1;outputs.push_back(y);
+  if(runtime_layer_finite_checks_enabled()){
+   auto ok=mx::logical_and(mx::all(mx::isfinite(y)),mx::all(mx::isfinite(rows)));
+   mx::eval(y,rows,ok);if(!ok.item<bool>())throw std::runtime_error("nonfinite SWA output/state");
+  }
+  outputs.push_back(y);
  }
- auto result=mx::concatenate(outputs,0);mx::eval(result);
+ next.rows_=mx::slice(all_rows,{std::max(0,all_rows.shape(0)-128),0},{all_rows.shape(0),512});
+ next.position_=start+h.shape(0);
+ auto result=mx::concatenate(outputs,0);
+ if(runtime_layer_finite_checks_enabled()) mx::eval(result,next.rows_);
  state=std::move(next);return result;
 }
 }

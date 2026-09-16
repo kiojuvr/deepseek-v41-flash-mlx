@@ -107,6 +107,11 @@ int main(int argc,char** argv){try{
     publications.push_back(*source.publication());auto snapshot=publications.back().cache().main_bytes();
     outputs.push_back(consumer.forward(x,target,publications.back(),i));
     auto intact=mx::all(mx::equal(snapshot,publications.back().cache().main_bytes()));mx::eval(intact);if(!intact.item<bool>())throw std::runtime_error("consumer changed producer bytes");}
+   dsv41::ReusedLayerState chunk_target;auto chunk_publications=publications;
+   auto chunk_output=consumer.forward_chunk(inputs,chunk_target,chunk_publications,0);
+   equal(chunk_output,mx::concatenate(outputs,0),"consumer chunk output bits");
+   equal(chunk_target.window(),target.window(),"consumer chunk window bits");
+   if(chunk_target.position()!=target.position())throw std::runtime_error("consumer chunk position mismatch");
    auto saved=target;target.reset();
    for(int i=0;i<3;++i)equal(consumer.forward(mx::slice(inputs,{i,0},{i+1,5120}),target,publications[i],i),outputs[i],"consumer snapshot replay bits");
    equal(target.window(),saved.window(),"consumer window replay bits");

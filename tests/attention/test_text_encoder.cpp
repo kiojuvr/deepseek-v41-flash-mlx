@@ -4,6 +4,9 @@
 #include "dsv41/checkpoint_atlas.hpp"
 #include <fstream>
 #include <stdexcept>
+#include <algorithm>
+#include <cstdlib>
+#include <tuple>
 namespace mx=mlx::core;
 void same(const mx::array& a,const mx::array& b,const char* what){
  if(a.shape()!=b.shape()||a.dtype()!=b.dtype())throw std::runtime_error(std::string(what)+": shape/dtype mismatch");
@@ -13,6 +16,8 @@ void same(const mx::array& a,const mx::array& b,const char* what){
 }
 void state_same(const dsv41::TextEncoderState& a,const dsv41::TextEncoderState& b){
  if(a.hash.position()!=b.hash.position())throw std::runtime_error("encoder hash position mismatch");
+ auto ah=a.hash,bh=b.hash;const std::array<std::uint32_t,4> suffix{42,17,1000,7};
+ if(ah.append(suffix,{},ah.position())!=bh.append(suffix,{},bh.position()))throw std::runtime_error("encoder hash history mismatch");
  for(int i=0;i<2;++i){if(a.swa[i].position()!=b.swa[i].position())throw std::runtime_error("encoder swa position mismatch");same(a.swa[i].rows(),b.swa[i].rows(),"encoder swa window");}
  for(int i=0;i<3;++i){
   if(a.producer[i].position()!=b.producer[i].position()||a.producer[i].global().rows()!=b.producer[i].global().rows())throw std::runtime_error("encoder producer position mismatch");
@@ -24,6 +29,18 @@ void state_same(const dsv41::TextEncoderState& a,const dsv41::TextEncoderState& 
   bytes(a.producer[i].global().index_scales(),b.producer[i].global().index_scales(),"producer index scales");
   same(a.producer[i].global().compressor().pending_kv(),b.producer[i].global().compressor().pending_kv(),"producer pending kv");
   same(a.producer[i].global().compressor().pending_scores(),b.producer[i].global().compressor().pending_scores(),"producer pending scores");
+  const auto& ap=a.producer[i].publication();const auto& bp=b.producer[i].publication();
+  if(bool(ap)!=bool(bp))throw std::runtime_error("publication presence mismatch");
+  if(ap){
+   const int consumer=3+i*6;const auto pos=a.producer[i].position()-1;
+   if(ap->source_layer()!=bp->source_layer()||ap->index_source_layer()!=bp->index_source_layer()||
+      ap->indices(consumer,pos,pos?128:1)!=bp->indices(consumer,pos,pos?128:1)||ap->candidates()!=bp->candidates())
+    throw std::runtime_error("encoder publication mismatch");
+   bytes(ap->cache().main_bytes(),bp->cache().main_bytes(),"publication main");
+   bytes(ap->cache().main_scales(),bp->cache().main_scales(),"publication main scales");
+   bytes(ap->cache().index_bytes(),bp->cache().index_bytes(),"publication index");
+   bytes(ap->cache().index_scales(),bp->cache().index_scales(),"publication index scales");
+  }
  }
  for(int i=0;i<15;++i){if(a.reuse[i].position()!=b.reuse[i].position())throw std::runtime_error("encoder reuse position mismatch");same(a.reuse[i].window(),b.reuse[i].window(),"encoder reuse window");}
 }
@@ -36,6 +53,37 @@ int main(int argc,char** argv){try{
  if(dsv41::sha256_text(raw)!=proof.at("fixture_sha256").at("metadata.json").get<std::string>())throw std::runtime_error("Engram metadata identity mismatch");
  std::cout<<"Loading embedding, encoder layers 0..19 on-demand experts and Engram 1/14 mmap backing"<<std::endl;
  dsv41::TextEncoderReference encoder(c,metadata);
+ if(std::getenv("DSV41_CHECK_ENCODER_PACKED_CHUNK")){
+  if(setenv("DSV41_RUNTIME_PACKED_EXPERT_BANK","1",1)!=0)throw std::runtime_error("cannot select packed encoder");
+  dsv41::TextEncoderReference packed(c,metadata);
+  dsv41::TextEncoderState expected_state(metadata),actual_state(metadata);
+  std::vector<std::uint32_t> input(128);for(int i=0;i<128;++i)input[i]=std::uint32_t((i*7919)%129263);
+  for(int chunk_index=0;chunk_index<2;++chunk_index){
+   const auto start=std::uint64_t(chunk_index*128);
+   dsv41::reset_route_tie_records();auto expected=encoder.forward(input,expected_state,start);
+   auto expected_ties=dsv41::route_tie_records();dsv41::reset_route_tie_records();
+   auto actual=packed.forward_packed_chunk(input,actual_state,start);auto actual_ties=dsv41::route_tie_records();
+   same(actual.hidden,expected.hidden,"packed encoder hidden");same(actual.pre_mix,expected.pre_mix,"packed encoder pre-mix");
+   state_same(actual_state,expected_state);
+   auto order=[](const auto& x,const auto& y){return std::tie(x.token,x.layer)<std::tie(y.token,y.layer);};
+   std::sort(expected_ties.begin(),expected_ties.end(),order);std::sort(actual_ties.begin(),actual_ties.end(),order);
+   if(expected_ties.size()!=actual_ties.size())throw std::runtime_error("packed encoder tie count mismatch");
+   for(std::size_t i=0;i<expected_ties.size();++i){const auto& x=expected_ties[i];const auto& y=actual_ties[i];
+    if(x.token!=y.token||x.layer!=y.layer||x.sixth_id!=y.sixth_id||x.seventh_id!=y.seventh_id||
+       x.sixth_score!=y.sixth_score||x.seventh_score!=y.seventh_score||x.tied!=y.tied)
+     throw std::runtime_error("packed encoder tie mismatch");
+   }
+   std::cout<<"PASS: encoder packed chunk "<<chunk_index<<" output/state/publication/hash/ties exact"<<std::endl;
+  }
+  auto saved=actual_state;
+  for(std::uint32_t bad:{129264u,129280u}){bool rejected=false;
+   try{packed.forward_packed_chunk(std::span(&bad,1),actual_state,256);}catch(const std::exception&){rejected=true;}
+   if(!rejected)throw std::runtime_error("packed encoder invalid token accepted");state_same(saved,actual_state);
+  }
+  std::cout<<"PASS: 20-layer packed encoder 2x128 tokens and invalid-token atomicity; active_bytes="<<mx::get_active_memory()
+   <<" cache_bytes="<<mx::get_cache_memory()<<" peak_bytes="<<mx::get_peak_memory()<<"; review required"<<std::endl;
+  return 0;
+ }
  const std::array<std::uint32_t,3> ids{0,42,1000};
  dsv41::TextEncoderState chunk(metadata),serial(metadata);
  auto batch=encoder.forward(ids,chunk,0);

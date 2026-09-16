@@ -25,6 +25,9 @@ public:
  explicit GlobalKVProducerReference(WeightCatalog& catalog,int layer);
  // Input is this producer layer's normalized attention hidden, not raw embedding/layer output.
  void append(const mlx::core::array& hidden,GlobalKVState& state,std::uint64_t start) const;
+ // Atomically appends a chunk and returns immutable cache prefixes for each query token.
+ std::vector<GlobalKVState> append_chunk(const mlx::core::array& hidden,GlobalKVState& state,
+                                         std::uint64_t start) const;
 private:
  int layer_,ratio_;
  CompressorReference compressor_;

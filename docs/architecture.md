@@ -87,6 +87,10 @@ DSparkとvisionのtensor所有権・memory予算はM1から確保する。M2はt
 - candidate / Top-Kは対応するtoken範囲とgenerationを持つ。前回forwardや破棄済みspeculationのstateを再利用しない。
 - generationはtokenをcommitする境界を持つ。将来のDSpark rollbackはKVだけでなくindexer、SWA、compression、Engram、RNGを含む全stateを扱う。
 
+M3 prefillの具体的なresident weight、device routing、chunk-wide attention、I/O先読みの境界は
+[prefill dataflow redesign](prefill-dataflow.md)に固定する。token-serial referenceと、128 tokenごとに
+全expert bankを再構築するlayer-major経路はcorrectness oracleであり、production execution planではない。
+
 MLX graph構築時間だけを実行時間として扱わない。GPU完了までのwall timeと、tokenを利用可能にする境界で評価する。長いsessionに比例して過去graphを保持する設計は許可しない。
 
 ## Repositoryの最終配置

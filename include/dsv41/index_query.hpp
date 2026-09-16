@@ -1,9 +1,25 @@
 #pragma once
 #include "dsv41/global_kv.hpp"
 #include "dsv41/linear.hpp"
+#include <cstddef>
+#include <cstdint>
 namespace dsv41 {
 // Top-k reference synchronizes to CPU; output is re-sorted by position.
-std::vector<std::int32_t> index_topk_reference(const mlx::core::array& scores,int offset);
+// strict rejects an exact boundary tie. Non-strict mode deterministically keeps
+// the lowest row ID and records the cross-backend policy boundary.
+struct IndexTieRecord {
+ int layer=-1;
+ std::uint64_t token=0;
+ int selected_id=0,excluded_id=0;
+ float selected_score=0,excluded_score=0;
+ bool candidates=false,tied=false;
+};
+std::vector<std::int32_t> index_topk_reference(const mlx::core::array& scores,int offset,
+ bool strict=true,IndexTieRecord* tie=nullptr);
+std::size_t index_tie_count();
+void reset_index_tie_count();
+std::vector<IndexTieRecord> index_tie_records();
+void reset_index_tie_records();
 mlx::core::array restore_index_reference(const GlobalKVState& state);
 // Level one of the decoder's two-level top-k: keep the top blocks by best position.
 std::vector<std::uint8_t> select_candidate_blocks_reference(const std::vector<float>& logits,
@@ -21,6 +37,11 @@ public:
  IndexSelection forward(const mlx::core::array& x,const mlx::core::array& qr,
    const GlobalKVState& state,std::uint64_t position,int window_offset,
    const std::vector<std::uint8_t>* incoming_candidates=nullptr) const;
+ // Computes query/cache scores, causal/candidate masks and stable lowest-ID Top-K
+ // in one GPU graph; only bounded selection metadata is synchronized to the host.
+ std::vector<IndexSelection> forward_chunk(const mlx::core::array& x,const mlx::core::array& qr,
+   const std::vector<GlobalKVState>& cache_prefixes,std::uint64_t start,
+   const std::vector<std::vector<std::uint8_t>>* incoming_candidates=nullptr) const;
 private:
  int layer_,ratio_,candidate_topk_blocks_,candidate_block_size_;
  bool is_candidate_source_,uses_candidates_;

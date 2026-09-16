@@ -1,0 +1,88 @@
+#include "dsv41/checkpoint_atlas.hpp"
+#include "dsv41/moe.hpp"
+#include <mlx/mlx.h>
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <set>
+#include <fstream>
+#include <iostream>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+namespace mx=mlx::core;
+using Clock=std::chrono::steady_clock;
+using J=nlohmann::json;
+
+namespace {
+void same(const mx::array& a,const mx::array& b,const char* name){
+ if(a.shape()!=b.shape()||a.dtype()!=b.dtype())throw std::runtime_error(std::string(name)+" shape/dtype mismatch");
+ auto dtype=a.dtype()==mx::bfloat16?mx::uint16:mx::uint32;
+ auto ok=mx::all(mx::equal(mx::view(a,dtype),mx::view(b,dtype)));mx::eval(ok);
+ if(!ok.item<bool>())throw std::runtime_error(std::string(name)+" bit mismatch");
+}
+double elapsed(Clock::time_point start){return std::chrono::duration<double>(Clock::now()-start).count();}
+double median(std::vector<double> values){std::sort(values.begin(),values.end());return values[values.size()/2];}
+}
+
+int main(int argc,char** argv){try{
+ if(argc!=4)throw std::runtime_error("usage: dsv41-expert-batch-probe checkpoint m1-summary output-json");
+ mx::set_default_device(mx::Device::gpu);dsv41::WeightCatalog catalog(argv[1],argv[2]);
+ auto full_started=Clock::now();dsv41::PackedExpertBank bank(catalog,0);mx::synchronize();
+ const double full_construction_seconds=elapsed(full_started);
+ constexpr int tokens=128;
+ auto x=mx::astype(mx::reshape(mx::sin(mx::arange(tokens*5120,mx::float32)),{tokens,5120}),mx::bfloat16);
+ std::vector<std::array<int,6>> ids(tokens);std::vector<float> raw_weights(tokens*6);
+ for(int token=0;token<tokens;++token)for(int slot=0;slot<6;++slot){
+  ids[token][slot]=(token%32)+slot*32;
+  raw_weights[token*6+slot]=0.05f+0.025f*float((token+slot)%7);
+ }
+ auto weights=mx::array(raw_weights.begin(),{tokens,6},mx::float32);
+ auto batched=[&]{return bank.forward_batch_selected(x,ids,weights);};
+ auto serial=[&]{
+  std::vector<mx::array> accumulated,routed;accumulated.reserve(tokens);routed.reserve(tokens);
+  for(int token=0;token<tokens;++token){
+   auto value=bank.forward_selected(mx::slice(x,{token,0},{token+1,5120}),ids[token],
+    mx::reshape(mx::slice(weights,{token,0},{token+1,6}),{6}));
+   accumulated.push_back(value.accumulated);routed.push_back(value.routed);
+  }
+  return dsv41::GroupedExpertBatchResult{mx::concatenate(accumulated,0),mx::concatenate(routed,0)};
+ };
+ auto batch_result=batched(),serial_result=serial();
+ mx::eval(batch_result.accumulated,batch_result.routed,serial_result.accumulated,serial_result.routed);mx::synchronize();
+ same(batch_result.accumulated,serial_result.accumulated,"batch accumulated");
+ same(batch_result.routed,serial_result.routed,"batch routed");
+ std::set<int> selected_set;
+ for(const auto& token_ids:ids)selected_set.insert(token_ids.begin(),token_ids.end());
+ std::vector<int> selected(selected_set.begin(),selected_set.end());
+ auto compact_started=Clock::now();dsv41::PackedExpertBank compact(catalog,0,selected);mx::synchronize();
+ const double compact_construction_seconds=elapsed(compact_started);
+ auto compact_result=compact.forward_batch_selected(x,ids,weights);
+ mx::eval(compact_result.accumulated,compact_result.routed);mx::synchronize();
+ same(compact_result.accumulated,batch_result.accumulated,"compact accumulated");
+ same(compact_result.routed,batch_result.routed,"compact routed");
+ auto timed=[](auto&& fn){auto start=Clock::now();auto value=fn();mx::eval(value.routed);mx::synchronize();return elapsed(start);};
+ std::vector<double> batch_times,serial_times;
+ for(int round=0;round<5;++round){
+  if(round%2==0){serial_times.push_back(timed(serial));batch_times.push_back(timed(batched));}
+  else{batch_times.push_back(timed(batched));serial_times.push_back(timed(serial));}
+ }
+ auto compact_run=[&]{return compact.forward_batch_selected(x,ids,weights);};
+ std::vector<double> compact_times;
+ for(int round=0;round<5;++round)compact_times.push_back(timed(compact_run));
+ J report={{"schema_version",1},{"status","probe_completed_requires_review"},{"layer",0},{"tokens",tokens},
+  {"routes",tokens*6},{"accumulated_and_routed_bits","exact"},{"serial_median_seconds",median(serial_times)},
+  {"batch_median_seconds",median(batch_times)},{"active_bytes",mx::get_active_memory()},
+  {"cache_bytes",mx::get_cache_memory()},{"peak_bytes",mx::get_peak_memory()},
+  {"full_bank_experts",bank.expert_count()},{"full_bank_bytes",bank.packed_bytes()},
+  {"full_bank_construction_seconds",full_construction_seconds},
+  {"compact_bank_experts",compact.expert_count()},{"compact_bank_bytes",compact.packed_bytes()},
+  {"compact_bank_construction_seconds",compact_construction_seconds},
+  {"compact_batch_median_seconds",median(compact_times)},
+  {"compact_vs_full_bits","exact"},
+  {"scope","One-layer 128-token packed expert batch, including a 192-expert route-first compact bank; not full-backbone qualification."}};
+ report["speedup"]=report["serial_median_seconds"].get<double>()/report["batch_median_seconds"].get<double>();
+ std::ofstream out(argv[3]);if(!out)throw std::runtime_error("cannot create result JSON");out<<report.dump(2)<<'\n';
+ std::cout<<"PASS: 128-token batched packed experts match token-serial accumulated/routed bits; review required\n";
+}catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

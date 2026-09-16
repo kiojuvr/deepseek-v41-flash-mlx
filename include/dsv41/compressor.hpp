@@ -25,7 +25,8 @@ class CompressorReference {
 public:
  explicit CompressorReference(WeightCatalog& catalog,int layer);
  CompressedLatents forward(const mlx::core::array& hidden,CompressorState& state,
-                           std::uint64_t start) const;
+                           std::uint64_t start,
+                           std::vector<CompressorState>* prefixes=nullptr) const;
 private:
  int layer_;
  int ratio_;

@@ -21,6 +21,25 @@ int TextDecoderReference::reuse_slot(int layer) const{
  if(layer<21||layer>=kBackboneLayers)throw std::runtime_error("invalid decoder reuse layer");
  return layer-21;
 }
+BlockResult TextDecoderReference::forward_packed_chunk(const mx::array& h,const mx::array& pre,
+ TextDecoderState& state,std::uint64_t start) const{
+ if(h.dtype()!=mx::bfloat16||h.ndim()!=3||h.shape(0)<1||h.shape(0)>128||h.shape(1)!=4||h.shape(2)!=5120||
+    pre.dtype()!=mx::float32||pre.shape()!=mx::Shape({h.shape(0),4})||state.producer.position()!=start||
+    start>=1048576||std::uint64_t(h.shape(0))>1048576-start)throw std::runtime_error("invalid packed decoder input/state");
+ for(const auto& s:state.reuse)if(s.position()!=start)throw std::runtime_error("invalid packed decoder reuse position");
+ auto next=state;std::vector<SharedAttentionReference> publications;
+ auto run=[](const auto& block,auto&& fn){
+  try{auto result=fn();block.release_packed_bank();return result;}
+  catch(...){block.release_packed_bank();throw;}
+ };
+ auto out=run(*producer_,[&]{return producer_->forward_packed_chunk(h,pre,next.producer,start,&publications);});
+ for(int layer=21;layer<40;++layer){
+  const int slot=reuse_slot(layer);
+  out=run(*reuse_[slot],[&]{return reuse_[slot]->forward_packed_chunk(out.hidden,out.pre_mix,next.reuse[slot],publications,start);});
+ }
+ next.producer.publication()=publications.back();
+ mx::eval(out.hidden,out.pre_mix);state=std::move(next);return out;
+}
 BlockResult TextDecoderReference::forward(const mx::array& h,const mx::array& pre,TextDecoderState& state,std::uint64_t start,TraceSink* trace) const{
  if(h.dtype()!=mx::bfloat16||h.ndim()!=3||h.shape(0)<1||h.shape(0)>128||h.shape(1)!=4||h.shape(2)!=5120||
     pre.dtype()!=mx::float32||pre.shape()!=mx::Shape({h.shape(0),4})||state.producer.position()!=start||

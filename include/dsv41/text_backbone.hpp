@@ -15,6 +15,8 @@ public:
  TextBackboneReference(WeightCatalog& catalog,std::shared_ptr<const EngramMetadata> metadata)
   :encoder_(catalog,std::move(metadata)),decoder_(catalog){}
  BlockResult forward(std::span<const std::uint32_t> ids,TextBackboneState& state,std::uint64_t start,TraceSink* trace=nullptr) const;
+ BlockResult forward_packed_chunk(std::span<const std::uint32_t> ids,
+                                  TextBackboneState& state,std::uint64_t start) const;
  mlx::core::array logits(const BlockResult& final_hidden,TraceSink* trace=nullptr) const{return decoder_.logits(final_hidden,trace);}
 private:
  TextEncoderReference encoder_;

@@ -1,6 +1,13 @@
 #include "dsv41/text_backbone.hpp"
 #include <stdexcept>
 namespace dsv41 {
+BlockResult TextBackboneReference::forward_packed_chunk(std::span<const std::uint32_t> ids,
+ TextBackboneState& state,std::uint64_t start) const{
+ auto next=state;
+ auto encoded=encoder_.forward_packed_chunk(ids,next.encoder,start);
+ auto result=decoder_.forward_packed_chunk(encoded.hidden,encoded.pre_mix,next.decoder,start);
+ state=std::move(next);return result;
+}
 BlockResult TextBackboneReference::forward(std::span<const std::uint32_t> ids,TextBackboneState& state,std::uint64_t start,TraceSink* trace) const{
  auto next=state;
  auto encoder_out=encoder_.forward(ids,next.encoder,start,trace);

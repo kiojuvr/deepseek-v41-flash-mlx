@@ -1,0 +1,2 @@
+#pragma once
+inline constexpr const char* dsv41_route_reduce_source=R"reduce(@DSV41_ROUTE_REDUCE@)reduce";

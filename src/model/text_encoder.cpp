@@ -1,5 +1,6 @@
 #include "dsv41/text_encoder.hpp"
 #include "dsv41/layer_owner.hpp"
+#include "dsv41/execution_policy.hpp"
 #include <stdexcept>
 namespace dsv41 {
 namespace mx=mlx::core;
@@ -23,6 +24,43 @@ int reuse_slot(int layer){
 }
 void TextEncoderState::reset(){
  hash.reset();for(auto& s:swa)s.reset();for(auto& s:producer)s.reset();for(auto& s:reuse)s.reset();
+}
+BlockResult TextEncoderReference::forward_packed_chunk(std::span<const std::uint32_t> ids,
+ TextEncoderState& state,std::uint64_t start) const{
+ if(state.metadata!=metadata_||state.hash.position()!=start||ids.empty()||ids.size()>128||
+    start>=1048576||ids.size()>1048576-start)throw std::runtime_error("invalid packed encoder request");
+ for(const auto& s:state.swa)if(s.position()!=start)throw std::runtime_error("invalid packed encoder SWA position");
+ for(const auto& s:state.producer)if(s.position()!=start)throw std::runtime_error("invalid packed encoder producer position");
+ for(const auto& s:state.reuse)if(s.position()!=start)throw std::runtime_error("invalid packed encoder reuse position");
+ for(auto id:ids)if(id>=129280||id==129264)throw std::runtime_error("packed encoder requires text IDs");
+ auto next=state;auto hashes=next.hash.append(ids,{},start);
+ auto entry=entry_.forward(ids);BlockResult out{entry.hidden,entry.pre_mix};
+ auto engram=[&](const EngramLayerReference& layer,int slot){
+  std::vector<std::uint64_t> rows;rows.reserve(ids.size()*24);
+  for(std::size_t t=0;t<ids.size();++t)
+   rows.insert(rows.end(),hashes.begin()+t*48+slot*24,hashes.begin()+t*48+slot*24+24);
+  out.hidden=layer.forward(out.hidden,rows).output;
+ };
+ // Release on exceptions too: failed requests must not retain a full bank.
+ auto run_layer=[&](const auto& block,auto&& forward){
+  try{out=forward();}catch(...){block.release_packed_bank();throw;}
+  block.release_packed_bank();
+ };
+ for(int layer=0;layer<2;++layer){
+  if(layer==1)engram(engram1_,0);
+  run_layer(*swa_[layer],[&]{return swa_[layer]->forward_packed_chunk(out.hidden,out.pre_mix,next.swa[layer],start);});
+ }
+ for(int source:{2,8,14}){
+  if(source==14)engram(engram14_,1);
+  const int slot=producer_slot(source);std::vector<SharedAttentionReference> publications;
+  run_layer(*producer_[slot],[&]{return producer_[slot]->forward_packed_chunk(out.hidden,out.pre_mix,next.producer[slot],start,&publications);});
+  for(int layer=source+1;layer<source+6;++layer){
+   const int reuse_index=reuse_slot(layer);
+   run_layer(*reuse_[reuse_index],[&]{return reuse_[reuse_index]->forward_packed_chunk(out.hidden,out.pre_mix,next.reuse[reuse_index],publications,start);});
+  }
+  next.producer[slot].publication()=publications.back();
+ }
+ mx::eval(out.hidden,out.pre_mix);state=std::move(next);return out;
 }
 TextEncoderReference::TextEncoderReference(WeightCatalog& c,std::shared_ptr<const EngramMetadata> m)
  :metadata_(validate(std::move(m))),entry_(c),

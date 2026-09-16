@@ -23,6 +23,9 @@ public:
  explicit ReusedLayerReference(WeightCatalog& catalog,int layer);
  mlx::core::array forward(const mlx::core::array& hidden,ReusedLayerState& state,
                          SharedAttentionReference& publication,std::uint64_t position) const;
+ mlx::core::array forward_chunk(const mlx::core::array& hidden,ReusedLayerState& state,
+                         std::vector<SharedAttentionReference>& publications,
+                         std::uint64_t start_position) const;
 private:
  int layer_,ratio_;
  bool is_index_source_,uses_candidates_;

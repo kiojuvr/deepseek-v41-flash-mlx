@@ -22,4 +22,17 @@ BlockResult TextOctetReference::forward(std::span<const std::uint32_t> ids,TextO
  BlockResult result{mx::concatenate(hidden,0),mx::concatenate(pre,0)};
  mx::eval(result.hidden,result.pre_mix);state=std::move(next);return result;
 }
+BlockResult TextOctetReference::forward_packed_chunk(std::span<const std::uint32_t> ids,
+ TextOctetState& state,std::uint64_t start) const{
+ if(ids.empty()||ids.size()>128||start>=1048576||ids.size()>1048576-start)
+  throw std::runtime_error("invalid packed eight-layer token count/position");
+ auto next=state;std::vector<SharedAttentionReference> publications;
+ auto out=quad_.forward_packed_chunk(ids,next.quad,start,&publications);
+ for(int i=0;i<4;++i){
+  out=tail_[i]->forward_packed_chunk(out.hidden,out.pre_mix,next.tail[i],publications,start);
+  tail_[i]->release_packed_bank();
+ }
+ if(!publications.empty())next.quad.triple.third.publication()=publications.back();
+ state=std::move(next);return out;
+}
 }

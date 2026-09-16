@@ -1,11 +1,15 @@
 #include "dsv41/text_backbone.hpp"
+#include "dsv41/execution_policy.hpp"
 #include "dsv41/generation_loop.hpp"
 #include <bit>
+#include <cstdlib>
 #include <iostream>
 #include "dsv41/checkpoint_atlas.hpp"
 #include <fstream>
 #include <stdexcept>
 #include <vector>
+#include <algorithm>
+#include <tuple>
 namespace mx=mlx::core;
 void same(const mx::array& a,const mx::array& b,const char* what){
  if(a.shape()!=b.shape()||a.dtype()!=b.dtype())throw std::runtime_error(std::string(what)+": shape/dtype mismatch");
@@ -60,6 +64,60 @@ int main(int argc,char** argv){try{
  if(dsv41::sha256_text(raw)!=proof.at("fixture_sha256").at("metadata.json").get<std::string>())throw std::runtime_error("Engram metadata identity mismatch");
  std::cout<<"Loading full backbone layers 0..39 on-demand experts and Engram 1/14 mmap backing"<<std::endl;
  dsv41::TextBackboneReference model(c,metadata);
+ if(std::getenv("DSV41_CHECK_LAYER_MAJOR_BACKBONE")){
+  const bool compact_check=std::getenv("DSV41_CHECK_COMPACT_LAYER_MAJOR_BACKBONE")!=nullptr;
+  if(dsv41::runtime_packed_expert_bank_enabled())throw std::runtime_error("comparison must start in individual mode");
+  if(setenv("DSV41_RUNTIME_PACKED_EXPERT_BANK","1",1)!=0||
+     setenv("DSV41_RUNTIME_COMPACT_EXPERT_BANK",compact_check?"1":"0",1)!=0)
+   throw std::runtime_error("cannot select packed model");
+  dsv41::TextBackboneReference packed(c,metadata);
+  dsv41::reset_packed_expert_bank_construction_count();
+  dsv41::TextBackboneState expected_state(metadata),actual_state(metadata);
+  auto full_state_same=[&](const auto& a,const auto& b){
+   state_same(a,b);
+   auto ah=a.encoder.hash,bh=b.encoder.hash;const std::array<std::uint32_t,4> suffix{42,17,1000,7};
+   if(ah.append(suffix,{},ah.position())!=bh.append(suffix,{},bh.position()))throw std::runtime_error("hash history mismatch");
+   auto publication_same=[&](const auto& x,const auto& y,int consumer){
+    if(bool(x.publication())!=bool(y.publication()))throw std::runtime_error("publication presence mismatch");
+    if(!x.publication())return;
+    const auto& p=*x.publication();const auto& q=*y.publication();const auto pos=x.position()-1;
+    if(p.source_layer()!=q.source_layer()||p.index_source_layer()!=q.index_source_layer()||
+       p.indices(consumer,pos,pos?128:1)!=q.indices(consumer,pos,pos?128:1)||p.candidates()!=q.candidates())
+     throw std::runtime_error("publication routing mismatch");
+    bytes(p.cache().main_bytes(),q.cache().main_bytes(),"publication main");
+    bytes(p.cache().main_scales(),q.cache().main_scales(),"publication main scales");
+    bytes(p.cache().index_bytes(),q.cache().index_bytes(),"publication index");
+    bytes(p.cache().index_scales(),q.cache().index_scales(),"publication index scales");
+   };
+   for(int i=0;i<3;++i)publication_same(a.encoder.producer[i],b.encoder.producer[i],3+6*i);
+   publication_same(a.decoder.producer,b.decoder.producer,39);
+  };
+  std::vector<std::uint32_t> input(128);for(int i=0;i<128;++i)input[i]=std::uint32_t((i*7919)%129263);
+  for(int chunk_index=0;chunk_index<2;++chunk_index){
+   const auto start=std::uint64_t(chunk_index*128);
+   dsv41::reset_route_tie_records();auto expected=model.forward(input,expected_state,start);
+   auto expected_ties=dsv41::route_tie_records();dsv41::reset_route_tie_records();
+   auto actual=packed.forward_packed_chunk(input,actual_state,start);auto actual_ties=dsv41::route_tie_records();
+   same(actual.hidden,expected.hidden,"layer-major hidden");same(actual.pre_mix,expected.pre_mix,"layer-major pre-mix");
+   same(packed.logits(actual),model.logits(expected),"layer-major logits");full_state_same(actual_state,expected_state);
+   auto order=[](const auto& x,const auto& y){return std::tie(x.token,x.layer)<std::tie(y.token,y.layer);};
+   std::sort(actual_ties.begin(),actual_ties.end(),order);std::sort(expected_ties.begin(),expected_ties.end(),order);
+   ties_same(actual_ties,expected_ties,"layer-major route ties");
+   if(actual_state.decoder.producer.publication()->index_source_layer()!=36)throw std::runtime_error("decoder republishing did not reach layer 36");
+   std::cout<<"PASS: 40-layer chunk "<<chunk_index<<" hidden/pre-mix/logits/state/publication/hash/route ties exact"<<std::endl;
+  }
+  auto saved=actual_state;
+  for(std::uint32_t invalid:{129264u,129280u}){bool rejected=false;
+   try{packed.forward_packed_chunk(std::span(&invalid,1),actual_state,256);}catch(const std::exception&){rejected=true;}
+   if(!rejected)throw std::runtime_error("invalid token accepted");full_state_same(saved,actual_state);
+  }
+  std::cout<<"PASS: layer-major backbone 2x128 tokens and invalid-token atomicity; active_bytes="<<mx::get_active_memory()
+   <<" cache_bytes="<<mx::get_cache_memory()<<" peak_bytes="<<mx::get_peak_memory()
+   <<" bank_constructions="<<dsv41::packed_expert_bank_construction_count()
+   <<" loaded_experts="<<dsv41::packed_expert_bank_loaded_expert_count()
+   <<"; performance/32K unqualified"<<std::endl;
+  return 0;
+ }
  const auto ids=argc==5?tokens(argv[4]):std::vector<std::uint32_t>{0,42,1000};
  dsv41::TextBackboneState chunk(metadata),serial(metadata);
  dsv41::reset_route_tie_count();dsv41::reset_route_tie_records();
@@ -83,6 +141,61 @@ int main(int argc,char** argv){try{
  dsv41::BlockResult last_slice{mx::slice(batch.hidden,{last,0,0},{last+1,4,5120}),mx::slice(batch.pre_mix,{last,0},{last+1,4})};
  auto logits_chunk=model.logits(last_slice);auto logits_serial=model.logits(serial_last);
  same(logits_chunk,logits_serial,"backbone logits chunk bits");
+ if(std::getenv("DSV41_CHECK_PACKED_EXPERT_BACKBONE_PARITY")||
+    std::getenv("DSV41_CHECK_COMPACT_EXPERT_BACKBONE_PARITY")){
+  const bool compact_check=std::getenv("DSV41_CHECK_COMPACT_EXPERT_BACKBONE_PARITY")!=nullptr;
+  if(dsv41::runtime_packed_expert_bank_enabled())
+   throw std::runtime_error("packed expert backbone parity must start from the individual path");
+  dsv41::TextBackboneState individual_state(metadata);
+  dsv41::reset_route_tie_count();dsv41::reset_route_tie_records();
+  auto individual_result=model.forward(std::span(ids).subspan(0,1),individual_state,0);
+  auto individual_logits=model.logits(individual_result);mx::eval(individual_logits);
+  const auto individual_ties=dsv41::route_tie_records();
+  if(setenv("DSV41_RUNTIME_PACKED_EXPERT_BANK","1",1)!=0||
+     setenv("DSV41_RUNTIME_COMPACT_EXPERT_BANK",compact_check?"1":"0",1)!=0)
+   throw std::runtime_error("cannot enable packed expert bank");
+  {
+   dsv41::TextBackboneReference packed_model(c,metadata);
+   dsv41::TextBackboneState packed_state(metadata);
+   dsv41::reset_route_tie_count();dsv41::reset_route_tie_records();
+   auto packed_result=packed_model.forward(std::span(ids).subspan(0,1),packed_state,0);
+   auto packed_logits=packed_model.logits(packed_result);
+   same(packed_result.hidden,individual_result.hidden,"packed expert backbone hidden bits");
+   same(packed_result.pre_mix,individual_result.pre_mix,"packed expert backbone pre-mix bits");
+   same(packed_logits,individual_logits,"packed expert backbone logits bits");
+   state_same(packed_state,individual_state);
+   ties_same(dsv41::route_tie_records(),individual_ties,"packed expert backbone route ties");
+  }
+  if(setenv("DSV41_RUNTIME_PACKED_EXPERT_BANK","0",1)!=0||
+     setenv("DSV41_RUNTIME_COMPACT_EXPERT_BANK","0",1)!=0)
+   throw std::runtime_error("cannot restore packed expert bank policy");
+  std::cout<<"PASS: one-token full-backbone individual/"<<(compact_check?"compact":"packed")
+           <<" expert hidden, pre-mix, state, logits and route ties are bit-exact"<<std::endl;
+ }
+ if(std::getenv("DSV41_CHECK_LAYER_FINITE_POLICY_PARITY")){
+  const bool original=dsv41::runtime_layer_finite_checks_enabled();
+  if(setenv("DSV41_RUNTIME_LAYER_FINITE_CHECKS",original?"0":"1",1)!=0)
+   throw std::runtime_error("cannot switch layer finite policy");
+  dsv41::TextBackboneState alternate(metadata);
+  dsv41::reset_route_tie_count();dsv41::reset_route_tie_records();
+  std::vector<mx::array> alternate_hidden,alternate_pre;
+  dsv41::run_prefill_chunks(ids.size(),128,[&](std::size_t offset,std::size_t count){
+   auto part=model.forward(std::span(ids).subspan(offset,count),alternate,offset);
+   alternate_hidden.push_back(part.hidden);alternate_pre.push_back(part.pre_mix);
+  });
+  dsv41::BlockResult alternate_result{mx::concatenate(alternate_hidden,0),mx::concatenate(alternate_pre,0)};
+  same(alternate_result.hidden,batch.hidden,"layer finite policy hidden bits");
+  same(alternate_result.pre_mix,batch.pre_mix,"layer finite policy pre-mix bits");
+  state_same(alternate,chunk);
+  dsv41::BlockResult alternate_last{
+   mx::slice(alternate_result.hidden,{last,0,0},{last+1,4,5120}),
+   mx::slice(alternate_result.pre_mix,{last,0},{last+1,4})};
+  same(model.logits(alternate_last),logits_chunk,"layer finite policy logits bits");
+  ties_same(dsv41::route_tie_records(),chunk_ties,"layer finite policy route ties");
+  if(setenv("DSV41_RUNTIME_LAYER_FINITE_CHECKS",original?"1":"0",1)!=0)
+   throw std::runtime_error("cannot restore layer finite policy");
+  std::cout<<"PASS: layer finite check on/off hidden, pre-mix, state, logits and route ties are bit-exact"<<std::endl;
+ }
  auto finite=mx::all(mx::isfinite(logits_chunk));mx::eval(finite);if(!finite.item<bool>())throw std::runtime_error("nonfinite backbone logits");
  auto saved=chunk;
  for(std::uint32_t invalid:{129264u,129280u}){

@@ -12,6 +12,8 @@ class TextOctetReference {
 public:
  TextOctetReference(WeightCatalog& catalog,std::shared_ptr<const EngramMetadata> metadata);
  BlockResult forward(std::span<const std::uint32_t> ids,TextOctetState& state,std::uint64_t start) const;
+ BlockResult forward_packed_chunk(std::span<const std::uint32_t> ids,TextOctetState& state,
+                                  std::uint64_t start) const;
 private:
  TextQuadReference quad_;
  std::array<std::unique_ptr<ReusedBlockReference>,4> tail_;

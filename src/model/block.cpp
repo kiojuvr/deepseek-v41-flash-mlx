@@ -1,5 +1,6 @@
 #include "dsv41/block.hpp"
 #include "dsv41/model_entry.hpp"
+#include "dsv41/execution_policy.hpp"
 #include <stdexcept>
 #include "dsv41/layer_owner.hpp"
 namespace dsv41 {
@@ -18,8 +19,10 @@ BlockResult BlockReference::forward(const mx::array& h,const mx::array& pre,SwaL
  if(h.dtype()!=mx::bfloat16||h.ndim()!=3||h.shape(0)<1||h.shape(0)>128||h.shape(1)!=4||h.shape(2)!=5120||
     pre.dtype()!=mx::float32||pre.shape()!=mx::Shape({h.shape(0),4})||state.position()!=start||
     start>=1048576||std::uint64_t(h.shape(0))>1048576-start)throw std::runtime_error("invalid Block input/state");
- auto finite=mx::logical_and(mx::all(mx::isfinite(h)),mx::all(mx::isfinite(pre)));mx::eval(finite);
- if(!finite.item<bool>())throw std::runtime_error("nonfinite Block input");
+ if(runtime_layer_finite_checks_enabled()){
+  auto finite=mx::logical_and(mx::all(mx::isfinite(h)),mx::all(mx::isfinite(pre)));mx::eval(finite);
+  if(!finite.item<bool>())throw std::runtime_error("nonfinite Block input");
+ }
  auto next=state;std::vector<mx::array> hidden,pre_mix;
  for(int i=0;i<h.shape(0);++i){
   auto residual=mx::slice(h,{i,0,0},{i+1,4,5120});
@@ -36,11 +39,58 @@ BlockResult BlockReference::forward(const mx::array& h,const mx::array& pre,SwaL
   auto moe_out=moe_.forward(ffn_in);
   trace_record("encoder.layer"+std::to_string(layer_)+".moe_out",moe_out);
   x=hc_post_reference(moe_out,residual,f);
-  auto ok=mx::logical_and(mx::all(mx::isfinite(x)),mx::all(mx::isfinite(f.pre)));mx::eval(x,f.pre,ok);
-  if(!ok.item<bool>())throw std::runtime_error("nonfinite Block output");
+  if(runtime_layer_finite_checks_enabled()){
+   auto ok=mx::logical_and(mx::all(mx::isfinite(x)),mx::all(mx::isfinite(f.pre)));mx::eval(x,f.pre,ok);
+   if(!ok.item<bool>())throw std::runtime_error("nonfinite Block output");
+  }
   hidden.push_back(x);pre_mix.push_back(f.pre);
  }
  BlockResult result{mx::concatenate(hidden,0),mx::concatenate(pre_mix,0)};
  mx::eval(result.hidden,result.pre_mix);state=std::move(next);return result;
+}
+BlockResult BlockReference::forward_packed_chunk(const mx::array& h,const mx::array& pre,
+ SwaLayerState& state,std::uint64_t start) const{
+ if(h.dtype()!=mx::bfloat16||h.ndim()!=3||h.shape(0)<1||h.shape(0)>128||h.shape(1)!=4||h.shape(2)!=5120||
+    pre.dtype()!=mx::float32||pre.shape()!=mx::Shape({h.shape(0),4})||state.position()!=start||
+    start>=1048576||std::uint64_t(h.shape(0))>1048576-start)
+  throw std::runtime_error("invalid packed Block chunk input/state");
+ if(runtime_layer_finite_checks_enabled()){
+  auto finite=mx::logical_and(mx::all(mx::isfinite(h)),mx::all(mx::isfinite(pre)));mx::eval(finite);
+  if(!finite.item<bool>())throw std::runtime_error("nonfinite packed Block chunk input");
+ }
+ auto next=state;std::vector<mx::array> residuals,attn_inputs,ffn_inputs;
+ std::vector<HCMixes> attn_mixes,ffn_mixes;
+ residuals.reserve(h.shape(0));attn_inputs.reserve(h.shape(0));attn_mixes.reserve(h.shape(0));
+ ffn_inputs.reserve(h.shape(0));ffn_mixes.reserve(h.shape(0));
+ for(int i=0;i<h.shape(0);++i){
+  auto residual=mx::slice(h,{i,0,0},{i+1,4,5120});
+  auto a=attn_mix_.mixes(residual);
+  auto attn_in=rms_norm_reference(hc_pre_reference(residual,mx::slice(pre,{i,0},{i+1,4})),attn_norm_,1e-20f);
+  residuals.push_back(residual);attn_inputs.push_back(attn_in);attn_mixes.push_back(std::move(a));
+ }
+ auto batched_attn_input=attn_inputs.size()==1?attn_inputs.front():mx::concatenate(attn_inputs,0);
+ auto batched_attn_output=attention_.forward(batched_attn_input,next,start);
+ for(int i=0;i<h.shape(0);++i){
+  auto attn_out=mx::slice(batched_attn_output,{i,0},{i+1,5120});
+  auto residual=residuals[i];auto& a=attn_mixes[i];
+  auto x=hc_post_reference(attn_out,residual,a);
+  auto f=ffn_mix_.mixes(x);
+  residuals[i]=x;ffn_inputs.push_back(rms_norm_reference(hc_pre_reference(x,a.pre),ffn_norm_,1e-20f));
+  ffn_mixes.push_back(std::move(f));
+ }
+ auto batched_input=ffn_inputs.size()==1?ffn_inputs.front():mx::concatenate(ffn_inputs,0);
+ auto moe=moe_.forward_batch_components(batched_input,start);
+ std::vector<mx::array> hidden,pre_mix;hidden.reserve(h.shape(0));pre_mix.reserve(h.shape(0));
+ for(int i=0;i<h.shape(0);++i){
+  auto out=hc_post_reference(mx::slice(moe.total,{i,0},{i+1,5120}),residuals[i],ffn_mixes[i]);
+  hidden.push_back(out);pre_mix.push_back(ffn_mixes[i].pre);
+ }
+ BlockResult result{hidden.size()==1?hidden.front():mx::concatenate(hidden,0),
+                    pre_mix.size()==1?pre_mix.front():mx::concatenate(pre_mix,0)};
+ if(runtime_layer_finite_checks_enabled()){
+  auto ok=mx::logical_and(mx::all(mx::isfinite(result.hidden)),mx::all(mx::isfinite(result.pre_mix)));
+  mx::eval(result.hidden,result.pre_mix,ok);if(!ok.item<bool>())throw std::runtime_error("nonfinite packed Block chunk output");
+ }
+ state=std::move(next);return result;
 }
 }

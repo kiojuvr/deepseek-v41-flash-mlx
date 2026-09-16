@@ -12,9 +12,9 @@ namespace mx=mlx::core;
 namespace {
 void check(bool ok,const char* message) { if(!ok) throw std::runtime_error(message); }
 void activation_shape(const mx::array& x) {
-    check(x.dtype()==mx::bfloat16&&x.ndim()==2&&x.shape(0)>0&&x.shape(0)<=128&&
+    check(x.dtype()==mx::bfloat16&&x.ndim()==2&&x.shape(0)>0&&x.shape(0)<=1024&&
           x.shape(1)>0&&x.shape(1)%32==0&&x.size()<=INT_MAX,
-          "linear reference requires BF16 [1..128,K], positive K divisible by 32");
+          "linear reference requires BF16 [1..1024,K], positive K divisible by 32");
 }
 std::vector<std::uint8_t> read(const TensorFile& tensor) {
     std::vector<std::uint8_t> data(tensor.size_bytes);

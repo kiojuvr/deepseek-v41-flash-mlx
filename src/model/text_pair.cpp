@@ -28,4 +28,21 @@ BlockResult TextPairReference::forward(std::span<const std::uint32_t> ids,TextPa
  mx::eval(result.hidden,result.pre_mix);
  state=std::move(next);return result;
 }
+BlockResult TextPairReference::forward_packed_chunk(std::span<const std::uint32_t> ids,
+ TextPairState& state,std::uint64_t start) const{
+ if(state.metadata!=metadata_||state.hash.position()!=start||state.first.position()!=start||state.second.position()!=start||
+    ids.empty()||ids.size()>128||start>=1048576||ids.size()>1048576-start)
+  throw std::runtime_error("invalid packed text pair request state");
+ for(auto id:ids)if(id>=129280||id==129264)throw std::runtime_error("packed text pair requires legal text token IDs");
+ auto next=state;auto hashes=next.hash.append(ids,{},start);
+ auto first=first_.forward_packed_chunk(ids,next.first,start);
+ first_.release_packed_bank();
+ std::vector<std::uint64_t> layer1_rows;layer1_rows.reserve(ids.size()*24);
+ for(std::size_t token=0;token<ids.size();++token)
+  layer1_rows.insert(layer1_rows.end(),hashes.begin()+token*48,hashes.begin()+token*48+24);
+ auto e=engram_.forward(first.hidden,layer1_rows);
+ auto result=second_.forward_packed_chunk(e.output,first.pre_mix,next.second,start);
+ second_.release_packed_bank();
+ state=std::move(next);return result;
+}
 }

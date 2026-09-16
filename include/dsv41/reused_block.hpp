@@ -8,6 +8,11 @@ public:
  explicit ReusedBlockReference(WeightCatalog& catalog,int layer=3);
  BlockResult forward(const mlx::core::array& hidden,const mlx::core::array& pre_mix,
                      ReusedLayerState& state,SharedAttentionReference& publication,std::uint64_t start) const;
+ BlockResult forward_packed_chunk(const mlx::core::array& hidden,const mlx::core::array& pre_mix,
+                                  ReusedLayerState& state,
+                                  std::vector<SharedAttentionReference>& publications,
+                                  std::uint64_t start) const;
+ void release_packed_bank() const { moe_.release_packed_bank(); }
 private:
  int layer_;
  HCReference attn_mix_,ffn_mix_;

@@ -1,0 +1,2 @@
+#pragma once
+inline constexpr const char* dsv41_route_select_source=R"route(@DSV41_ROUTE_SELECT@)route";

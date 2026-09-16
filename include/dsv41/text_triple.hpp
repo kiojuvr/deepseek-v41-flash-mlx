@@ -12,6 +12,9 @@ class TextTripleReference {
 public:
  TextTripleReference(WeightCatalog& c,std::shared_ptr<const EngramMetadata> m):pair_(c,std::move(m)),third_(c,2){}
  BlockResult forward(std::span<const std::uint32_t> ids,TextTripleState& state,std::uint64_t start) const;
+ BlockResult forward_packed_chunk(std::span<const std::uint32_t> ids,TextTripleState& state,
+                                  std::uint64_t start,
+                                  std::vector<SharedAttentionReference>* publications=nullptr) const;
 private:
  TextPairReference pair_;
  CompressedBlockReference third_;

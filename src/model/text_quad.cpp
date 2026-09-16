@@ -17,4 +17,16 @@ BlockResult TextQuadReference::forward(std::span<const std::uint32_t> ids,TextQu
  BlockResult result{mx::concatenate(hidden,0),mx::concatenate(pre,0)};
  mx::eval(result.hidden,result.pre_mix);state=std::move(next);return result;
 }
+BlockResult TextQuadReference::forward_packed_chunk(std::span<const std::uint32_t> ids,
+ TextQuadState& state,std::uint64_t start,std::vector<SharedAttentionReference>* output_publications) const{
+ if(ids.empty()||ids.size()>128||start>=1048576||ids.size()>1048576-start||state.fourth.position()!=start)
+  throw std::runtime_error("invalid packed four-layer input/state");
+ auto next=state;std::vector<SharedAttentionReference> publications;
+ auto input=triple_.forward_packed_chunk(ids,next.triple,start,&publications);
+ auto result=fourth_.forward_packed_chunk(input.hidden,input.pre_mix,next.fourth,publications,start);
+ fourth_.release_packed_bank();
+ if(!publications.empty())next.triple.third.publication()=publications.back();
+ if(output_publications)*output_publications=std::move(publications);
+ state=std::move(next);return result;
+}
 }

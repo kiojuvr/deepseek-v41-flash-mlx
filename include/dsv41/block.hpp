@@ -11,6 +11,11 @@ public:
  explicit BlockReference(WeightCatalog& catalog,int layer=0);
  BlockResult forward(const mlx::core::array& hidden,const mlx::core::array& pre_mix,
                      SwaLayerState& state,std::uint64_t start_position) const;
+ // Layer-major chunk candidate: preserves token-serial attention/state while
+ // batching the routed MoE. Requires DSV41_RUNTIME_PACKED_EXPERT_BANK=1.
+ BlockResult forward_packed_chunk(const mlx::core::array& hidden,const mlx::core::array& pre_mix,
+                                  SwaLayerState& state,std::uint64_t start_position) const;
+ void release_packed_bank() const { moe_.release_packed_bank(); }
 private:
  int layer_;
  HCReference attn_mix_,ffn_mix_;

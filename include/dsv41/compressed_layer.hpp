@@ -26,6 +26,9 @@ class CompressedLayerReference {
 public:
  explicit CompressedLayerReference(WeightCatalog& catalog,int layer);
  mlx::core::array forward(const mlx::core::array& input,CompressedLayerState& state,std::uint64_t start) const;
+ mlx::core::array forward_chunk(const mlx::core::array& input,CompressedLayerState& state,
+                                std::uint64_t start,
+                                std::vector<SharedAttentionReference>* publications) const;
 private:
  int layer_,ratio_;
  PackedLinearReference qa_,qb_,kv_,output_;

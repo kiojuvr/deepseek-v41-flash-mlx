@@ -47,7 +47,7 @@ cross-backendでbitwise一致を保証できないことをoptimized pathの許�
 2. **local reference → optimized path。** 従来どおりbit一致を必須とする。許容差を転用しない。
 3. **M2判定。** 上記係数許容差とlogits argmax一致だけでは合格にしない。`logits`差の基準は、4 tokenのtraceではなく、より広いteacher-forced入力（context段階とcoding-agent workload）で別途評価して固定する。基準固定前にM2合格やproduction昇格を宣言しない。
 
-許容差は公式oracleの観測と比較対象の固定を条件に更新する。candidateの結果に合わせて緩めない。routing tieはcanonical MLX内で再現可能な最小ID方針に固定する。reviewed layer 8 / token 14 fixtureでは同じFP32 score bitsに対しpinned oMLXも最小IDを選んだが、公式`Gate.forward`のtorch 2.13 CPU `topk`は他方を選択した。torch APIはtie順を保証しないため観測依存policyへ変更せず、このcross-framework discrete差を明示してM2 backend exactnessへ混ぜない。index tie停止も維持し、いずれも許容差で隠さない。
+許容差は公式oracleの観測と比較対象の固定を条件に更新する。candidateの結果に合わせて緩めない。routing tieはcanonical MLX内で再現可能な最小ID方針に固定する。reviewed layer 8 / token 14 fixtureでは同じFP32 score bitsに対しpinned oMLXも最小IDを選んだが、公式`Gate.forward`のtorch 2.13 CPU `topk`は他方を選択した。torch APIはtie順を保証しないため観測依存policyへ変更せず、このcross-framework discrete差を明示してM2 backend exactnessへ混ぜない。32K初回runではindex Top-Kも512境界でexact tieに到達したため、full runtimeは同じく最小row IDへ固定して総数と先頭256 recordsを保存する。strict単体APIはtieを拒否する。公式torch/CUDAとの差は未qualifiedとして明示し、いずれも許容差で隠さない。
 
 ## 必須の比較境界
 
@@ -97,3 +97,11 @@ fixtureにはcheckpoint / tokenizer / oracle / local commitのidentity、入力t
 公式`model.py`のself-testは未初期化weightsによるshape / plumbing確認であり数値検証ではない。oracleを実行できなければその状態を明記し、推測fixtureをoracle結果と呼ばない。
 
 昇格にはlocal exactness、full-path統合、[qualification](qualification.md)のwall / TPT改善、memoryとlifecycleの検証がすべて必要。実験kernelやpartial graphは実験として保存できるが、default切替やproduction candidateの呼称には使わない。reference pathはrelease後も残す。
+## Contract hierarchy for optimized execution
+
+The checkpoint, official model semantics, precision, and persistent state semantics are hard
+contracts. The plain reference path remains the correctness oracle at observable boundaries.
+Internal APIs, class boundaries, host-loop structure, materialization order, and prior execution
+plans are implementation choices. Optimized CED / bounded-replay schedules may replace them when
+they reproduce reference logits, routing, publication, continuation state, and generation under
+the documented qualification gates.

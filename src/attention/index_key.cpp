@@ -21,9 +21,13 @@ IndexKeyReference::IndexKeyReference(WeightCatalog& c,int layer)
 mx::array IndexKeyReference::before_quantization(const mx::array& h,std::span<const std::uint64_t> positions) const{
  if(h.dtype()!=mx::bfloat16||h.ndim()!=2||h.shape(1)!=512||h.shape(0)<1||h.shape(0)>128||positions.size()!=std::size_t(h.shape(0)))throw std::runtime_error("invalid index latent");
  for(auto p:positions)if(p>=1048576)throw std::runtime_error("invalid index key position");
- std::vector<mx::array> rows;
- for(int i=0;i<h.shape(0);++i)rows.push_back(mx::matmul(mx::slice(h,{i,0},{i+1,512}),mx::transpose(weight_)));
- auto key=rms_norm_reference(mx::concatenate(rows,0),norm_,1e-20f);
+ // Keep the reference's one-row matmul geometry (MLX may select a different
+ // reduction schedule for a multi-row lhs), then materialize the full chunk
+ // before normalization/RoPE and the caller's quantization commit.
+ std::vector<mx::array> rows;rows.reserve(h.shape(0));
+ for(int i=0;i<h.shape(0);++i)
+  rows.push_back(mx::matmul(mx::slice(h,{i,0},{i+1,512}),mx::transpose(weight_)));
+ auto key=rms_norm_reference(rows.size()==1?rows.front():mx::concatenate(rows,0),norm_,1e-20f);
  return compressed_rope_reference(key,positions);
 }
 }

@@ -9,4 +9,11 @@ BlockResult TextFrontReference::forward(std::span<const std::uint32_t> ids,SwaLa
  auto input=entry_.forward(ids);
  return block_.forward(input.hidden,input.pre_mix,state,start);
 }
+BlockResult TextFrontReference::forward_packed_chunk(std::span<const std::uint32_t> ids,
+ SwaLayerState& state,std::uint64_t start) const{
+ if(start!=state.position()||ids.empty()||ids.size()>128||start>=1048576||ids.size()>1048576-start)
+  throw std::runtime_error("invalid packed text front position/token count");
+ auto input=entry_.forward(ids);
+ return block_.forward_packed_chunk(input.hidden,input.pre_mix,state,start);
+}
 }
