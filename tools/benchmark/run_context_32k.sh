@@ -68,6 +68,7 @@ shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp 
  tools/benchmark/run_context_32k.sh tools/benchmark/run_resident_atlas_prefill_check.sh \
  tools/benchmark/run_resident_atlas_prefill_measurement.sh \
  tools/benchmark/run_layer_component_profile.sh \
+ tools/benchmark/run_resident_layer_component_profile.sh \
  include/dsv41/text_backbone.hpp include/dsv41/generation_loop.hpp include/dsv41/execution_policy.hpp \
  include/dsv41/runtime_profile.hpp \
  include/dsv41/swa_layer.hpp include/dsv41/compressed_layer.hpp include/dsv41/reused_layer.hpp \

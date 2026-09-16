@@ -194,14 +194,19 @@ priority 2のobservable parityを満たさずrejectし、production pathは元�
 専用Metal kernelとして設計する。公式precisionに基づく非bitwise gateを別途定義するまでは、この順序を
 緩めない。
 
-resident rerun `context-ladder/32k-run-20260916-100044-16544`でsteady chunkは17.519秒、
-7.3065 token/sまで改善したが、約43 GiBのcompression / decompressionが発生した。
-したがって40層×384 expertのfull atlasは最終構造として採用しない。route確定後に
-当該tileのglobal expert unionだけをcompact bankへ直接loadし、global-to-local IDを使って
-`gather_qmm`するroute-first経路をopt-inで追加した。192-expert probeはfull bankの半分の
-3,609,722,880 bytesでfull bankとbit一致。one-token 40層もindividual経路とbit一致し、
-OS compression / swap増分0だった。次は2×128で実route unionとI/Oを測り、expert slabの
-double-buffer / prefetchを設計する。
+旧resident rerun `context-ladder/32k-run-20260916-100044-16544`はsteady chunk 17.519秒、
+7.3065 token/s、約43 GiBのcompression / decompressionだった。この時点ではfull atlasを
+最終構造としなかったが、その後model-initialization lifetime、chunk-wide mHC、device route、
+expert-major orderingを統合したfresh run `context-ladder/32k-run-20260917-003631-31787`では
+2,063-token prefill 127.717秒、16.1529 tok/sとなった。40 bankはmodel構築中だけに作られ、17 chunkの
+construction/load増分0、route readback 0、生成token 339。baseline 225.927秒 / 9.1313 tok/sから
+wall 43.47%短縮、throughput 1.769倍の単発full-path observationである。
+
+peak footprint 305,189,124,288 bytes、swap 0だが、compression / decompressionは約32.6 / 32.5 GiB。
+したがって512 GiB targetのresident atlasをproduction candidateへ戻す一方、memory pressureは明示的な
+gateのままとする。compact route-first経路は低memory fallback/referenceとして保持する。次はresident条件で
+component wallを再測し、MoEが依然支配的ならDwarfStar/oMLX型のdevice non-empty expert tile work listへ
+進む。旧compact component profileから新しいbottleneckを差し引き推定しない。
 
 2×128 compact promotionでは実route unionの合計loaded expertが10,543（80 bank constructions、
 individual / compact比較の合計）で、full bankの30,720 expert loadの34.3%だった。

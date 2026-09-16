@@ -521,6 +521,38 @@ execution-boundary変更の40層correctness gateをpassとする。この比較�
 80回のbank構築を含むため、209.59秒からのwall差をspeedupにしない。次はresident atlas
 の同一ハーネスをfresh rerunし、chunk 1のsteady prefillとmemory pressureを比較する。
 
+最新のPhase 2 promotion `expert-bank/layer-major-backbone-20260917-003137-31497`をreview済み。
+exit 0、identity一致。40層×2×128 tokenでhidden / pre-mix / logits / 全state / publication / hash /
+route tieがbit一致し、invalid-token atomicityもpassした。active 150,972,764,108、cache
+11,185,991,308、MLX peak 158,282,141,432 bytes、最大RSS 160,464,470,016、peak footprint
+164,649,644,608 bytes、swap 0。比較用経路の80 bank構築を含むため184.43秒のwallはperformance
+根拠にしない。この結果でchunk-wide mHC/stateを含むPhase 2の40層correctness gateを閉じる。
+
+model-initialization atlasのfull-path run
+`context-ladder/32k-run-20260917-003631-31787`もreview済み。exit 0、identityはcommit `4b35f7a`
+の実装内容と一致する。model construction 26.154秒で40 bank / 15,360 expertsを一度だけ構築し、
+17個のprefill chunkはすべてbank construction / expert load増分0だった。2,063-token prefillは
+127.717秒、16.1529 tok/s、first decodeは0.086293秒、生成tokenはbaselineと同じ339。reviewed
+baseline 225.927秒、9.1313 tok/sに対する単発観測差はwall -43.47%、throughput 1.769倍である。
+route device batch 680、expert-major batch 680、assignment 495,120、diagnostic readback 0。
+
+最終MLX active 300,171,527,368、cache 4,155,602,295、peak 302,822,327,564 bytes。最大RSS
+273,030,742,016、peak footprint 305,189,124,288 bytes、swap 0。ただし16 KiB page counterの増分は
+compression 2,136,698（約32.60 GiB）、decompression 2,129,881（約32.50 GiB）であり、340 GB予算内を
+memory headroom十分とは解釈しない。Phase 1のmodel lifetime / transactional publication / warm-path
+zero-construction / teardown条件とPhase 3初期scheduleのfull-path接続を確認したが、同一modelへの独立した
+fresh request反復は未実施、Phase 3のnon-empty expert tile dispatchとcomponent wall再計測も未qualified。
+
+次の長時間測定は以下をユーザーが実行する。1 model、2,063 prefill + 1 decode、約289 GBの一回限りの
+checkpoint read、Unified Memory予算340 GB、所要5--10分。GPU completionをcomponent境界へ追加するため
+通常のlazy scheduleを摂動する。ログは`artifacts/context-ladder/32k-run-日時-PID/`、失敗時も保持し、
+resumeはない。
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_resident_layer_component_profile.sh
+```
+
 そのresident rerun `context-ladder/32k-run-20260916-100044-16544`をreview済み。exit 0、
 全identity一致、bank construction exactly 40。chunk 0は49.217220秒、chunk 1は17.518658秒
 （7.306462 token/s）、256-token prefillは66.739255秒（3.835823 token/s）。attention chunk化前の
