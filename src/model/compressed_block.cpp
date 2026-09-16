@@ -1,6 +1,7 @@
 #include "dsv41/compressed_block.hpp"
 #include "dsv41/model_entry.hpp"
 #include "dsv41/execution_policy.hpp"
+#include "dsv41/runtime_profile.hpp"
 #include <stdexcept>
 #include "dsv41/layer_owner.hpp"
 namespace dsv41 {
@@ -71,8 +72,10 @@ BlockResult CompressedBlockReference::forward_packed_chunk(const mx::array& h,co
  }
  auto batched_attn_input=attn_inputs.size()==1?attn_inputs.front():mx::concatenate(attn_inputs,0);
  std::vector<SharedAttentionReference> pending_publications;
+ auto attention_started=runtime_profile_start();
  auto batched_attn_output=attention_.forward_chunk(batched_attn_input,next,start,
                                                     publications?&pending_publications:nullptr);
+ finish_runtime_component(layer_,ProfileComponent::AttentionPath,attention_started,batched_attn_output);
  for(int i=0;i<h.shape(0);++i){
   auto attn_out=mx::slice(batched_attn_output,{i,0},{i+1,5120});
   auto residual=residuals[i];auto& a=attn_mixes[i];
@@ -82,7 +85,8 @@ BlockResult CompressedBlockReference::forward_packed_chunk(const mx::array& h,co
   ffn_mixes.push_back(std::move(f));
  }
  auto batched_input=ffn_inputs.size()==1?ffn_inputs.front():mx::concatenate(ffn_inputs,0);
- auto moe=moe_.forward_batch_components(batched_input,start);
+ auto moe_started=runtime_profile_start();auto moe=moe_.forward_batch_components(batched_input,start);
+ finish_runtime_component(layer_,ProfileComponent::MoEPath,moe_started,moe.total);
  std::vector<mx::array> hidden,pre_mix;hidden.reserve(h.shape(0));pre_mix.reserve(h.shape(0));
  for(int i=0;i<h.shape(0);++i){
   hidden.push_back(hc_post_reference(mx::slice(moe.total,{i,0},{i+1,5120}),residuals[i],ffn_mixes[i]));
@@ -90,10 +94,12 @@ BlockResult CompressedBlockReference::forward_packed_chunk(const mx::array& h,co
  }
  BlockResult result{hidden.size()==1?hidden.front():mx::concatenate(hidden,0),
                     pre_mix.size()==1?pre_mix.front():mx::concatenate(pre_mix,0)};
+ auto post_started=runtime_profile_start();
  if(runtime_layer_finite_checks_enabled()){
   auto ok=mx::logical_and(mx::all(mx::isfinite(result.hidden)),mx::all(mx::isfinite(result.pre_mix)));
   mx::eval(result.hidden,result.pre_mix,ok);if(!ok.item<bool>())throw std::runtime_error("nonfinite packed compressed Block chunk output");
  }
+ finish_runtime_component(layer_,ProfileComponent::PostMoE,post_started,result.hidden);
  if(publications)*publications=std::move(pending_publications);
  state=std::move(next);return result;
 }

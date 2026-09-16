@@ -76,6 +76,17 @@ recipe採用に伴い、Rust toolchain / Cargo.lock / recipe revisionとnative b
 
 ## 長時間検証の運用
 
+SWA optimized reductionのbit-exact referenceからの分離条件、observable semantics、persistent state、
+離散判断の事前固定gateは[swa non-bitwise gate](swa-nonbitwise-gate.md)に定義する。まずcomponent profileで
+attentionが2063-token wallの最大項かつ40%以上かを確認し、その後に短いsemantic propagation probeを行う。
+結果を見る前にgateを緩めず、いずれも単独ではM2 / performance / 32K qualificationに数えない。
+
+component profile `context-ladder/32k-run-20260916-233434-29168`はexit 0、40層×17 chunkのcall数と
+identityが一致した。prefill 225.927秒に対し、attention / MoE / post-MoEは71.066 / 106.119 /
+38.743秒、未分類layer overheadは9.678秒。attentionはcomponent合計の32.9%で最大項でも40%以上でも
+ないため、SWA Metal進行条件はfail。MoE pathを次の最適化対象とし、profile値を通常performanceや32Kへ
+昇格しない。
+
 ### Layer-major chunk integration (2026-09-16)
 
 単独layer-major経路の最初の性能診断は次で実行する。

@@ -3,6 +3,7 @@
 #include "dsv41/sampling.hpp"
 #include "dsv41/text_backbone.hpp"
 #include "dsv41/attention_telemetry.hpp"
+#include "dsv41/runtime_profile.hpp"
 #include <mlx/mlx.h>
 #include <algorithm>
 #include <array>
@@ -121,6 +122,7 @@ int main(int argc,char** argv) { try {
   {"compact_expert_bank",dsv41::runtime_compact_expert_bank_enabled()},
   {"mlx_cache_limit_bytes",dsv41::runtime_mlx_cache_limit_bytes()},
   {"expert_assignment_chunk",dsv41::runtime_expert_assignment_chunk()},
+  {"component_profile",dsv41::runtime_component_profile_enabled()},
   {"token_file",argv[4]},{"phases",J::object()}};
 
  std::ofstream progress(output.string()+".progress.jsonl");
@@ -136,6 +138,7 @@ int main(int argc,char** argv) { try {
  dsv41::reset_packed_expert_bank_construction_count();
  dsv41::reset_expert_bank_io_stats();
  dsv41::reset_attention_telemetry();
+ dsv41::reset_runtime_profile();
  dsv41::reset_route_tie_count(); dsv41::reset_route_tie_records();
  dsv41::reset_route_union_stats();
  dsv41::reset_index_tie_count(); dsv41::reset_index_tie_records();
@@ -256,6 +259,23 @@ int main(int argc,char** argv) { try {
  report["attention_telemetry"]={{"concat_calls",at.concat_calls},{"concat_input_bytes",at.concat_input_bytes},
   {"concat_output_bytes",at.concat_output_bytes},{"cumulative_bytes_copied",at.cumulative_bytes_copied},
   {"logical_tokens",at.logical_tokens},{"attention_rows",at.attention_rows},{"indexer_rows",at.indexer_rows}};
+ if(dsv41::runtime_component_profile_enabled()){
+  const auto profile=dsv41::read_runtime_profile();J layers=J::array();
+  double layer_total=0.0,attention_total=0.0,moe_total=0.0,post_total=0.0;
+  for(int layer=0;layer<40;++layer){
+   layer_total+=profile.layer_seconds[layer];attention_total+=profile.attention_path_seconds[layer];
+   moe_total+=profile.moe_path_seconds[layer];post_total+=profile.post_moe_seconds[layer];
+   layers.push_back({{"layer",layer},{"calls",profile.layer_calls[layer]},
+    {"component_calls",profile.component_calls[layer]},{"layer_seconds",profile.layer_seconds[layer]},
+    {"attention_path_seconds",profile.attention_path_seconds[layer]},
+    {"moe_path_seconds",profile.moe_path_seconds[layer]},
+    {"post_moe_seconds",profile.post_moe_seconds[layer]}});
+  }
+  report["runtime_component_profile"]={{"measurement_semantics",
+   "GPU completion wall with synchronization after attention, MoE, and post-MoE; perturbs the normal lazy schedule"},
+   {"layer_seconds",layer_total},{"attention_path_seconds",attention_total},
+   {"moe_path_seconds",moe_total},{"post_moe_seconds",post_total},{"layers",std::move(layers)}};
+ }
  auto union_stats=dsv41::route_union_stats();
  report["route_union_stats"]={{"batches",union_stats.batches},
   {"selected_experts",union_stats.selected_experts},

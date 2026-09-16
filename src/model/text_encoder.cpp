@@ -1,6 +1,7 @@
 #include "dsv41/text_encoder.hpp"
 #include "dsv41/layer_owner.hpp"
 #include "dsv41/execution_policy.hpp"
+#include "dsv41/runtime_profile.hpp"
 #include <stdexcept>
 namespace dsv41 {
 namespace mx=mlx::core;
@@ -42,21 +43,23 @@ BlockResult TextEncoderReference::forward_packed_chunk(std::span<const std::uint
   out.hidden=layer.forward(out.hidden,rows).output;
  };
  // Release on exceptions too: failed requests must not retain a full bank.
- auto run_layer=[&](const auto& block,auto&& forward){
+ auto run_layer=[&](int layer,const auto& block,auto&& forward){
+  auto started=runtime_profile_start();
   try{out=forward();}catch(...){block.release_packed_bank();throw;}
   block.release_packed_bank();
+  record_runtime_layer(layer,runtime_profile_elapsed(started));
  };
  for(int layer=0;layer<2;++layer){
   if(layer==1)engram(engram1_,0);
-  run_layer(*swa_[layer],[&]{return swa_[layer]->forward_packed_chunk(out.hidden,out.pre_mix,next.swa[layer],start);});
+  run_layer(layer,*swa_[layer],[&]{return swa_[layer]->forward_packed_chunk(out.hidden,out.pre_mix,next.swa[layer],start);});
  }
  for(int source:{2,8,14}){
   if(source==14)engram(engram14_,1);
   const int slot=producer_slot(source);std::vector<SharedAttentionReference> publications;
-  run_layer(*producer_[slot],[&]{return producer_[slot]->forward_packed_chunk(out.hidden,out.pre_mix,next.producer[slot],start,&publications);});
+  run_layer(source,*producer_[slot],[&]{return producer_[slot]->forward_packed_chunk(out.hidden,out.pre_mix,next.producer[slot],start,&publications);});
   for(int layer=source+1;layer<source+6;++layer){
    const int reuse_index=reuse_slot(layer);
-   run_layer(*reuse_[reuse_index],[&]{return reuse_[reuse_index]->forward_packed_chunk(out.hidden,out.pre_mix,next.reuse[reuse_index],publications,start);});
+   run_layer(layer,*reuse_[reuse_index],[&]{return reuse_[reuse_index]->forward_packed_chunk(out.hidden,out.pre_mix,next.reuse[reuse_index],publications,start);});
   }
   next.producer[slot].publication()=publications.back();
  }

@@ -1,6 +1,7 @@
 #include "dsv41/text_decoder.hpp"
 #include "dsv41/model_entry.hpp"
 #include "dsv41/layer_owner.hpp"
+#include "dsv41/runtime_profile.hpp"
 #include <stdexcept>
 namespace dsv41 {
 namespace mx=mlx::core;
@@ -32,10 +33,14 @@ BlockResult TextDecoderReference::forward_packed_chunk(const mx::array& h,const 
   try{auto result=fn();block.release_packed_bank();return result;}
   catch(...){block.release_packed_bank();throw;}
  };
- auto out=run(*producer_,[&]{return producer_->forward_packed_chunk(h,pre,next.producer,start,&publications);});
+ auto run_profiled=[&](int layer,const auto& block,auto&& fn){
+  auto started=runtime_profile_start();auto result=run(block,fn);
+  record_runtime_layer(layer,runtime_profile_elapsed(started));return result;
+ };
+ auto out=run_profiled(20,*producer_,[&]{return producer_->forward_packed_chunk(h,pre,next.producer,start,&publications);});
  for(int layer=21;layer<40;++layer){
   const int slot=reuse_slot(layer);
-  out=run(*reuse_[slot],[&]{return reuse_[slot]->forward_packed_chunk(out.hidden,out.pre_mix,next.reuse[slot],publications,start);});
+  out=run_profiled(layer,*reuse_[slot],[&]{return reuse_[slot]->forward_packed_chunk(out.hidden,out.pre_mix,next.reuse[slot],publications,start);});
  }
  next.producer.publication()=publications.back();
  mx::eval(out.hidden,out.pre_mix);state=std::move(next);return out;

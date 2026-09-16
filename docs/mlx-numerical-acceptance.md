@@ -18,8 +18,10 @@
 
 RMSNormもreductionを含むため、演算名や要素数だけでcross-backend bit一致の
 可否を判定しない。既存correctness契約で未達となっている差は、根拠を伴う
-基準の更新まで未解決として残す。local reference → optimized pathは引き続き
-同じbackend条件でbit一致を要求する。公式KVのpayload/scaleや永続stateの
+基準の更新まで未解決として残す。local reference → optimized pathは原則として引き続き
+同じbackend条件でbit一致を要求する。SWA reduction geometryだけは、
+[事前固定したnon-bitwise gate](swa-nonbitwise-gate.md)を満たす候補をbit-exact referenceと分離して
+評価できるが、gate確定や評価だけでproduction既定値を変更しない。公式KVのpayload/scaleや永続stateの
 差を一般的なlogits許容差で免除しない。
 
 ## 基準を固定するまで

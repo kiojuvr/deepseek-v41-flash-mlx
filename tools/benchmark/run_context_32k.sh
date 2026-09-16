@@ -28,6 +28,7 @@ export DSV41_RUNTIME_COMPACT_EXPERT_BANK=${DSV41_RUNTIME_COMPACT_EXPERT_BANK:-0}
 export DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES=${DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES:-0}
 export DSV41_RUNTIME_EXPERT_IO_THREADS=${DSV41_RUNTIME_EXPERT_IO_THREADS:-1}
 export DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK=${DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK:-0}
+export DSV41_RUNTIME_COMPONENT_PROFILE=${DSV41_RUNTIME_COMPONENT_PROFILE:-0}
 if [[ ! "$decode" =~ ^[0-9]+$ ]] || ((decode<1 || decode>128)); then
  echo "DECODE_TOKENS must be an integer in 1..128" >&2
  exit 2
@@ -57,12 +58,15 @@ printf '%s\n' "checkpoint=$checkpoint" "context=$context" "base_prefill=$((prefi
  "mlx_cache_limit_bytes=$DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES" \
  "expert_io_threads=$DSV41_RUNTIME_EXPERT_IO_THREADS" \
  "expert_assignment_chunk=$DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK" \
+ "component_profile=$DSV41_RUNTIME_COMPONENT_PROFILE" \
  "execution=${DSV41_CONTEXT_EXECUTION:-individual}" \
  "cache_condition=${CACHE_CONDITION:-unknown}" "run_conditions=${RUN_CONDITIONS:-unknown}" \
  "pattern=$pattern" > "$run_dir/config.txt"
 shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp \
  tools/benchmark/run_context_32k.sh tools/benchmark/run_resident_atlas_prefill_check.sh \
+ tools/benchmark/run_layer_component_profile.sh \
  include/dsv41/text_backbone.hpp include/dsv41/generation_loop.hpp include/dsv41/execution_policy.hpp \
+ include/dsv41/runtime_profile.hpp \
  include/dsv41/swa_layer.hpp include/dsv41/compressed_layer.hpp include/dsv41/reused_layer.hpp \
  include/dsv41/compressor.hpp include/dsv41/global_kv.hpp include/dsv41/index_key.hpp include/dsv41/index_query.hpp \
  src/model/text_backbone.cpp src/model/text_encoder.cpp src/model/text_decoder.cpp \

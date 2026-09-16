@@ -167,6 +167,12 @@ wall 7.32%短縮、throughput 7.89%上昇した。したがってcache修正に�
 executionのbounded full-path改善とcache lifecycleを採用する。ただし単発観測であり、反復paired
 performance、32K、外部parity、256Kは未qualifiedである。
 
+同条件component profile `context-ladder/32k-run-20260916-233434-29168`では、40層×17 chunkの
+GPU-completion wallをattention / MoE / post-MoE境界で測定した。prefill 225.927秒、layer合計
+225.605秒、attention 71.066秒（component合計32.9%）、MoE 106.119秒（49.1%）、post-MoE
+38.743秒（17.9%）、未分類9.678秒だった。事前固定したSWA進行条件（最大項かつ40%以上）を満たさない。
+したがってSWA専用Metal kernelは保留し、hardware-native scheduleの次対象をMoE pathとする。
+
 次のpure SWA chunk候補として、token別の64-key block順を保ったままQK / AVを3-D batched
 `matmul`へまとめる試作を行った。しかし同一processの短いanalytic gateでtoken別referenceとBF16 bit
 不一致になった。論理block順が同じでもMLXはbatch geometryで別reduction kernelを選ぶため、この経路は
