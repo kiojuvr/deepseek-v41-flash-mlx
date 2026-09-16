@@ -62,6 +62,15 @@ inline bool runtime_route_diagnostics_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_ROUTE_DIAGNOSTICS must be 0 or 1");
 }
 
+// Preserve full host-visible index/tie records for oracle runs. Optimized
+// resident prefill keeps selected rows and candidate masks device-authoritative.
+inline bool runtime_index_diagnostics_enabled() {
+ const char* value=std::getenv("DSV41_RUNTIME_INDEX_DIAGNOSTICS");
+ if(value==nullptr||std::string_view(value)=="1") return true;
+ if(std::string_view(value)=="0") return false;
+ throw std::runtime_error("DSV41_RUNTIME_INDEX_DIAGNOSTICS must be 0 or 1");
+}
+
 inline std::size_t runtime_mlx_cache_limit_bytes() {
  const char* value=std::getenv("DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES");
  if(value==nullptr||std::string_view(value).empty()||std::string_view(value)=="0") return 0;

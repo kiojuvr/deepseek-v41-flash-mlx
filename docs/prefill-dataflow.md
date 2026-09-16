@@ -205,8 +205,23 @@ wall 43.47%短縮、throughput 1.769倍の単発full-path observationである�
 peak footprint 305,189,124,288 bytes、swap 0だが、compression / decompressionは約32.6 / 32.5 GiB。
 したがって512 GiB targetのresident atlasをproduction candidateへ戻す一方、memory pressureは明示的な
 gateのままとする。compact route-first経路は低memory fallback/referenceとして保持する。次はresident条件で
-component wallを再測し、MoEが依然支配的ならDwarfStar/oMLX型のdevice non-empty expert tile work listへ
-進む。旧compact component profileから新しいbottleneckを差し引き推定しない。
+component wallを再測し、旧compact component profileから新しいbottleneckを差し引き推定しない。
+
+resident component profile `context-ladder/32k-run-20260917-005021-32331`はexit 0、clean commit
+`7567138`、identity一致。prefill 126.641秒 / 16.290 tok/s、layer合計126.130秒のうちattention
+69.652秒（55.22%）、MoE 53.882秒（42.72%）、post-MoE 2.390秒（1.90%）だった。model-init bank 40、
+warm construction 0、route readback 0を再確認した。したがってPhase 2のtoken post-loop除去は支配項から外れ、
+次のfull-path対象はattention/index/publicationである。
+
+同じ128-token / 768-assignment形状でDwarfStar型dynamic tileとoMLX grouped MXFP4 primitiveを短時間比較した。
+前者は数値不一致かつ低速、後者もcurrent expert-major gather-QMMの9.57 ms（paired 9.55 ms）に対し
+11.15 ms（paired 10.98 ms）であり、いずれもproductionへ採用しない。局所QMMのためにPhase 4を遅らせない。
+
+Phase 4の第一段として、index top-k relative rowとcandidate maskをdevice arrayのままpublicationへ渡し、
+後段index sourceのrepublish、candidate consumer、main-KV gatherまでhost vectorを介さない経路を追加した。
+`DSV41_RUNTIME_INDEX_DIAGNOSTICS=1`はreference/tie診断用のhost materializationを保持し、resident runnerは
+0にしてreadback telemetryが0でなければ失敗する。token別attention本体とchunk frontierのatomic commitは
+未完了であり、この変更だけでPhase 4完了とはしない。
 
 2×128 compact promotionでは実route unionの合計loaded expertが10,543（80 bank constructions、
 individual / compact比較の合計）で、full bankの30,720 expert loadの34.3%だった。

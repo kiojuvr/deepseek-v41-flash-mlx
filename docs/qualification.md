@@ -541,16 +541,31 @@ route device batch 680、expert-major batch 680、assignment 495,120、diagnosti
 compression 2,136,698（約32.60 GiB）、decompression 2,129,881（約32.50 GiB）であり、340 GB予算内を
 memory headroom十分とは解釈しない。Phase 1のmodel lifetime / transactional publication / warm-path
 zero-construction / teardown条件とPhase 3初期scheduleのfull-path接続を確認したが、同一modelへの独立した
-fresh request反復は未実施、Phase 3のnon-empty expert tile dispatchとcomponent wall再計測も未qualified。
+fresh request反復は未実施である。Phase 3のnon-empty expert tile dispatchは未昇格で、component再測定は
+次項で別に記録する。
 
-次の長時間測定は以下をユーザーが実行する。1 model、2,063 prefill + 1 decode、約289 GBの一回限りの
-checkpoint read、Unified Memory予算340 GB、所要5--10分。GPU completionをcomponent境界へ追加するため
-通常のlazy scheduleを摂動する。ログは`artifacts/context-ladder/32k-run-日時-PID/`、失敗時も保持し、
-resumeはない。
+resident component profile `context-ladder/32k-run-20260917-005021-32331`をreview済み。exit 0、commit
+`7567138`、tracked patch 0、identity全件一致。prefill 126.640645秒、16.29019 tok/s、生成token 339。
+40層additive wall 126.130113秒に対しattention 69.651924秒（55.22%）、MoE 53.881925秒（42.72%）、
+post-MoE 2.390266秒（1.90%）。40 initialization banks、17 warm chunksのconstruction/load 0、route
+device batch 680、readback 0、expert-major batch 680。最大RSS 274,533,367,808、peak footprint
+304,958,437,760 bytes、swap 0、compression / decompressionは約30.79 / 30.78 GiB。この同期profileは
+component attributionであり通常scheduleのperformance qualificationではない。
+
+この結果によりPhase 4のdevice index publicationを開始した。optimized resident runnerでは
+`DSV41_RUNTIME_INDEX_DIAGNOSTICS=0`とし、top-k row/candidate maskをdevice authoritativeのまま
+publication / republish / candidate consumer / attention gatherへ渡す。reference既定値1は従来host vectorと
+tie診断を保持する。次の長時間確認は以下で、1 model、2,063 prefill + 1 decode、約289 GB checkpoint read、
+340 GB予算、5--10分、ログ保持、resumeなし。route/index readbackとも0を要求する。
+
+短時間fixtureはdiagnostics 1 / 0の両方で640-row candidate/top-kをtoken-serial oracleと一致確認し、
+diagnostics 0のcompressed producer→device publication→reuse attentionもoutput/state bits、continuation、
+fork/reset/rejectionを維持した。これはPhase 4の最初の境界変更だけをqualifyし、40層wallやchunk-atomic
+frontier全体をqualifyしない。
 
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
-bash tools/benchmark/run_resident_layer_component_profile.sh
+bash tools/benchmark/run_resident_atlas_prefill_measurement.sh
 ```
 
 そのresident rerun `context-ladder/32k-run-20260916-100044-16544`をreview済み。exit 0、

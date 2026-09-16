@@ -2,6 +2,7 @@
 #include "dsv41/attention_telemetry.hpp"
 #include "dsv41/kv_quant.hpp"
 #include "dsv41/layer_owner.hpp"
+#include "dsv41/execution_policy.hpp"
 #include <algorithm>
 #include <bit>
 #include <numeric>
@@ -142,11 +143,14 @@ IndexSelection IndexQueryReference::forward(const mx::array& x,const mx::array& 
 }
 std::vector<IndexSelection> IndexQueryReference::forward_chunk(const mx::array& x,const mx::array& qr,
  const std::vector<GlobalKVState>& caches,std::uint64_t start,
- const std::vector<std::vector<std::uint8_t>>* incoming_candidates) const{
+ const std::vector<std::vector<std::uint8_t>>* incoming_candidates,
+ const std::vector<mx::array>* incoming_device_candidates,bool force_diagnostics) const{
  if(x.dtype()!=mx::bfloat16||x.ndim()!=2||x.shape(0)<1||x.shape(0)>128||x.shape(1)!=5120||
     qr.dtype()!=mx::bfloat16||qr.shape()!=mx::Shape({x.shape(0),1280})||caches.size()!=std::size_t(x.shape(0))||
     start>=1048576||std::uint64_t(x.shape(0))>1048576-start||
-    (incoming_candidates&&incoming_candidates->size()!=caches.size()))
+    (incoming_candidates&&incoming_candidates->size()!=caches.size())||
+    (incoming_device_candidates&&incoming_device_candidates->size()!=caches.size())||
+    (uses_candidates_&&!incoming_device_candidates&&!incoming_candidates))
   throw std::runtime_error("invalid index query chunk");
  const int tokens=x.shape(0),rows=int(caches.back().rows());
  std::vector<int> visible;visible.reserve(tokens);
@@ -157,7 +161,8 @@ std::vector<IndexSelection> IndexQueryReference::forward_chunk(const mx::array& 
   visible.push_back(int(caches[i].rows()));
  }
  std::vector<IndexSelection> results(tokens);
- if(!rows)return results;
+ if(!rows){for(auto& result:results){result.device_rows=mx::zeros({0},mx::int32);
+  result.device_candidates=mx::zeros({0},mx::uint8);}return results;}
  {
   std::lock_guard l(attention_telemetry_mutex());auto& telemetry=attention_telemetry();
   for(auto count:visible)telemetry.indexer_rows+=std::size_t(count);
@@ -210,13 +215,26 @@ std::vector<IndexSelection> IndexQueryReference::forward_chunk(const mx::array& 
   combined=mx::where(mx::astype(candidate_mask,mx::bool_),combined,
                      mx::array(-std::numeric_limits<float>::infinity()));
  }else if(uses_candidates_){
-  std::vector<std::uint8_t> host_mask(std::size_t(tokens)*rows,0);
-  for(int token=0;token<tokens;++token){
-   const auto& incoming=(*incoming_candidates)[token];
-   if(incoming.size()!=std::size_t(visible[token]))throw std::runtime_error("missing candidate mask for candidate consumer");
-   std::copy(incoming.begin(),incoming.end(),host_mask.begin()+std::size_t(token)*rows);
+  if(incoming_device_candidates){
+   std::vector<mx::array> masks;masks.reserve(tokens);
+   for(int token=0;token<tokens;++token){
+    const auto& incoming=(*incoming_device_candidates)[token];
+    if(incoming.dtype()!=mx::uint8||incoming.shape()!=mx::Shape({visible[token]}))
+     throw std::runtime_error("missing device candidate mask for candidate consumer");
+    auto padded=visible[token]==rows?incoming:mx::concatenate(
+     {incoming,mx::zeros({rows-visible[token]},mx::uint8)},0);
+    masks.push_back(mx::expand_dims(padded,0));
+   }
+   candidate_mask=tokens==1?masks.front():mx::concatenate(masks,0);
+  }else{
+   std::vector<std::uint8_t> host_mask(std::size_t(tokens)*rows,0);
+   for(int token=0;token<tokens;++token){
+    const auto& incoming=(*incoming_candidates)[token];
+    if(incoming.size()!=std::size_t(visible[token]))throw std::runtime_error("missing candidate mask for candidate consumer");
+    std::copy(incoming.begin(),incoming.end(),host_mask.begin()+std::size_t(token)*rows);
+   }
+   candidate_mask=mx::array(host_mask.begin(),{tokens,rows},mx::uint8);
   }
-  candidate_mask=mx::array(host_mask.begin(),{tokens,rows},mx::uint8);
   combined=mx::where(mx::astype(candidate_mask,mx::bool_),combined,
                      mx::array(-std::numeric_limits<float>::infinity()));
  }
@@ -226,6 +244,16 @@ std::vector<IndexSelection> IndexQueryReference::forward_chunk(const mx::array& 
  auto score_order=mx::slice(mx::argsort(mx::negative(combined),1),{0,0},{tokens,boundary_width});
  auto ordered_scores=mx::take_along_axis(combined,score_order,1);
  auto selected=mx::sort(mx::slice(score_order,{0,0},{tokens,selected_width}),1);
+ for(int token=0;token<tokens;++token){
+  const int count=std::min(visible[token],512);
+  results[token].device_rows=mx::astype(mx::reshape(
+   mx::slice(selected,{token,0},{token+1,count}),{count}),mx::int32);
+  results[token].device_candidates=(is_candidate_source_||uses_candidates_)?
+   mx::astype(mx::reshape(mx::slice(candidate_mask,{token,0},{token+1,visible[token]}),
+                          {visible[token]}),mx::uint8):mx::zeros({0},mx::uint8);
+ }
+ if(!force_diagnostics&&!runtime_index_diagnostics_enabled())return results;
+ { std::lock_guard l(attention_telemetry_mutex());++attention_telemetry().index_host_readbacks; }
  auto selected_cpu=mx::contiguous(mx::astype(selected,mx::uint32,mx::Device::cpu),false,mx::Device::cpu);
  auto order_cpu=mx::contiguous(mx::astype(score_order,mx::uint32,mx::Device::cpu),false,mx::Device::cpu);
  auto score_cpu=mx::contiguous(mx::astype(ordered_scores,mx::float32,mx::Device::cpu),false,mx::Device::cpu);

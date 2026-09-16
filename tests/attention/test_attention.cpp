@@ -8,6 +8,7 @@
 #include "dsv41/global_kv.hpp"
 #include "dsv41/index_query.hpp"
 #include "dsv41/compressed_layer.hpp"
+#include "dsv41/execution_policy.hpp"
 #include "dsv41/reused_layer.hpp"
 #include <cmath>
 #include <iostream>
@@ -135,12 +136,28 @@ int main(int argc,char** argv){try{
   {
    dsv41::CompressedLayerReference attention(catalog,2);dsv41::CompressedLayerState chunk,serial;
    auto input=mx::astype(mx::reshape(mx::sin(mx::arange(5*5120,mx::float32)),{5,5120}),mx::bfloat16);
-   auto batch=attention.forward(input,chunk,0);
-   if(!chunk.publication()||chunk.publication()->indices(3,4,128)!=std::vector<std::int32_t>{128,129})throw std::runtime_error("layer 2 publication missing");
+   std::vector<dsv41::SharedAttentionReference> production_publications;
+   auto batch=attention.forward_chunk(input,chunk,0,&production_publications);
+   if(!chunk.publication())throw std::runtime_error("layer 2 publication missing");
    auto published=*chunk.publication();
-   for(int layer=3;layer<=7;++layer)if(published.indices(layer,4,128)!=std::vector<std::int32_t>{128,129})throw std::runtime_error("reuse consumer mismatch");
-   for(int layer:{2,8}){bool bad=false;try{published.indices(layer,4,128);}catch(const std::exception&){bad=true;}if(!bad)throw std::runtime_error("wrong reuse source accepted");}
-   bool stale=false;try{published.indices(3,5,128);}catch(const std::exception&){stale=true;}if(!stale)throw std::runtime_error("stale publication accepted");
+   for(int layer=3;layer<=7;++layer){
+    if(dsv41::runtime_index_diagnostics_enabled()){
+     if(published.indices(layer,4,128)!=std::vector<std::int32_t>{128,129})throw std::runtime_error("reuse consumer mismatch");
+    }else{
+     auto rows=published.device_indices(layer,4,128);mx::eval(rows);
+     const auto* p=rows.data<std::int32_t>();
+     if(rows.dtype()!=mx::int32||rows.shape()!=mx::Shape({2})||p[0]!=0||p[1]!=1)
+      throw std::runtime_error("device reuse consumer mismatch");
+    }
+   }
+   for(int layer:{2,8}){bool bad=false;try{
+    if(dsv41::runtime_index_diagnostics_enabled())published.indices(layer,4,128);
+    else published.device_indices(layer,4,128);
+   }catch(const std::exception&){bad=true;}if(!bad)throw std::runtime_error("wrong reuse source accepted");}
+   bool stale=false;try{
+    if(dsv41::runtime_index_diagnostics_enabled())published.indices(3,5,128);
+    else published.device_indices(3,5,128);
+   }catch(const std::exception&){stale=true;}if(!stale)throw std::runtime_error("stale publication accepted");
    for(int i=0;i<5;++i)equal(attention.forward(mx::slice(input,{i,0},{i+1,5120}),serial,i),mx::slice(batch,{i,0},{i+1,5120}),"compressed attention chunk bits");
    auto same_state=[&](const dsv41::CompressedLayerState& a,const dsv41::CompressedLayerState& b){
     if(a.position()!=b.position()||a.global().rows()!=b.global().rows())throw std::runtime_error("compressed state position mismatch");

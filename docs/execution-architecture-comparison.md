@@ -60,7 +60,7 @@ unions overlap by 83.1%.
 | Shared and routed experts | Shared expert and routed bank are separate lazy branches, then added. They share the component evaluation but have no explicit joint schedule or fused combine. | Shared and routed branches are built in one lazy graph; a custom combine kernel restores token order, sums six routed rows, and adds the shared row. | Shared gate/up/SwiGLU/down and routed grouped MoE are encoded in the same layer command buffer, then device-added/reduced before the next mHC stage. |
 | Inter-layer materialization/eval | Each block returns a materialized boundary in practice; profiling adds three hard synchronizations per layer. Bank release and CPU route/index consumers prevent a graph spanning layers. | The model builds a lazy graph across its layer loop and the scheduler evaluates cache states once per admitted chunk. Some bounded index-top-k and SSD-offload paths deliberately introduce internal evals. | Activations stay in preallocated GPU workspaces. Normal V4.1 prefill drains at a layer/chunk boundary; no token/expert boundary is required. Wide carry buffers bridge chunk partitions. |
 | Metal command submission | MLX owns submission. Current host readbacks and `mx::eval` boundaries split the graph; submission structure is not a first-class runtime contract. | One engine stream and one outer `mx.eval` per scheduler chunk, with custom primitives embedded in that graph. | Explicit `begin_commands`/`end_commands`. Attention projection/core/output, mHC, shared/routed FFN, and expand are encoded into the layer/chunk command buffer. |
-| CPU readback | The resident MoE path has zero route diagnostic readbacks unless explicitly enabled. Index boundary diagnostics/publication metadata and final logits still reach the host; token-serial attention remains the larger unresolved boundary. | Resident normal path keeps route sorting, index IDs, attention, and recurrent arrays on GPU. CPU readback appears in cache metadata and the optional expert-offload `ensure` path. | Route IDs, expert lists, index selections, and state remain device-resident. CPU sees progress/cancellation and final logits/snapshot copies, not per-layer routing/index results. |
+| CPU readback | The resident path has zero route or index-result readbacks when their diagnostics are disabled. Top-k rows and candidate masks remain device-authoritative through publication and attention gather; final logits still reach the host and the token-serial attention loop remains unresolved. | Resident normal path keeps route sorting, index IDs, attention, and recurrent arrays on GPU. CPU readback appears in cache metadata and the optional expert-offload `ensure` path. | Route IDs, expert lists, index selections, and state remain device-resident. CPU sees progress/cancellation and final logits/snapshot copies, not per-layer routing/index results. |
 | Attention/indexer batching | Q/K/V projections and score matrix are partly batched. Index score/mask/top-k are chunk-wide, but results are copied to CPU; sparse attention and output projection then loop token by token. Pure SWA also loops token by token. | Chunk-wide Q/KV projection, packed index score/top-k, and native packed sparse attention. Query rows are dispatched together; selected indices remain array values. | Batched projection and publication, packed index score/top-k, and batched raw/mixed/indexed attention. Final ring/publication state is copied in bulk. |
 | Recurrent/compressed state publication | Copies the C++ state at entry, constructs one `SharedAttentionReference` per token, mutates a publication vector across reuse layers, and swaps state only after successful evaluation. This is atomic but host-object-heavy. | Request-local cache arrays hold window KV, compressed KV, index K, compressor tails, and Engram history. Lazy cache mutations are forced at the scheduler chunk boundary. | Preallocated device tensors receive bulk window/compressed/index publication. A partial layer sweep marks the graph invalid; position/history become valid only after the complete sweep. |
 | CED/deferred decoder prefill | Absent: every chunk runs encoder layers 0..19 and decoder layers 20..39. | Absent at the pinned revision; [oMLX issue #3605](https://github.com/jundot/omlx/issues/3605) identifies it as missing. | Present. Large sweeps can run encoder-only and later rebuild only the decoder's exact dependency suffix; decoder layers also skip prefixes outside their required suffix. |
@@ -148,8 +148,8 @@ layer/chunk sweep is never publishable.
 |---:|---|---:|---|
 | 1 | Model-owned, transactionally published 40-layer resident expert atlas | 41.772 s bank construction | **Connected and full-path observed:** 40 model-lifetime banks; zero warm-chunk construction/read. A literal second fresh request on the same model remains a narrow qualification item. |
 | 2 | Chunk-wide mHC pre/post and state expansion | 38.743 s post-MoE, plus part of 9.678 s overhead | **Connected and full-backbone qualified:** two 128-token chunks match the token-serial oracle through logits/state/publication. |
-| 3 | Device route to expert-major work lists and grouped gate/up/down/reduce | Remaining nominal 64.3 s MoE | **In progress:** device routes and stable expert-major assignment order are connected; non-empty tile metadata/dispatch and a resident component profile remain. |
-| 4 | Chunk-wide attention/index/publication with atomic frontier commit | 71.066 s attention | Remove intermediate host control and token attention loops; do not start an SWA-only kernel first. |
+| 3 | Device route to expert-major work lists and grouped gate/up/down/reduce | Resident profile: 53.882 s MoE | **Schedule promoted, grouped tile candidate rejected:** device routes and stable expert-major assignment order are connected. Direct oMLX grouped MXFP4 dispatch was slower for the official 768-assignment shape, so the current gather-QMM schedule remains pending a better full-path candidate. |
+| 4 | Chunk-wide attention/index/publication with atomic frontier commit | Resident profile: 69.652 s attention | **In progress:** device top-k/candidate arrays now remain authoritative through publication and attention gather; host vectors are diagnostic-only. Token-serial attention and chunk-atomic frontier commit remain. |
 | 5 | CED/deferred decoder and bounded replay | No 2K saving | Begin only after the 2K structural gates above. |
 
 The prior full-resident experiment proved 40-bank reuse but built those banks
@@ -180,47 +180,70 @@ Reviewed results (2026-09-17):
   memory headroom.  A second fresh request on the same model is still needed
   to close that exact Phase 1 qualification clause.
 
-Phase 3 has started: the resident path omits route diagnostic readback,
+Phase 3's first production schedule omits route diagnostic readback,
 stable-sorts all `6T` assignments by expert on device, runs gate/up/down in
 that order, and maps the canonical expert-ID reduction order through the
 inverse permutation.  A 128-token/768-assignment layer-0 fixture matched the
 assignment-major and token-serial accumulated and BF16 routed outputs bitwise.
-This is not yet DwarfStar-style non-empty tile dispatch or full-path Phase 3
-qualification.
+The reviewed resident component profile
+`context-ladder/32k-run-20260917-005021-32331` was produced from clean commit
+`7567138` and passed its identity and exit checks.  Its 2,063-token prefill was
+126.641 s / 16.290 tok/s.  Additive 40-layer GPU-completion wall was 126.130 s:
+Attention 69.652 s (55.22%), MoE 53.882 s (42.72%), and Post-MoE 2.390 s
+(1.90%).  It again recorded 40 initialization banks, zero warm constructions,
+680 device routes, zero route readbacks, and 680 expert-major batches.  The
+component synchronizations perturb normal lazy execution, so the 126.641 s is
+an attribution observation rather than a new performance acceptance result.
 
-The next long validation is a resident-path component profile.  It has a
-reproducible runner because it takes several minutes:
+Two bounded grouped-dispatch candidates were then tested against the same
+official 128-token/768-assignment shape.  A new dynamic Metal tile kernel was
+both numerically wrong and slower and was removed.  The directly adapted oMLX
+grouped MXFP4 primitive had small non-bitwise differences but was also slower:
+11.15 ms single / 10.98 ms paired gate-up versus 9.57 / 9.55 ms for the current
+expert-major gather-QMM schedule.  Since the full-path profile now makes
+Attention the largest bucket, neither local MoE candidate is promoted.
+
+Phase 4 now carries top-k relative row IDs and candidate masks as MLX arrays
+from index selection through `SharedAttentionReference`, republish, candidate
+consumer, and main-KV gather.  `DSV41_RUNTIME_INDEX_DIAGNOSTICS=1` preserves
+the host-visible oracle/tie path; the resident production runner sets it to
+zero and treats any index-result readback as an error.  This removes a host
+boundary but does not yet remove the per-token attention invocation or provide
+an atomic full-chunk frontier commit.
+
+The next long validation is the updated resident full-path observation.  It
+has a reproducible runner because it takes several minutes:
 
 ```sh
-bash tools/benchmark/run_resident_layer_component_profile.sh
+bash tools/benchmark/run_resident_atlas_prefill_measurement.sh
 ```
 
 It runs one model, 2,063-token prefill, and one decode with the same 340 GB
-budget and about 289 GB of one-time checkpoint reads.  Component boundaries
-force GPU completion and therefore perturb the normal 127.717-second lazy
-schedule.  Logs and failed state remain under `artifacts/context-ladder/`;
-there is no resume, and the result is not passed until reviewed.
+budget and about 289 GB of one-time checkpoint reads.  It requires exactly 40
+model-lifetime banks, zero warm bank construction, and zero route/index
+diagnostic readbacks.  Logs and failed state remain under
+`artifacts/context-ladder/`; there is no resume, and the result is not passed
+until reviewed.
 
 The next loop should be architecture-first and preserve the project's stated
 correctness priority:
 
-1. Re-measure attention/MoE/post-MoE under the resident Phase 1--3 path.  Do
-   not infer the new bottleneck by subtracting the old compact-bank profile.
-2. If MoE remains dominant, replace the full stable-sort/gather schedule with
-   device-built non-empty expert tiles.  DwarfStar's
+1. Qualify device index/candidate publication in the full resident path and
+   confirm zero normal-path index readback without changing logits/token 339.
+2. Replace the token-serial attention body and state publication loop with a
+   chunk graph and atomic frontier commit.  DwarfStar's full-sweep publication
+   remains the ownership reference; do not begin with the SWA-only kernel.
+3. Retain DwarfStar's
    [`kernel_mul_mm_id_map_scatter_work`](https://github.com/antirez/ds4/blob/8db1d1d155cb0400a86a86b9c62d0defb3a6148b/metal/moe.metal#L7790-L7950)
-   is the scheduling reference; oMLX's
+   as the scheduling reference; oMLX's
    [`switch_layers.py`](https://github.com/jundot/omlx/blob/b390b31e0c6831225fed0f24d278eb1db7fcb68b/omlx/patches/deepseek_v4/switch_layers.py)
    and grouped
    [`deepseek_moe.metal`](https://github.com/jundot/omlx/blob/b390b31e0c6831225fed0f24d278eb1db7fcb68b/omlx/custom_kernels/glm_moe_dsa/csrc/deepseek_moe.metal)
    show the directly compatible sorted-row/block-metadata alternative for the
    official packed expert tensor shapes.
-3. Keep shared expert, routed gate/up/down, route weighting, and canonical
+4. Keep shared expert, routed gate/up/down, route weighting, and canonical
    reduction in one device graph.  Preserve the existing diagnostic oracle,
    but do not add host work-list construction.
-4. Only after the new component profile choose between completing Phase 3 and
-   beginning the Phase 4 attention/index/publication graph.  A local QMM or
-   SWA kernel is not justified merely by an isolated primitive result.
 5. Add wider/continued prefill and, for 16K+, the ds4 decoder-suffix/CED
    algorithm. Validate complete state/logits and following decode, not an
    isolated primitive.

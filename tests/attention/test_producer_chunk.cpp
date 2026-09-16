@@ -1,7 +1,9 @@
 #include "dsv41/compressor.hpp"
+#include "dsv41/execution_policy.hpp"
 #include "dsv41/global_kv.hpp"
 #include "dsv41/index_key.hpp"
 #include "dsv41/index_query.hpp"
+#include "dsv41/shared_attention.hpp"
 #include <iostream>
 #include <stdexcept>
 
@@ -24,6 +26,20 @@ void same_global(const dsv41::GlobalKVState& a,const dsv41::GlobalKVState& b){
  same(a.index_bytes(),b.index_bytes(),"global index bytes mismatch");
  same(a.index_scales(),b.index_scales(),"global index scales mismatch");
  same_compressor(a.compressor(),b.compressor());
+}
+void same_device_selection(const dsv41::IndexSelection& batch,const dsv41::IndexSelection& serial,
+ int offset,const std::vector<std::uint8_t>* expected_candidates,const char* message){
+ std::vector<std::int32_t> relative;relative.reserve(serial.rows.size());
+ for(auto row:serial.rows)relative.push_back(row-offset);
+ if(relative.empty()){
+  if(batch.device_rows.shape()!=mx::Shape({0})||batch.device_rows.dtype()!=mx::int32)
+   throw std::runtime_error(message);
+ }else same(batch.device_rows,mx::array(relative.begin(),{int(relative.size())},mx::int32),message);
+ if(!expected_candidates||expected_candidates->empty()){
+  if(batch.device_candidates.shape()!=mx::Shape({0})||batch.device_candidates.dtype()!=mx::uint8)
+   throw std::runtime_error(message);
+ }else same(batch.device_candidates,
+  mx::array(expected_candidates->begin(),{int(expected_candidates->size())},mx::uint8),message);
 }
 }
 
@@ -69,7 +85,9 @@ int main(int argc,char** argv){try{
   for(int i=0;i<5;++i){
    auto one=query.forward(mx::slice(h,{i,0},{i+1,5120}),mx::slice(qr,{i,0},{i+1,1280}),
                           serial_prefixes[i],i,i?128:1);
-   if(selected[i].rows!=one.rows||selected[i].candidates!=one.candidates)
+   same_device_selection(selected[i],one,i?128:1,nullptr,"index query device selection mismatch");
+   if(dsv41::runtime_index_diagnostics_enabled()&&
+      (selected[i].rows!=one.rows||selected[i].candidates!=one.candidates))
     throw std::runtime_error("index query chunk mismatch");
   }
   auto saved=batch_state;bool rejected=false;
@@ -84,10 +102,14 @@ int main(int argc,char** argv){try{
   dsv41::IndexQueryReference source(catalog,20,true,false);
   auto source_batch=source.forward_chunk(h,qr,prefixes,0);
   std::vector<std::vector<std::uint8_t>> candidates; candidates.reserve(source_batch.size());
+  std::vector<mx::array> device_candidates;device_candidates.reserve(source_batch.size());
   for(int i=0;i<5;++i){
    auto one=source.forward(mx::slice(h,{i,0},{i+1,5120}),mx::slice(qr,{i,0},{i+1,1280}),
                            prefixes[i],i,i?128:1);
-   if(source_batch[i].rows!=one.rows||source_batch[i].candidates!=one.candidates)
+   same_device_selection(source_batch[i],one,i?128:1,&one.candidates,
+                         "candidate source device selection mismatch");
+   if(dsv41::runtime_index_diagnostics_enabled()&&
+      (source_batch[i].rows!=one.rows||source_batch[i].candidates!=one.candidates))
     throw std::runtime_error("candidate source chunk mismatch token="+std::to_string(i)+
      " rows="+std::to_string(source_batch[i].rows.size())+"/"+std::to_string(one.rows.size())+
      " candidates="+std::to_string(source_batch[i].candidates.size())+"/"+std::to_string(one.candidates.size())+
@@ -99,15 +121,35 @@ int main(int argc,char** argv){try{
      std::to_string(source_batch[i].candidates.size()<2?9:source_batch[i].candidates[1])+"/"+
      std::to_string(one.candidates.empty()?9:one.candidates.front())+
      std::to_string(one.candidates.size()<2?9:one.candidates[1]));
-   candidates.push_back(source_batch[i].candidates);
+   candidates.push_back(one.candidates);device_candidates.push_back(source_batch[i].device_candidates);
   }
   dsv41::IndexQueryReference consumer(catalog,24,false,true);
-  auto consumer_batch=consumer.forward_chunk(h,qr,prefixes,0,&candidates);
+  auto consumer_batch=dsv41::runtime_index_diagnostics_enabled()?
+   consumer.forward_chunk(h,qr,prefixes,0,&candidates):
+   consumer.forward_chunk(h,qr,prefixes,0,nullptr,&device_candidates);
   for(int i=0;i<5;++i){
    auto one=consumer.forward(mx::slice(h,{i,0},{i+1,5120}),mx::slice(qr,{i,0},{i+1,1280}),
                              prefixes[i],i,i?128:1,&candidates[i]);
-   if(consumer_batch[i].rows!=one.rows||consumer_batch[i].candidates!=one.candidates)
+   same_device_selection(consumer_batch[i],one,i?128:1,&candidates[i],
+                         "candidate consumer device selection mismatch");
+   if(dsv41::runtime_index_diagnostics_enabled()&&
+      (consumer_batch[i].rows!=one.rows||consumer_batch[i].candidates!=one.candidates))
     throw std::runtime_error("candidate consumer chunk mismatch");
+   auto diagnostic_rows=dsv41::runtime_index_diagnostics_enabled()?source_batch[i].rows:
+    std::vector<std::int32_t>{};
+   auto diagnostic_candidates=dsv41::runtime_index_diagnostics_enabled()?candidates[i]:
+    std::vector<std::uint8_t>{};
+   dsv41::SharedAttentionReference publication(prefixes[i],source_batch[i].device_rows,
+    source_batch[i].device_candidates,i,i?128:1,20,1,std::move(diagnostic_rows),
+    std::move(diagnostic_candidates));
+   publication.republish(24,consumer_batch[i].device_rows,consumer_batch[i].device_candidates,
+    dsv41::runtime_index_diagnostics_enabled()?consumer_batch[i].rows:std::vector<std::int32_t>{});
+   same(publication.device_indices(24,i,i?128:1),consumer_batch[i].device_rows,
+        "device republish rows mismatch");
+   same(publication.device_candidates(),consumer_batch[i].device_candidates,
+        "device republish candidates mismatch");
+   if(dsv41::runtime_index_diagnostics_enabled()&&publication.candidates()!=candidates[i])
+    throw std::runtime_error("diagnostic candidate publication was not preserved");
   }
  }
  {
@@ -134,20 +176,29 @@ int main(int argc,char** argv){try{
   dsv41::IndexQueryReference source(catalog,20,true,false,64,8);
   auto source_batch=source.forward_chunk(tail,qr,prefixes,512);
   std::vector<std::vector<std::uint8_t>> candidates;candidates.reserve(128);
+  std::vector<mx::array> device_candidates;device_candidates.reserve(128);
   for(int i=0;i<128;++i){
    auto one=source.forward(mx::slice(tail,{i,0},{i+1,5120}),mx::slice(qr,{i,0},{i+1,1280}),
                            prefixes[i],512+i,128);
-   if(source_batch[i].rows!=one.rows||source_batch[i].candidates!=one.candidates)
+   same_device_selection(source_batch[i],one,128,&one.candidates,
+                         "512-boundary candidate source device mismatch");
+   if(dsv41::runtime_index_diagnostics_enabled()&&
+      (source_batch[i].rows!=one.rows||source_batch[i].candidates!=one.candidates))
     throw std::runtime_error("512-boundary candidate source mismatch token="+std::to_string(i));
-   if(source_batch[i].rows.size()!=512)throw std::runtime_error("512-boundary top-k width mismatch");
-   candidates.push_back(source_batch[i].candidates);
+   if(one.rows.size()!=512)throw std::runtime_error("512-boundary top-k width mismatch");
+   candidates.push_back(one.candidates);device_candidates.push_back(source_batch[i].device_candidates);
   }
   dsv41::IndexQueryReference consumer(catalog,24,false,true,64,8);
-  auto consumer_batch=consumer.forward_chunk(tail,qr,prefixes,512,&candidates);
+  auto consumer_batch=dsv41::runtime_index_diagnostics_enabled()?
+   consumer.forward_chunk(tail,qr,prefixes,512,&candidates):
+   consumer.forward_chunk(tail,qr,prefixes,512,nullptr,&device_candidates);
   for(int i=0;i<128;++i){
    auto one=consumer.forward(mx::slice(tail,{i,0},{i+1,5120}),mx::slice(qr,{i,0},{i+1,1280}),
                              prefixes[i],512+i,128,&candidates[i]);
-   if(consumer_batch[i].rows!=one.rows||consumer_batch[i].candidates!=one.candidates)
+   same_device_selection(consumer_batch[i],one,128,&candidates[i],
+                         "512-boundary candidate consumer device mismatch");
+   if(dsv41::runtime_index_diagnostics_enabled()&&
+      (consumer_batch[i].rows!=one.rows||consumer_batch[i].candidates!=one.candidates))
     throw std::runtime_error("512-boundary candidate consumer mismatch token="+std::to_string(i));
   }
   auto zero_x=mx::zeros({128,5120},mx::bfloat16),zero_qr=mx::zeros({128,1280},mx::bfloat16);
@@ -156,10 +207,12 @@ int main(int argc,char** argv){try{
   for(int i=0;i<128;++i){
    auto one=tied.forward(mx::slice(zero_x,{i,0},{i+1,5120}),
                          mx::slice(zero_qr,{i,0},{i+1,1280}),prefixes[i],512+i,128);
-   if(tied_batch[i].rows!=one.rows||tied_batch[i].rows.front()!=128||tied_batch[i].rows.back()!=639)
+   same_device_selection(tied_batch[i],one,128,nullptr,"512-boundary device tie mismatch");
+   if(dsv41::runtime_index_diagnostics_enabled()&&
+      (tied_batch[i].rows!=one.rows||tied_batch[i].rows.front()!=128||tied_batch[i].rows.back()!=639))
     throw std::runtime_error("512-boundary lowest-ID tie mismatch token="+std::to_string(i));
   }
  }
- std::cout<<"PASS: producer recurrent 128-token chunk, all publication prefixes, index key materialization, GPU batched score/causal mask/candidate/top-k through 640 rows, lowest-ID boundary ties, packed cache, pending state and rejection match token-serial bits\n";
+ std::cout<<"PASS: producer recurrent 128-token chunk, device candidate/top-k through 640 rows, all publication prefixes, lowest-ID boundary ties, packed cache, pending state and rejection match token-serial bits; index_diagnostics="<<dsv41::runtime_index_diagnostics_enabled()<<"\n";
  return 0;
 }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

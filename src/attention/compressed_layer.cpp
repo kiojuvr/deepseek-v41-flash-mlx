@@ -52,6 +52,22 @@ mx::array main_rows(const GlobalKVState& state,const std::vector<std::int32_t>& 
  auto scale=mx::where(mx::equal(exponent,mx::array(0.0f)),mx::multiply(mantissa,mx::array(0x1p-9f)),mx::multiply(mx::add(mantissa,mx::array(8.0f)),mx::power(mx::array(2.0f),mx::subtract(exponent,mx::array(10.0f)))));
  return mx::astype(mx::reshape(mx::multiply(mx::reshape(v,{int(ids.size()),32,16}),mx::expand_dims(scale,-1)),{int(ids.size()),512}),mx::bfloat16);
 }
+mx::array main_rows(const GlobalKVState& state,const mx::array& selected){
+ if(selected.dtype()!=mx::int32||selected.ndim()!=1||selected.size()>512)
+  throw std::runtime_error("invalid device selected global rows");
+ auto p=mx::take(state.main_bytes(),selected,0),s=mx::take(state.main_scales(),selected,0);
+ auto low=mx::bitwise_and(p,mx::array(15,mx::uint8)),high=mx::right_shift(p,mx::array(4,mx::uint8));
+ auto codes=mx::reshape(mx::stack({low,high},-1),{int(selected.size()),512});
+ auto levels=mx::array({0.0f,0.5f,1.0f,1.5f,2.0f,3.0f,4.0f,6.0f});
+ auto v=mx::take(levels,mx::astype(mx::bitwise_and(codes,mx::array(7,mx::uint8)),mx::int32));
+ v=mx::where(mx::greater_equal(codes,mx::array(8,mx::uint8)),mx::negative(v),v);
+ auto exponent=mx::astype(mx::right_shift(s,mx::array(3,mx::uint8)),mx::float32);
+ auto mantissa=mx::astype(mx::bitwise_and(s,mx::array(7,mx::uint8)),mx::float32);
+ auto scale=mx::where(mx::equal(exponent,mx::array(0.0f)),mx::multiply(mantissa,mx::array(0x1p-9f)),
+  mx::multiply(mx::add(mantissa,mx::array(8.0f)),mx::power(mx::array(2.0f),mx::subtract(exponent,mx::array(10.0f)))));
+ return mx::astype(mx::reshape(mx::multiply(mx::reshape(v,{int(selected.size()),32,16}),
+  mx::expand_dims(scale,-1)),{int(selected.size()),512}),mx::bfloat16);
+}
 }
 CompressedLayerReference::CompressedLayerReference(WeightCatalog& c,int layer):layer_(checked_producer_layer(layer)),ratio_(layer_compress_ratio(layer)),
  qa_(c,("layers."+std::to_string(layer_))+".attn.wq_a"),qb_(c,("layers."+std::to_string(layer_))+".attn.wq_b"),kv_(c,("layers."+std::to_string(layer_))+".attn.wkv"),output_(c,("layers."+std::to_string(layer_))+".attn.wo_b"),
@@ -77,7 +93,9 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
  std::vector<SharedAttentionReference> pending_publications;
  if(publications)pending_publications.reserve(h.shape(0));
  auto cache_prefixes=producer_.append_chunk(h,next.global_,start);
- auto selections=index_.forward_chunk(h,qr,cache_prefixes,start);
+ // `forward()` is the diagnostic/reference entry point; production block
+ // execution requests every per-token publication through `publications`.
+ auto selections=index_.forward_chunk(h,qr,cache_prefixes,start,nullptr,nullptr,publications==nullptr);
  for(int i=0;i<h.shape(0);++i){
   const std::uint64_t pos=start+std::uint64_t(i);auto x=mx::slice(h,{i,0},{i+1,5120});
   auto end=state.window_.shape(0)+i+1; auto begin=std::max(0,end-128);
@@ -86,9 +104,11 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
   auto ordered=padding?mx::concatenate({mx::zeros({padding,512},mx::bfloat16),window},0):window;
   int offset=ordered.shape(0);
   auto selection=std::move(selections[i]);
-  auto publication=SharedAttentionReference(cache_prefixes[i],selection.rows,pos,offset,layer_,ratio_);
-  if(!selection.candidates.empty())publication.republish(layer_,selection.rows,selection.candidates);
-  if(!selection.rows.empty())ordered=mx::concatenate({ordered,main_rows(cache_prefixes[i],selection.rows,offset)},0);
+  auto publication=SharedAttentionReference(cache_prefixes[i],selection.device_rows,
+   selection.device_candidates,pos,offset,layer_,ratio_,std::move(selection.rows),
+   std::move(selection.candidates));
+  if(selection.device_rows.size())ordered=mx::concatenate(
+   {ordered,main_rows(cache_prefixes[i],selection.device_rows)},0);
   auto valid=mx::greater_equal(mx::arange(ordered.shape(0),mx::int32),mx::array(padding));
   auto token_q=mx::reshape(mx::slice(q,{i,0,0},{i+1,64,512}),{64,512});
   auto o=swa_attention_masked_reference(token_q,ordered,sink_,valid);
@@ -167,26 +187,31 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
  std::vector<IndexSelection> selections;
  if(is_index_source_){
   std::vector<GlobalKVState> caches;std::vector<std::vector<std::uint8_t>> candidates;
+  std::vector<mx::array> device_candidates;
   caches.reserve(publications.size());candidates.reserve(publications.size());
+  device_candidates.reserve(publications.size());
   for(const auto& publication:publications){
    caches.push_back(publication.cache());
-   if(uses_candidates_)candidates.push_back(publication.candidates());
+   if(uses_candidates_){candidates.push_back(publication.candidates());
+    device_candidates.push_back(publication.device_candidates());}
   }
-  selections=index_->forward_chunk(x,qr,caches,start,uses_candidates_?&candidates:nullptr);
+  selections=index_->forward_chunk(x,qr,caches,start,uses_candidates_?&candidates:nullptr,
+                                   uses_candidates_?&device_candidates:nullptr);
  }
  for(int i=0;i<x.shape(0);++i){
   const std::uint64_t pos=start+std::uint64_t(i);const int offset=pos==0?1:128;
-  std::vector<std::int32_t> selected;
+  mx::array selected=mx::array(0);
   if(is_index_source_){
    auto selection=std::move(selections[i]);
-   publications[i].republish(layer_,selection.rows,std::move(selection.candidates));
+   publications[i].republish(layer_,selection.device_rows,selection.device_candidates,
+    std::move(selection.rows),std::move(selection.candidates));
   }
-  selected=publications[i].indices(layer_,pos,offset);
+  selected=publications[i].device_indices(layer_,pos,offset);
   auto end=state.window_.shape(0)+i+1; auto begin=std::max(0,end-128);
   auto window=mx::slice(all_window,{begin,0},{end,512});
   const int padding=offset-window.shape(0);
   auto ordered=padding?mx::concatenate({mx::zeros({padding,512},mx::bfloat16),window},0):window;
-  if(!selected.empty())ordered=mx::concatenate({ordered,main_rows(publications[i].cache(),selected,offset)},0);
+  if(selected.size())ordered=mx::concatenate({ordered,main_rows(publications[i].cache(),selected)},0);
   auto valid=mx::greater_equal(mx::arange(ordered.shape(0),mx::int32),mx::array(padding));
   auto token_q=mx::reshape(mx::slice(q,{i,0,0},{i+1,64,512}),{64,512});
   auto o=swa_attention_masked_reference(token_q,ordered,sink_,valid);

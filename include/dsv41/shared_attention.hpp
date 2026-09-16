@@ -10,20 +10,33 @@ class SharedAttentionReference {
 public:
  SharedAttentionReference(const GlobalKVState& cache,std::vector<std::int32_t> selected,
                           std::uint64_t query_position,int window_offset,int source_layer,int ratio);
+ SharedAttentionReference(const GlobalKVState& cache,mlx::core::array relative_selected,
+                          mlx::core::array device_candidates,std::uint64_t query_position,
+                          int window_offset,int source_layer,int ratio,
+                          std::vector<std::int32_t> diagnostic_selected={},
+                          std::vector<std::uint8_t> diagnostic_candidates={});
  const GlobalKVState& cache() const{return cache_;}
  int source_layer() const{return source_layer_;}
  int index_source_layer() const{return index_source_layer_;}
  const std::vector<std::uint8_t>& candidates() const{return candidates_;}
+ const mlx::core::array& device_candidates() const{return device_candidates_;}
  // Validates that `consumer_layer` belongs to this source's group and returns the row ids.
  std::vector<std::int32_t> indices(int consumer_layer,std::uint64_t query_position,
                                    int window_offset) const;
+ const mlx::core::array& device_indices(int consumer_layer,std::uint64_t query_position,
+                                        int window_offset) const;
  // Index source republish: rows are +offset and sorted; candidates is the level-one mask.
  void republish(int index_source_layer,std::vector<std::int32_t> selected,
                 std::vector<std::uint8_t> candidates);
+ void republish(int index_source_layer,mlx::core::array relative_selected,
+                mlx::core::array device_candidates,
+                std::vector<std::int32_t> diagnostic_selected={},
+                std::vector<std::uint8_t> diagnostic_candidates={});
 private:
  GlobalKVState cache_;
  std::vector<std::int32_t> rows_;
  std::vector<std::uint8_t> candidates_;
+ mlx::core::array device_rows_{0},device_candidates_{0};
  std::uint64_t position_;
  int source_layer_,ratio_,index_source_layer_;
 };

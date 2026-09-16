@@ -27,6 +27,8 @@ std::vector<std::uint8_t> select_candidate_blocks_reference(const std::vector<fl
 struct IndexSelection {
  std::vector<std::int32_t> rows;       // +offset, position-sorted
  std::vector<std::uint8_t> candidates; // bool mask over compressed positions; empty unless candidate source
+ mlx::core::array device_rows{0};       // relative compressed row IDs, position-sorted
+ mlx::core::array device_candidates{0}; // uint8 mask for candidate sources/consumers
 };
 class IndexQueryReference {
 public:
@@ -38,10 +40,13 @@ public:
    const GlobalKVState& state,std::uint64_t position,int window_offset,
    const std::vector<std::uint8_t>* incoming_candidates=nullptr) const;
  // Computes query/cache scores, causal/candidate masks and stable lowest-ID Top-K
- // in one GPU graph; only bounded selection metadata is synchronized to the host.
+ // in one GPU graph. Host selection metadata is diagnostic-only; device rows
+ // and candidate masks remain authoritative on the optimized path.
  std::vector<IndexSelection> forward_chunk(const mlx::core::array& x,const mlx::core::array& qr,
    const std::vector<GlobalKVState>& cache_prefixes,std::uint64_t start,
-   const std::vector<std::vector<std::uint8_t>>* incoming_candidates=nullptr) const;
+   const std::vector<std::vector<std::uint8_t>>* incoming_candidates=nullptr,
+   const std::vector<mlx::core::array>* incoming_device_candidates=nullptr,
+   bool force_diagnostics=false) const;
 private:
  int layer_,ratio_,candidate_topk_blocks_,candidate_block_size_;
  bool is_candidate_source_,uses_candidates_;
