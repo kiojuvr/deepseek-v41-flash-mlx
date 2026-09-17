@@ -302,6 +302,17 @@ and route/index readbacks remained zero, and decode still produced token 339.
 The AV extension is therefore retained as a performance candidate and must now
 repeat the unchanged 40-layer correctness gate.
 
+That repeated gate is closed by
+`attention/chunk-backbone-20260917-121232-42128`: clean `130fcf6`, exit zero,
+empty tracked patch, and matching identities. Both 128-token chunks matched
+hidden, pre-mix, and logits bitwise, while route ties, all state/publication/hash
+checks, and invalid-token atomicity were exact. Maximum RSS was
+160,476,315,648 bytes, peak footprint was 165,187,973,744 bytes, and neither
+swap nor compression increased. Its 194.38-second two-model harness wall is not
+a performance result. Chunk attention is now explicitly connected to the
+resident optimized lazy-schedule runner; the global default remains unchanged
+until that full-path observation is reviewed.
+
 The next loop should be architecture-first and preserve the project's stated
 correctness priority:
 

@@ -93,3 +93,8 @@ resident component run `context-ladder/32k-run-20260917-120246-41847`はclean `c
 identity一致、tracked patch 0、swap 0。prefillは126.641秒から107.299秒へ15.27%、Attentionは
 69.652秒から46.708秒へ32.94%短縮した。scalar AV call 0、AV batch 117,579、scalar QK call
 613,439を確認したため候補を保持する。このperformance observationは40層correctness gateを代替しない。
+
+再実行した40層gate `attention/chunk-backbone-20260917-121232-42128`はclean `130fcf6`、exit 0、
+identity一致、tracked patch 0。2×128のhidden / pre-mix / logits、route tie、全state/publication/hash、
+invalid-token atomicityがすべてexactで、swap/compression増加も0だった。これでAV拡張のcorrectness gateを
+閉じる。194.38秒の二重model harness wallはperformance値に使わず、次は通常lazy full-pathを測る。

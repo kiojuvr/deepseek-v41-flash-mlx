@@ -284,8 +284,11 @@ int main(int argc,char** argv) { try {
  auto at=dsv41::read_attention_telemetry();
  if(dsv41::runtime_resident_expert_atlas_enabled()&&!dsv41::runtime_index_diagnostics_enabled()&&
     at.index_host_readbacks!=0)throw std::runtime_error("resident production path performed an index result readback");
- if(dsv41::runtime_chunk_attention_enabled()&&at.chunk_attention_calls==0)
-  throw std::runtime_error("chunk attention was enabled but never invoked");
+ if(dsv41::runtime_chunk_attention_enabled()){
+  if(at.chunk_attention_calls==0)throw std::runtime_error("chunk attention was enabled but never invoked");
+  if(at.chunk_av_batches==0)throw std::runtime_error("chunk attention produced no AV batches");
+  if(at.chunk_scalar_av_calls!=0)throw std::runtime_error("chunk attention regressed to scalar AV calls");
+ }
  report["attention_telemetry"]={{"concat_calls",at.concat_calls},{"concat_input_bytes",at.concat_input_bytes},
   {"concat_output_bytes",at.concat_output_bytes},{"cumulative_bytes_copied",at.cumulative_bytes_copied},
   {"logical_tokens",at.logical_tokens},{"attention_rows",at.attention_rows},{"indexer_rows",at.indexer_rows},

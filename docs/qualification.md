@@ -632,6 +632,13 @@ Attention 32.94%短縮した。bank constructionはmodel-initの40だけ、route
 scalar QK call 613,439、scalar AV call 0、AV batch 117,579を確認した。このrunは性能候補の保持を決めるが、
 AV拡張の40層correctness gateを代替しない。
 
+AV拡張後のgate `attention/chunk-backbone-20260917-121232-42128`をreview済み。clean `130fcf6`、exit 0、
+tracked patch 0、identity一致。両128-token chunkのhidden / pre-mix / logitsはbit-exact、route tie、全state /
+publication / hash、invalid-token atomicityもexact。最大RSS 160,476,315,648、peak footprint
+165,187,973,744 bytes、swap 0、compression増加0。194.38秒は二重model correctness harness wallであり、
+performance値ではない。AV拡張の40層gateは閉じた。次は`run_resident_atlas_prefill_measurement.sh`で
+chunk attentionを明示的に有効化し、通常lazy full-path wallを測る。
+
 そのresident rerun `context-ladder/32k-run-20260916-100044-16544`をreview済み。exit 0、
 全identity一致、bank construction exactly 40。chunk 0は49.217220秒、chunk 1は17.518658秒
 （7.306462 token/s）、256-token prefillは66.739255秒（3.835823 token/s）。attention chunk化前の

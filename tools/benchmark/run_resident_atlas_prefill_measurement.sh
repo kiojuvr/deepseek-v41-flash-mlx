@@ -5,7 +5,7 @@ cd "$(dirname "$0")/../.."
 printf '%s\n' \
   'scope=1 model; model-lifetime 40-layer resident atlas; 2063-token optimized prefill + 1 decode; Phase 1-4 full-path observation' \
   'resources=allow 5-10 minutes; Unified Memory budget 340 GB; about 289 GB one-time checkpoint reads; checkpoint read-only' \
-  'checks=model construction exactly 40 banks; every request chunk zero bank constructions; route and index diagnostic readbacks zero' \
+  'checks=model construction exactly 40 banks; every request chunk zero bank constructions; route/index readbacks and scalar AV calls zero; chunk attention and AV batches nonzero' \
   'logs=artifacts/context-ladder/32k-run-<timestamp>-<pid>/{result.json,result.json.progress.jsonl,resource.log,identity.txt}' \
   'failure=retain the failed run directory and inspect exit-code/test/resource logs; partial atlas/state is never reused' \
   'resume=unsupported because publication is transactional; rerun this script for a fresh model and request state'
@@ -13,9 +13,9 @@ printf '%s\n' \
 CONTEXT_TOKENS=2064 TEACHER_TOKENS=0 TAIL_TEACHER_TOKENS=0 DECODE_TOKENS=1 \
 DSV41_RUNTIME_PACKED_EXPERT_BANK=1 DSV41_RUNTIME_COMPACT_EXPERT_BANK=0 \
 DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS=1 DSV41_RUNTIME_ROUTE_DIAGNOSTICS=0 \
-DSV41_RUNTIME_INDEX_DIAGNOSTICS=0 \
+DSV41_RUNTIME_INDEX_DIAGNOSTICS=0 DSV41_RUNTIME_CHUNK_ATTENTION=1 \
 DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES=0 DSV41_CONTEXT_EXECUTION=layer_major \
 DSV41_RUNTIME_EXPERT_IO_THREADS=4 DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK=128 \
 DSV41_CONTEXT_WALL_BUDGET_SECONDS=1200 DSV41_CONTEXT_PROJECTED_WALL_LIMIT_SECONDS=0 \
-CACHE_CONDITION=unknown RUN_CONDITIONS=model-lifetime-resident-device-index-publication \
+CACHE_CONDITION=unknown RUN_CONDITIONS=model-lifetime-resident-shape-bucket-attention \
 bash tools/benchmark/run_context_32k.sh

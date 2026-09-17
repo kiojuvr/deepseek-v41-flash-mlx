@@ -270,6 +270,12 @@ scalar QK call 613,439を保持し、scalar AV call 0、AV batch 117,579、index
 construction 0、生成token 339だった。MoEは53.882秒から57.206秒、post-MoEは2.390秒から2.656秒へ
 単発run間で増えたが、それを含むfull prefillで改善している。AV拡張は保持し、同じ40層gateを再実行する。
 
+AV拡張後の40層gate `attention/chunk-backbone-20260917-121232-42128`はclean `130fcf6`、exit 0、
+tracked patch 0、identity一致。2×128のhidden / pre-mix / logitsはbit-exactで、route tie、全state / publication /
+hash、invalid-token atomicityもexactだった。最大RSS 160,476,315,648、peak footprint 165,187,973,744 bytes、
+swap 0でcompression増加もない。二重model harnessの194.38秒はperformance値に使わない。通常lazy scheduleの
+resident optimized runnerへchunk attentionを明示接続し、そのfull-path wallをreviewしてから既定値を反転する。
+
 2×128 compact promotionでは実route unionの合計loaded expertが10,543（80 bank constructions、
 individual / compact比較の合計）で、full bankの30,720 expert loadの34.3%だった。
 ただし比較用individual modelのcacheが同一processに残るため、測定の156 GB cacheは
