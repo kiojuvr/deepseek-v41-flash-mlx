@@ -119,12 +119,14 @@ if [[ -n "${DSV41_XCTRACE_OUTPUT:-}" ]]; then
  if [[ -n "${DSV41_METAL_DISPATCH_COUNTER_OUTPUT:-}" ]]; then
   trace_target_env+=(--env "DSV41_METAL_DISPATCH_COUNTER_OUTPUT=$DSV41_METAL_DISPATCH_COUNTER_OUTPUT")
  fi
- # Metal System Trace records system-wide kdebug data and produced a 12 GB
- # package that could not be finalized/exported for this workload.  These two
- # focused instruments retain target command-buffer/encoder records without
- # turning a workload audit into a system trace.
+ if [[ -n "${DSV41_METAL_DISPATCH_COUNTER_SCOPED:-}" ]]; then
+  trace_target_env+=(--env "DSV41_METAL_DISPATCH_COUNTER_SCOPED=$DSV41_METAL_DISPATCH_COUNTER_SCOPED")
+ fi
+ # The GPU instrument is system-wide and produced a 12 GB package which kept
+ # finalizing after the target exited.  Metal Application alone keeps the
+ # capture target-scoped and is sufficient for command-buffer/encoder records.
  (/usr/bin/time -l xcrun xctrace record \
-   --instrument 'Metal Application' --instrument 'GPU' \
+   --instrument 'Metal Application' \
    --output "$DSV41_XCTRACE_OUTPUT" "${trace_target_env[@]}" \
    --target-stdout - --launch -- "${cmd[@]}") \
    > >(tee "$run_dir/test.log") 2> >(tee "$run_dir/resource.log" >&2)

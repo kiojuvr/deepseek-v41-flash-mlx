@@ -245,21 +245,22 @@ bash tools/benchmark/run_prefill_gap_metal_capture.sh
 ```
 
 It runs one official-checkpoint resident model, 2,063-token prefill and one
-decode under the focused `Metal Application` and `GPU` instruments.  Allow
+decode under the target-scoped `Metal Application` instrument.  Allow
 10--20 minutes, up to 340 GB Unified Memory, and about 289 GB of one-time
-checkpoint reads.  The focused trace is expected to remain far below a full
-system trace, but free space must still be monitored.  Trace overhead
+checkpoint reads.  The system-wide `GPU` instrument is deliberately excluded:
+it produced a 12 GB package that continued finalizing after target exit.  The
+target-scoped trace is expected to remain small.  Trace overhead
 invalidates wall time.  Logs are retained under
 `artifacts/prefill-gap/metal-<timestamp>-<pid>/`; failure preserves partial
 files, but partial traces are not counts.  There is no safe resume; rerun with
 fresh model/request state.
 
 After a successful run, the runner itself exports and summarizes the trace.
-It writes exact target compute totals and shape frequencies to
+It enables the process-local selector hook only across the three prefill
+phases and writes exact prefill compute totals and shape frequencies to
 `metal-dispatch-counts.json`, then exports command-buffer, encoder,
-application/GPU interval, and resource-allocation tables into
-`metal-work-summary.json`.  `Metal Application` rows are target-scoped;
-`GPU` intervals may include other processes and are descriptive only.
+application interval, and resource-allocation tables into
+`metal-work-summary.json`.  `Metal Application` rows are target-scoped.
 Instruments itself does not expose dispatch events in this focused template,
 so its summary reports `kernel_dispatch_rows: null`; the selector hook is the
 dispatch authority and encoder count is never substituted for it.  The hook
@@ -279,6 +280,15 @@ Although xctrace eventually returned zero, the package lacks template
 metadata and `xctrace export --toc` fails with `Document Missing Template
 Error`.  It is therefore **not a valid trace and contributes no Metal count**.
 The focused runner above replaces it.
+
+A second capture at `artifacts/prefill-gap/metal-20260917-194217-45001`
+repeated the mistake of combining `Metal Application` with the system-wide
+`GPU` instrument.  The target and selector hook completed, but the 12 GB trace
+again remained in finalization until interrupted.  Its trace was deleted; its
+result and 12,358,933 whole-process dispatch count are retained only as a
+diagnostic and are not a prefill-scoped count.  The runner now uses only
+`Metal Application`, and the counter starts disabled until the context runner
+enters prefill.
 
 ## Architecture decision
 

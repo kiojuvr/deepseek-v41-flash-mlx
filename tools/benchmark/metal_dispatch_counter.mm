@@ -10,6 +10,7 @@
 #include <fstream>
 #include <map>
 #include <mutex>
+#include <string>
 #include <tuple>
 
 struct Shape {
@@ -27,6 +28,8 @@ struct Shape {
 };
 
 struct State {
+  std::atomic<bool> enabled{true};
+  std::atomic<bool> scoped{false};
   std::atomic<unsigned long long> thread_dispatches{0};
   std::atomic<unsigned long long> threadgroup_dispatches{0};
   std::mutex mutex;
@@ -44,6 +47,9 @@ State& state() {
 
 void record(bool threads, MTLSize grid, MTLSize group) {
   auto& s = state();
+  if (!s.enabled.load(std::memory_order_relaxed)) {
+    return;
+  }
   if (threads) {
     s.thread_dispatches.fetch_add(1, std::memory_order_relaxed);
   } else {
@@ -51,6 +57,22 @@ void record(bool threads, MTLSize grid, MTLSize group) {
   }
   std::lock_guard<std::mutex> lock(s.mutex);
   ++s.shapes[{threads, grid, group}];
+}
+
+extern "C" __attribute__((visibility("default")))
+void dsv41_metal_dispatch_counter_reset() {
+  auto& s = state();
+  s.thread_dispatches.store(0, std::memory_order_relaxed);
+  s.threadgroup_dispatches.store(0, std::memory_order_relaxed);
+  std::lock_guard<std::mutex> lock(s.mutex);
+  s.shapes.clear();
+}
+
+extern "C" __attribute__((visibility("default")))
+void dsv41_metal_dispatch_counter_set_enabled(int enabled) {
+  auto& s = state();
+  s.scoped.store(true, std::memory_order_relaxed);
+  s.enabled.store(enabled != 0, std::memory_order_relaxed);
 }
 
 void replacement_threads(id self, SEL command, MTLSize grid, MTLSize group) {
@@ -86,6 +108,11 @@ void hook(Class encoder_class, SEL selector, IMP replacement, IMP& original) {
 
 __attribute__((constructor)) void install_hooks() {
   @autoreleasepool {
+    if (const char* scoped = std::getenv("DSV41_METAL_DISPATCH_COUNTER_SCOPED");
+        scoped != nullptr && std::string(scoped) == "1") {
+      state().enabled.store(false, std::memory_order_relaxed);
+      state().scoped.store(true, std::memory_order_relaxed);
+    }
     id<MTLDevice> device = MTLCreateSystemDefaultDevice();
     id<MTLCommandQueue> queue = [device newCommandQueue];
     id<MTLCommandBuffer> buffer = [queue commandBuffer];
@@ -113,7 +140,9 @@ __attribute__((destructor)) void write_json() {
   const auto threads = s.thread_dispatches.load(std::memory_order_relaxed);
   const auto groups =
       s.threadgroup_dispatches.load(std::memory_order_relaxed);
-  output << "{\n  \"scope\": \"audit-only target-process Metal compute dispatches\",\n"
+  output << "{\n  \"scope\": \"audit-only "
+         << (s.scoped.load(std::memory_order_relaxed) ? "prefill-scoped" : "target-process")
+         << " Metal compute dispatches\",\n"
          << "  \"dispatch_threads\": " << threads << ",\n"
          << "  \"dispatch_threadgroups\": " << groups << ",\n"
          << "  \"dispatch_total\": " << (threads + groups) << ",\n"

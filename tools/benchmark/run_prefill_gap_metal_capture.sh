@@ -9,10 +9,10 @@ xcrun clang++ -std=c++17 -O2 -fobjc-arc -dynamiclib \
   tools/benchmark/metal_dispatch_counter.mm -framework Foundation \
   -framework Metal -o "$counter"
 printf '%s\n' \
-  'scope=1 model; current official-precision resident path; 2063-token prefill + 1 decode under focused Metal Application + GPU instruments' \
-  'resources=allow 10-20 minutes; Unified Memory budget 340 GB; about 289 GB one-time checkpoint reads; focused trace is expected to remain far below a full System Trace; checkpoint read-only' \
+  'scope=1 model; current official-precision resident path; 2063-token prefill + 1 decode under the target-scoped Metal Application instrument' \
+  'resources=allow 10-20 minutes; Unified Memory budget 340 GB; about 289 GB one-time checkpoint reads; target-scoped trace should remain small; checkpoint read-only' \
   "logs=$root/{metal.trace,metal-dispatch-counts.json,metal-work-summary.json,runtime/{result.json,result.json.progress.jsonl,resource.log,identity.txt},capture-exit-code.txt}" \
-  'measurement=trace overhead invalidates wall-time comparison; command-buffer/encoder counts and Metal compute dispatch total/shape distribution are exact for the target process' \
+  'measurement=trace overhead invalidates wall-time comparison; command-buffer/encoder rows are target-scoped and Metal compute dispatch total/shape distribution are exact for prefill only' \
   'failure=retain the entire directory; inspect capture-exit-code.txt and runtime/exit-code.txt; a partial trace is not a count' \
   'resume=unsupported; rerun this script with fresh model/request state because publication is transactional'
 
@@ -28,6 +28,7 @@ trap finish EXIT
 export DSV41_CONTEXT_RUN_DIR="$root/runtime"
 export DSV41_XCTRACE_OUTPUT="$root/metal.trace"
 export DSV41_METAL_DISPATCH_COUNTER_OUTPUT="$root/metal-dispatch-counts.json"
+export DSV41_METAL_DISPATCH_COUNTER_SCOPED=1
 export DSV41_XCTRACE_TARGET_DYLD="$counter"
 export CONTEXT_TOKENS=2064 TEACHER_TOKENS=0 TAIL_TEACHER_TOKENS=0 DECODE_TOKENS=1
 export DSV41_RUNTIME_PACKED_EXPERT_BANK=1 DSV41_RUNTIME_COMPACT_EXPERT_BANK=0

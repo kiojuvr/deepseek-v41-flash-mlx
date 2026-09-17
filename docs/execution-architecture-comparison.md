@@ -379,6 +379,8 @@ token-serial FP GEMMs; 2,040 routed gather-QMMs; 613,439 scalar QK plus 117,579
 AV batch invocations; and 340 blocking eval calls plus 17 explicit
 synchronizations in the canonical measured prefill.  The initial 12 GB Metal
 System Trace did not finalize into an exportable document and is explicitly
-rejected in the audit.  No additional local Metal kernel is authorized until
-the replacement focused `Metal Application + GPU` trace and process-local
-dispatch counter are reviewed.
+rejected in the audit.  A subsequent `Metal Application + GPU` attempt showed
+the same failure mode after target exit; the replacement runner therefore uses
+target-scoped `Metal Application` alone and gates its process-local dispatch
+counter to prefill.  No additional local Metal kernel is authorized until that
+replacement capture is reviewed.

@@ -19,7 +19,6 @@ SCHEMAS = (
     "metal-application-command-buffer-submissions",
     "metal-application-encoders-list",
     "metal-application-intervals",
-    "metal-gpu-intervals",
     "metal-resource-allocations",
 )
 
@@ -88,8 +87,8 @@ def main() -> int:
     summary: dict[str, object] = {
         "scope": "Metal trace work counts only; trace overhead is not a performance result.",
         "counting_contract": (
-            "Metal Application tables are target-scoped. GPU intervals may be "
-            "system-wide and are descriptive only. An encoder is not a kernel dispatch."
+            "Metal Application tables are target-scoped. The system-wide GPU "
+            "instrument is deliberately excluded. An encoder is not a kernel dispatch."
         ),
         "trace": str(args.trace),
         "tables": {},

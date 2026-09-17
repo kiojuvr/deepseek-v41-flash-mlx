@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <dlfcn.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -75,6 +76,23 @@ void evaluate(const dsv41::BlockResult& value) {
  mx::eval(finite_hidden,finite_pre);
  if(!finite_hidden.item<bool>()||!finite_pre.item<bool>()) throw std::runtime_error("nonfinite backbone output");
 }
+
+class MetalDispatchCounterScope {
+ public:
+  MetalDispatchCounterScope() {
+   reset_=reinterpret_cast<ResetFunction>(dlsym(RTLD_DEFAULT,"dsv41_metal_dispatch_counter_reset"));
+   enable_=reinterpret_cast<EnableFunction>(dlsym(RTLD_DEFAULT,"dsv41_metal_dispatch_counter_set_enabled"));
+   if(reset_!=nullptr&&enable_!=nullptr){reset_();enable_(1);active_=true;}
+  }
+  void finish(){if(active_){enable_(0);active_=false;}}
+  ~MetalDispatchCounterScope(){finish();}
+ private:
+  using ResetFunction=void(*)();
+  using EnableFunction=void(*)(int);
+  ResetFunction reset_{nullptr};
+  EnableFunction enable_{nullptr};
+  bool active_{false};
+};
 }
 
 int main(int argc,char** argv) { try {
@@ -214,9 +232,11 @@ int main(int argc,char** argv) { try {
                             {"memory",memory()}};
  };
 
+ MetalDispatchCounterScope dispatch_counter_scope;
  feed(0,base,"base_prefill");
  feed(base,teacher_head,"teacher_head");
  feed(base+teacher_head,tail,"teacher_tail");
+ dispatch_counter_scope.finish();
  if(dsv41::runtime_resident_expert_atlas_enabled()&&
     dsv41::packed_expert_bank_construction_count()!=40)
   throw std::runtime_error("resident expert atlas did not construct exactly one bank per layer");
