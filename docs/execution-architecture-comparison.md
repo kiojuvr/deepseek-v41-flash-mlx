@@ -258,18 +258,24 @@ therefore remains disabled and is not a production path.  A follow-up attempt
 to apply MLX `vmap` to the scalar operator failed in the short fixture because
 the operator graph is not vectorizable in MLX 0.32.2; the gate is not relaxed.
 
-The next candidate must retain the scalar path as oracle and use the now
-profile-justified attention kernel boundary: DwarfStar stages one KV row for a
-group of heads, keeps selection on device, writes all token/head rows, and
-publishes the ring frontier only after the batch succeeds.  This is a kernel
-and commit-boundary adaptation, not promotion of the rejected rank-3 GEMM.
-The bounded implementation now assigns one Metal threadgroup to one token and
-eight heads, stages each KV row once for those heads, preserves the reference
-64-row online-softmax blocks and BF16 probability rounding, and emits BF16
-rows without host materialization.  Its masked synthetic fixture (including
-an entirely padded first 64-row block) and the official-checkpoint 3-token
-reuse output/state/continuation fixture pass.  It remains opt-in and must pass
-the same 40-layer runner before production promotion.
+The follow-up DwarfStar-style Metal candidate assigned one threadgroup to one
+token and eight heads. Its clean run
+`attention/chunk-backbone-20260917-092514-39493` was also **rejected**: chunk 0
+hidden relative RMS was `0.0055142` (max `2048`, mean `0.845199`, 2,587,396
+BF16 mismatches), above the unchanged `0.002` gate. The run used no swap and
+stopped before discrete/state qualification, so its 103.71-second harness wall
+is not a performance result. The rejected kernel and generated build plumbing
+were removed.
+
+MLX v0.32.2 source inspection localized the numerical split: scalar QK at
+`M=64, K=512, N<=512` selects Steel split-K, whereas rank-3 batch QK selects a
+regular GEMM. AV blocks select regular GEMM in both cases. The replacement
+hybrid therefore keeps QK and AV token-wise for now, but batches the surrounding
+softmax graph by equal execution shape. Tokens are bucketed by raw offset and
+selected-row count instead of padding every token to the chunk maximum. The
+official layer-2-to-3 fixture is bit-exact for both positions 0--127 and
+128--255, including output and state. Telemetry explicitly counts the retained
+scalar QK/AV calls; this candidate still requires the unchanged 40-layer gate.
 
 The next loop should be architecture-first and preserve the project's stated
 correctness priority:

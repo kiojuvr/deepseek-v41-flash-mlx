@@ -13,7 +13,7 @@ trap finish EXIT
 echo "Logs: $run_dir"
 checkpoint=${CHECKPOINT:-/Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-Flash}
 printf '%s\n' \
- 'scope=40 layers; token-serial oracle vs DwarfStar-style token/head Metal batch attention; 2x128 tokens; hidden/pre-mix/logits bounded RMS; route/index/state/publication/hash exact' \
+ 'scope=40 layers; token-serial oracle vs shape-bucketed hybrid chunk attention; 2x128 tokens; hidden/pre-mix/logits bounded RMS; route/index/state/publication/hash exact' \
  'resources=allow 5 minutes; budget 240 GB Unified Memory; approximately 578 GB logical checkpoint reads for 80 bank constructions; checkpoint read-only' \
  'gate=relative RMS <0.002 for hidden/pre-mix/logits; logits argmax exact; route ties and all persistent state/publication exact' \
  'logs=artifacts/attention/chunk-backbone-<timestamp>-<pid>/{test.log,resource.log,identity.txt,tracked.patch}' \
@@ -28,8 +28,7 @@ git diff --binary > "$run_dir/tracked.patch"
 shasum -a 256 build-mlx/dsv41-text-backbone-test tests/attention/test_text_backbone.cpp \
  include/dsv41/execution_policy.hpp include/dsv41/swa_attention.hpp include/dsv41/attention_telemetry.hpp \
  include/dsv41/index_query.hpp include/dsv41/shared_attention.hpp \
- src/attention/swa_attention.cpp src/attention/chunk_attention.hpp.in metal/attention/chunk_attention.metal \
- src/attention/compressed_layer.cpp src/attention/index_query.cpp src/attention/shared_attention.cpp \
+ src/attention/swa_attention.cpp src/attention/compressed_layer.cpp src/attention/index_query.cpp src/attention/shared_attention.cpp \
  src/model/text_backbone.cpp src/model/text_encoder.cpp src/model/text_decoder.cpp \
  src/model/block.cpp src/model/compressed_block.cpp src/model/reused_block.cpp \
  src/moe/reference.cpp src/moe/expert_bank.cpp metal/moe/route_select.metal metal/moe/route_reduce.metal \

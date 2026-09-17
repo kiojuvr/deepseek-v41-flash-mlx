@@ -74,6 +74,8 @@ BF16 mismatch 2,595,308）。clean revision / identity一致、swap 0を確認�
 停止なのでperformance結果ではない。padded rank-3 MLX matmul候補はproductionへ昇格せず、閾値も緩めない。
 次はDwarfStar型batch attention kernelでtoken/head dispatchとatomic frontier publicationを同時に扱う。
 
-その最小kernel候補は1 threadgroup=1 token×8 headでKV rowを共有し、64-row online-softmaxとBF16
-probability丸めを維持する。完全padding blockを含むsynthetic maskと公式checkpoint 3-token reuse
-output/state/continuation fixtureはpassした。既定offのまま、同じ2×128 / 40層gateへ進む。
+そのMetal候補も`attention/chunk-backbone-20260917-092514-39493`でchunk 0 hidden relative RMS
+`0.0055142`となりrejectした。固定上限は変更せず、kernelは削除した。MLX v0.32.2ではscalar QKだけが
+Steel split-Kとなることを確認したため、次候補はQK/AVをtoken-wiseに保持し、同じraw offset / selected
+row countのtokenだけをshape bucketへまとめる。公式layer 2→3のpositions 0--127 / 128--255はoutput/state
+bit-exact。残存scalar dispatchはtelemetryへ明示し、同じ40層gateを再実行する。

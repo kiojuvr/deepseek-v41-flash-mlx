@@ -27,6 +27,20 @@ void rms_close(const mx::array& candidate,const mx::array& reference,const char*
  if(!finite.item<bool>()||ratio.item<float>()>=0.002f)
   throw std::runtime_error(std::string(message)+" relative_rms="+std::to_string(ratio.item<float>()));
 }
+void rms_report(const mx::array& candidate,const mx::array& reference,const char* message){
+ if(candidate.shape()!=reference.shape()||candidate.dtype()!=reference.dtype())throw std::runtime_error(message);
+ auto c=mx::astype(candidate,mx::float32),r=mx::astype(reference,mx::float32),d=mx::subtract(c,r);
+ auto relative=mx::sqrt(mx::divide(mx::sum(mx::multiply(d,d)),
+  mx::maximum(mx::sum(mx::multiply(r,r)),mx::array(1e-30f))));
+ auto maximum=mx::max(mx::abs(d)),mean=mx::mean(mx::abs(d));
+ auto mismatches=mx::sum(mx::astype(mx::not_equal(candidate,reference),mx::uint32));
+ auto finite=mx::logical_and(mx::all(mx::isfinite(c)),mx::all(mx::isfinite(r)));
+ mx::eval(relative,maximum,mean,mismatches,finite);
+ std::cout<<message<<" relative_rms="<<relative.item<float>()<<" max_abs="<<maximum.item<float>()
+          <<" mean_abs="<<mean.item<float>()<<" bit_mismatches="<<mismatches.item<std::uint32_t>()<<"\n";
+ if(!finite.item<bool>()||relative.item<float>()>=0.002f)
+  throw std::runtime_error(std::string(message)+" semantic gate failed");
+}
 int main(int argc,char** argv){try{
  mx::set_default_device(mx::Device::gpu);
  {
@@ -119,7 +133,7 @@ int main(int argc,char** argv){try{
    mx::reshape(mx::slice(kv,{1,0,0},{2,128,512}),{128,512}),sink,
    mx::greater_equal(mx::arange(128,mx::int32),mx::array(126)));
   auto expected=mx::concatenate({mx::expand_dims(first,0),mx::expand_dims(second,0)},0);
-  rms_close(candidate,expected,"chunk attention kernel tolerance");
+  rms_report(candidate,expected,"chunk attention core");
  }
  if(argc!=1&&argc!=3)throw std::runtime_error("usage: dsv41-swa-attention-test [checkpoint m1-summary]");
  if(argc==3){
@@ -159,6 +173,29 @@ int main(int argc,char** argv){try{
    bool invalid_owner=false;try{dsv41::ReusedLayerReference wrong(catalog,8);}catch(const std::exception&){invalid_owner=true;}
    if(!invalid_owner)throw std::runtime_error("layer 8 accepted as layer 2 consumer");
    std::cout<<"Layers 4..7 real consumer attention repeat/window bits and layer 8 rejection passed\n";
+   if(std::getenv("DSV41_CHECK_CHUNK_ATTENTION_128")){
+    dsv41::CompressedLayerState long_source;dsv41::ReusedLayerState long_serial,long_chunk;
+    auto long_input=mx::astype(mx::reshape(mx::sin(mx::arange(128*5120,mx::float32)),{128,5120}),mx::bfloat16);
+    std::vector<dsv41::SharedAttentionReference> long_publications;std::vector<mx::array> long_outputs;
+    long_publications.reserve(128);long_outputs.reserve(128);
+    for(int i=0;i<128;++i){auto x=mx::slice(long_input,{i,0},{i+1,5120});producer.forward(x,long_source,i);
+     long_publications.push_back(*long_source.publication());long_outputs.push_back(consumer.forward(x,long_serial,long_publications.back(),i));}
+    auto candidate_publications=long_publications;
+    auto candidate=consumer.forward_chunk(long_input,long_chunk,candidate_publications,0);
+    rms_report(candidate,mx::concatenate(long_outputs,0),"layer 3 128-token attention");
+    equal(long_chunk.window(),long_serial.window(),"layer 3 128-token window bits");
+    if(long_chunk.position()!=long_serial.position())throw std::runtime_error("layer 3 128-token position mismatch");
+    auto second_input=mx::astype(mx::reshape(mx::cos(mx::arange(128*5120,mx::float32)),{128,5120}),mx::bfloat16);
+    auto second_chunk=long_serial;long_publications.clear();long_outputs.clear();
+    for(int i=0;i<128;++i){const int pos=128+i;auto x=mx::slice(second_input,{i,0},{i+1,5120});
+     producer.forward(x,long_source,pos);long_publications.push_back(*long_source.publication());
+     long_outputs.push_back(consumer.forward(x,long_serial,long_publications.back(),pos));}
+    candidate_publications=long_publications;
+    candidate=consumer.forward_chunk(second_input,second_chunk,candidate_publications,128);
+    rms_report(candidate,mx::concatenate(long_outputs,0),"layer 3 position 128 attention");
+    equal(second_chunk.window(),long_serial.window(),"layer 3 position 128 window bits");
+    if(second_chunk.position()!=long_serial.position())throw std::runtime_error("layer 3 position 128 mismatch");
+   }
   }
   {
    dsv41::CompressedLayerReference attention(catalog,2);dsv41::CompressedLayerState chunk,serial;

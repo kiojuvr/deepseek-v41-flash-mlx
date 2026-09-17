@@ -199,7 +199,6 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
                                    uses_candidates_?&device_candidates:nullptr);
  }
  std::vector<mx::array> selected_rows,windows;selected_rows.reserve(x.shape(0));windows.reserve(x.shape(0));
- std::size_t max_selected=0;
  for(int i=0;i<x.shape(0);++i){
   const std::uint64_t pos=start+std::uint64_t(i);const int offset=pos==0?1:128;
   if(is_index_source_){
@@ -208,30 +207,42 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
     std::move(selection.rows),std::move(selection.candidates));
   }
   auto selected=publications[i].device_indices(layer_,pos,offset);
-  max_selected=std::max(max_selected,selected.size());selected_rows.push_back(selected);
+  selected_rows.push_back(selected);
   auto end=state.window_.shape(0)+i+1; auto begin=std::max(0,end-128);
   windows.push_back(mx::slice(all_window,{begin,0},{end,512}));
  }
  { std::lock_guard l(attention_telemetry_mutex());auto& t=attention_telemetry();
    t.logical_tokens+=x.shape(0);t.attention_rows+=x.shape(0); }
  if(runtime_chunk_attention_enabled()&&x.shape(0)>1){
-  std::vector<mx::array> ordered_rows,valid_rows;ordered_rows.reserve(x.shape(0));valid_rows.reserve(x.shape(0));
-  for(int i=0;i<x.shape(0);++i){
-   const int padding=128-windows[i].shape(0);const int trailing=int(max_selected-selected_rows[i].size());
-   auto raw=padding?mx::concatenate({mx::zeros({padding,512},mx::bfloat16),windows[i]},0):windows[i];
-   auto global=selected_rows[i].size()?main_rows(publications[i].cache(),selected_rows[i]):mx::zeros({0,512},mx::bfloat16);
-   auto ordered=mx::concatenate({raw,global,mx::zeros({trailing,512},mx::bfloat16)},0);
-   auto valid=mx::concatenate({mx::greater_equal(mx::arange(128,mx::int32),mx::array(padding)),
-    mx::ones({int(selected_rows[i].size())},mx::bool_),mx::zeros({trailing},mx::bool_)},0);
-   ordered_rows.push_back(mx::expand_dims(ordered,0));valid_rows.push_back(mx::expand_dims(valid,0));
+  auto grouped=mx::transpose(grouped_,{0,2,1});
+  for(int first=0;first<x.shape(0);){
+   const auto first_pos=start+std::uint64_t(first);
+   const int raw_width=first_pos==0?1:128;
+   const int selected_count=int(selected_rows[first].size());
+   int end=first+1;
+   while(end<x.shape(0)&&(start+std::uint64_t(end)==0?1:128)==raw_width&&
+         int(selected_rows[end].size())==selected_count)++end;
+   std::vector<mx::array> ordered_rows,valid_rows;ordered_rows.reserve(end-first);valid_rows.reserve(end-first);
+   for(int i=first;i<end;++i){
+    const int padding=raw_width-windows[i].shape(0);
+    auto raw=padding?mx::concatenate({mx::zeros({padding,512},mx::bfloat16),windows[i]},0):windows[i];
+    auto global=selected_count?main_rows(publications[i].cache(),selected_rows[i]):mx::zeros({0,512},mx::bfloat16);
+    auto ordered=selected_count?mx::concatenate({raw,global},0):raw;
+    auto valid=mx::concatenate({mx::greater_equal(mx::arange(raw_width,mx::int32),mx::array(padding)),
+                                mx::ones({selected_count},mx::bool_)},0);
+    ordered_rows.push_back(mx::expand_dims(ordered,0));valid_rows.push_back(mx::expand_dims(valid,0));
+   }
+   auto ordered=mx::concatenate(ordered_rows,0),valid=mx::concatenate(valid_rows,0);
+   auto group_q=mx::slice(q,{first,0,0},{end,64,512});
+   auto o=swa_attention_masked_chunk(group_q,ordered,sink_,valid);
+   o=compressed_rope_reference(o,std::span(positions).subspan(first,end-first),true);
+   for(int i=0;i<end-first;++i){
+    auto token_o=mx::reshape(mx::slice(o,{i,0,0},{i+1,64,512}),{8,1,4096});
+    projected_rows.push_back(mx::reshape(mx::matmul(token_o,grouped),{1,8192}));
+   }
+   { std::lock_guard l(attention_telemetry_mutex());++attention_telemetry().chunk_attention_calls; }
+   first=end;
   }
-  auto ordered=mx::concatenate(ordered_rows,0),valid=mx::concatenate(valid_rows,0);
-  auto o=swa_attention_masked_chunk(q,ordered,sink_,valid);
-  o=compressed_rope_reference(o,positions,true);
-  auto projected=mx::matmul(mx::reshape(o,{x.shape(0),8,1,4096}),
-                             mx::expand_dims(mx::transpose(grouped_,{0,2,1}),0));
-  projected_rows.push_back(mx::reshape(projected,{x.shape(0),8192}));
-  { std::lock_guard l(attention_telemetry_mutex());++attention_telemetry().chunk_attention_calls; }
  }else for(int i=0;i<x.shape(0);++i){
   const std::uint64_t pos=start+std::uint64_t(i);const int offset=pos==0?1:128;
   auto selected=selected_rows[i];auto window=windows[i];

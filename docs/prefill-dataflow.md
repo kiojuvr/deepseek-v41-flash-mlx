@@ -243,11 +243,16 @@ tracked patch 0だったが、chunk 0 hiddenのrelative RMS `0.00554266`（max a
 昇格しない。scalar operatorのMLX `vmap`も短時間fixtureでvectorization未対応となったため、次はprofileで
 正当化済みのattention専用kernel境界とchunk末尾atomic frontier commitをDwarfStarから適応する。
 
-新候補は1 threadgroupで1 token×8 headを担当し、KV rowを8 head間で共有する。referenceの64-row
-online-softmax block、BF16 probability丸め、sink順を保持する。完全paddingの先頭64-row blockで
-`-inf - -inf`がNaNになる初期実装は、referenceと同じmaximum `-1e30`へ直した。masked synthetic fixtureと
-公式checkpointの3-token reuse output/state/continuation fixtureはpass。既定offのまま、同じ2×128 / 40層
-runnerで昇格判定する。
+そのMetal候補の40層run `attention/chunk-backbone-20260917-092514-39493`もchunk 0 hidden relative RMS
+`0.0055142`（max `2048`、mean `0.845199`、BF16 mismatch 2,587,396）で固定gateをfailした。clean
+`c746c4d`、identity一致、tracked patch 0、swap 0。state/route判定前に停止したため103.71秒wallを性能値に
+使わない。rejectしたkernelとbuild plumbingは削除した。
+
+MLX v0.32.2 sourceではscalar QK (`M=64,K=512,N<=512`)がSteel split-K、rank-3 batch QKがregular
+GEMMへ分岐し、AVは両方regularだった。次候補はQK/AV reductionをtoken-wiseに保持し、raw offsetとselected
+row数が同じtokenだけをshape bucketとしてsoftmax graphへまとめる。chunk最大幅への前後paddingをやめた結果、
+公式layer 2→3 fixtureのpositions 0--127と128--255でoutput/stateがbit-exactになった。残るscalar QK/AV
+dispatch数はtelemetryへ明記し、削減済みと偽らない。
 
 2×128 compact promotionでは実route unionの合計loaded expertが10,543（80 bank constructions、
 individual / compact比較の合計）で、full bankの30,720 expert loadの34.3%だった。

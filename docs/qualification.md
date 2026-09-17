@@ -596,11 +596,15 @@ state/publication/route qualification前に停止した。rank-3 MLX chunk atten
 この失敗runからperformanceやPhase 4完了を主張しない。閾値は変更せず、次候補はDwarfStar型の
 token/head batch attention kernelとfull-sweep後のatomic frontier commitを一体で評価する。
 
-そのtoken/head Metal候補の最小fixtureはpassした。1 threadgroupが1 token×8 headを処理し、KV rowを
-共有する。reference同様に64-row block、BF16 probability丸め、sinkを用いる。完全padding blockを含む
-masked synthetic parityと、公式checkpoint 3-tokenのreuse output RMS、state、continuation、fork/reset/
-rejectionを確認済み。これは40層、route/index離散判断、wall timeのqualificationではない。長時間gateは
-上記と同じcommandで、runner identityへMetal sourceを追加済み。
+Metal候補の40層run `attention/chunk-backbone-20260917-092514-39493`もrejectした。clean `c746c4d`、
+identity一致、tracked patch 0、swap 0だが、chunk 0 hidden relative RMS `0.0055142`、max `2048`、mean
+`0.845199`、BF16 mismatch 2,587,396で固定上限を超えた。state/route gate前の停止であり、103.71秒wallは
+performance qualificationに使わない。kernelは削除した。
+
+次のshape-bucketed hybridはMLX scalarと同じSteel split-K QKおよびtoken-wise AVを保持し、raw offsetと
+selected-row countが等しいtokenだけを同じsoftmax graphへ入れる。最大幅paddingを除いた公式layer 2→3の
+2×128 fixtureはattention outputとstateがbit-exact。保持したscalar QK/AV callはtelemetryへ別計上する。
+40層、route/index、wall timeは未qualificationで、長時間gateのcommandと固定閾値は変更しない。
 
 そのresident rerun `context-ladder/32k-run-20260916-100044-16544`をreview済み。exit 0、
 全identity一致、bank construction exactly 40。chunk 0は49.217220秒、chunk 1は17.518658秒
