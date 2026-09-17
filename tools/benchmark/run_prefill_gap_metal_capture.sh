@@ -5,10 +5,10 @@ cd "$(dirname "$0")/../.."
 root="artifacts/prefill-gap/metal-$(date +%Y%m%d-%H%M%S)-$$"
 mkdir -p "$root"
 printf '%s\n' \
-  'scope=1 model; current official-precision resident path; 2063-token prefill + 1 decode under Metal System Trace' \
-  'resources=allow 10-20 minutes; Unified Memory budget 340 GB; about 289 GB one-time checkpoint reads; trace may require tens of GB; checkpoint read-only' \
+  'scope=1 model; current official-precision resident path; 2063-token prefill + 1 decode under focused Metal Application + GPU instruments' \
+  'resources=allow 10-20 minutes; Unified Memory budget 340 GB; about 289 GB one-time checkpoint reads; focused trace is expected to remain far below a full System Trace; checkpoint read-only' \
   "logs=$root/{metal.trace,runtime/{result.json,result.json.progress.jsonl,resource.log,identity.txt},capture-exit-code.txt}" \
-  'measurement=trace overhead invalidates wall-time comparison; use only command-buffer/encoder/dispatch work counts and shapes' \
+  'measurement=trace overhead invalidates wall-time comparison; command-buffer and encoder counts are exact; kernel dispatch remains unresolved unless an explicit dispatch table is present' \
   'failure=retain the entire directory; inspect capture-exit-code.txt and runtime/exit-code.txt; a partial trace is not a count' \
   'resume=unsupported; rerun this script with fresh model/request state because publication is transactional'
 
@@ -32,7 +32,7 @@ export DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES=0 DSV41_CONTEXT_EXECUTION=layer_major
 export DSV41_RUNTIME_EXPERT_IO_THREADS=4 DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK=128
 export DSV41_RUNTIME_COMPONENT_PROFILE=0 DSV41_CONTEXT_WALL_BUDGET_SECONDS=1200
 export DSV41_CONTEXT_PROJECTED_WALL_LIMIT_SECONDS=0 CACHE_CONDITION=unknown
-export RUN_CONDITIONS=prefill-gap-metal-system-trace
+export RUN_CONDITIONS=prefill-gap-focused-metal-trace
 
 bash tools/benchmark/run_context_32k.sh
-echo "Completed; review the runtime result and export trace tables before accepting any dispatch count."
+echo "Completed; review the runtime result and summarize the trace. Never substitute encoder count for kernel dispatch count."

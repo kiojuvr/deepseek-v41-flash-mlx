@@ -146,8 +146,10 @@ The current path allocates vectors of per-token windows, selected rows,
 ordered rows, validity masks, projected rows, and publication objects.  The
 reviewed telemetry counts 102 state concatenations but does not count every
 MLX `take`, temporary `concatenate`, or allocator event inside the reuse path;
-those values must not be invented.  The Metal capture below records resource
-allocation and encoder tables so this remaining total can be measured.
+those values must not be invented.  The focused Metal capture below records
+target resource-allocation, command-buffer, and encoder tables.  Those close
+submission counts, but they do not by themselves expose individual kernel
+dispatches.
 
 oMLX uses one device route permutation and inverse permutation per layer, then
 one custom combine/unpermute.  ds4 builds one token-to-expert map and compact
@@ -178,7 +180,7 @@ new implementation is designed.  For routed experts, ds4's MXFP4 work-map and
 pre-M5 kernels are the primary source because they already encode the M3
 expert-major schedule requested here.
 
-## Metal total-count closure
+## Metal count closure
 
 The dynamic counters above are sufficient to reject further local primitive
 tuning, but they are not a fabricated total Metal dispatch count.  A
@@ -190,9 +192,11 @@ bash tools/benchmark/run_prefill_gap_metal_capture.sh
 ```
 
 It runs one official-checkpoint resident model, 2,063-token prefill and one
-decode under `Metal System Trace`.  Allow 10--20 minutes, up to 340 GB Unified
-Memory, about 289 GB of one-time checkpoint reads, and tens of GB for the
-trace.  Trace overhead invalidates wall time.  Logs are retained under
+decode under the focused `Metal Application` and `GPU` instruments.  Allow
+10--20 minutes, up to 340 GB Unified Memory, and about 289 GB of one-time
+checkpoint reads.  The focused trace is expected to remain far below a full
+system trace, but free space must still be monitored.  Trace overhead
+invalidates wall time.  Logs are retained under
 `artifacts/prefill-gap/metal-<timestamp>-<pid>/`; failure preserves partial
 files, but partial traces are not counts.  There is no safe resume; rerun with
 fresh model/request state.
@@ -205,15 +209,31 @@ python3 tools/benchmark/summarize_prefill_metal_trace.py \
 ```
 
 The summarizer exports command-buffer, encoder, application/GPU interval, and
-resource-allocation tables.  If Instruments does not expose kernel dispatch
-events, it reports `kernel_dispatch_rows: null`; encoder count is never
-mislabelled as kernel dispatch count.  A captured current total can then be
-paired with an equivalently configured oMLX trace.  ds4's released Q4 run is
-useful for schedule counts but is not an official-precision performance pair.
+resource-allocation tables.  `Metal Application` rows are target-scoped;
+`GPU` intervals may include other processes and are descriptive only.  If
+Instruments does not expose kernel dispatch events, the summary reports
+`kernel_dispatch_rows: null`; encoder count is never mislabelled as kernel
+dispatch count.  A captured current submission total can then be paired with
+an equivalently configured oMLX trace.  Exact individual dispatch totals
+require Shader Timeline or MLX command-encoder instrumentation.  ds4's
+released Q4 run is useful for schedule counts but is not an official-precision
+performance pair.
+
+### Rejected full System Trace
+
+The first capture at
+`artifacts/prefill-gap/metal-20260917-125156-43131` completed the target
+process successfully at revision `59448dd6`, retained the same workload
+counters, and measured a trace-perturbed 121.323768-second prefill.  It then
+spent more than 50 minutes finalizing a 12,740,704,656-byte attachment.
+Although xctrace eventually returned zero, the package lacks template
+metadata and `xctrace export --toc` fails with `Document Missing Template
+Error`.  It is therefore **not a valid trace and contributes no Metal count**.
+The focused runner above replaces it.
 
 ## Architecture decision
 
-No new local kernel work begins until the capture is reviewed.  After review,
+No new local kernel work begins until the focused capture is reviewed.  After review,
 implementation order is:
 
 1. replace the 128-row outer request schedule with a 2,048-row transactional

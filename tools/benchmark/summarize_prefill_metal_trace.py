@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export stable Metal System Trace tables and summarize execution work.
+"""Export stable focused-Metal trace tables and summarize execution work.
 
 This is validation orchestration, not a production runtime dependency.  A
 missing dispatch event is reported as unresolved rather than silently as zero.
@@ -56,12 +56,13 @@ def value(cell: ET.Element, references: dict[tuple[str, str], str]) -> str:
 
 
 def table(root: ET.Element) -> tuple[list[str], list[list[str]]]:
-    schema = root.find(".//schema")
-    if schema is None:
+    node = root.find(".//node")
+    schema = None if node is None else node.find("schema")
+    if node is None or schema is None:
         return [], []
     columns = [col.findtext("mnemonic", default="") for col in schema.findall("col")]
     references: dict[tuple[str, str], str] = {}
-    rows = [[value(cell, references) for cell in row] for row in schema.findall("row")]
+    rows = [[value(cell, references) for cell in row] for row in node.findall("row")]
     return columns, rows
 
 
@@ -86,6 +87,10 @@ def main() -> int:
 
     summary: dict[str, object] = {
         "scope": "Metal trace work counts only; trace overhead is not a performance result.",
+        "counting_contract": (
+            "Metal Application tables are target-scoped. GPU intervals may be "
+            "system-wide and are descriptive only. An encoder is not a kernel dispatch."
+        ),
         "trace": str(args.trace),
         "tables": {},
     }
@@ -113,6 +118,7 @@ def main() -> int:
         parsed["metal-application-command-buffer-submissions"][1]
     )
     summary["encoder_creations"] = len(parsed["metal-application-encoders-list"][1])
+    summary["encoder_count_status"] = "target Metal Application encoder rows"
     summary["kernel_dispatch_rows"] = len(dispatch_rows) if dispatch_rows else None
     summary["kernel_dispatch_count_status"] = (
         "observed_dispatch_events" if dispatch_rows else

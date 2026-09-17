@@ -376,5 +376,7 @@ The next action is now governed by the
 pinned-source comparison identify four simultaneous multipliers: 17 request
 chunks / 680 layer visits, 2,040 routed QMM invocations, 613,439 scalar QK plus
 117,579 AV batch invocations, and 340 blocking eval calls plus 17 explicit
-synchronizations in the canonical measured prefill.  No additional local
-Metal kernel is authorized until the provided Metal System Trace is reviewed.
+synchronizations in the canonical measured prefill.  The initial 12 GB Metal
+System Trace did not finalize into an exportable document and is explicitly
+rejected in the audit.  No additional local Metal kernel is authorized until
+the replacement focused `Metal Application + GPU` trace is reviewed.
