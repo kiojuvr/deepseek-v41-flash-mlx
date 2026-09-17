@@ -1,4 +1,5 @@
 #include "dsv41/text_generate.hpp"
+#include "dsv41/execution_policy.hpp"
 #include <algorithm>
 #include <stdexcept>
 #include <cmath>
@@ -15,13 +16,18 @@ GenerationResult TextGenerationReference::generate(std::span<const std::uint32_t
  std::uint64_t rng=config.seed;
  return run_generation_loop(prompt.size(),max_new_tokens,stop_ids,control,[&]{
   state.emplace(metadata_);
-  // Encoder/decoder kernels accept at most 128 tokens per call. Keep one
-  // stateful prefill while feeding long protocol-rendered prompts in bounded
-  // chunks; the final chunk supplies the logits for the first decode step.
-  constexpr std::size_t kPrefillChunk = 128;
+  const bool sweep=runtime_layer_sweep_enabled();
+  if(sweep&&(!runtime_packed_expert_bank_enabled()||runtime_group_selected_experts_enabled()))
+   throw std::runtime_error(
+    "layer sweep requires packed expert bank enabled and selected grouping disabled");
+  // The oracle keeps its 128-token request schedule.  The optimized path owns
+  // up to 4096 tokens transactionally so one 2K prompt crosses all 40 layers
+  // once.  Longer prompts retain bounded state commits until Phase 5.
+  const std::size_t prefill_chunk=sweep?4096:128;
   std::optional<BlockResult> prefill;
-  run_prefill_chunks(prompt.size(),kPrefillChunk,[&](std::size_t offset,std::size_t count){
-   prefill.emplace(model_.forward(prompt.subspan(offset,count),*state,offset));
+  run_prefill_chunks(prompt.size(),prefill_chunk,[&](std::size_t offset,std::size_t count){
+   prefill.emplace(sweep?model_.forward_packed_sweep(prompt.subspan(offset,count),*state,offset):
+                         model_.forward(prompt.subspan(offset,count),*state,offset));
   });
   auto logits=model_.logits(*prefill);
   const int n=int(prefill->hidden.shape(0));

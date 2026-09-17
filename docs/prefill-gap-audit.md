@@ -395,8 +395,39 @@ bash tools/benchmark/run_layer_sweep_backbone_check.sh
 Allow 5--10 minutes, up to 240 GB Unified Memory, and substantial read-only
 checkpoint expert reads.  Logs are stored under
 `artifacts/prefill-gap/layer-sweep-backbone-<timestamp>-<pid>/`; failure is
-retained and there is no resume.  Do not connect the candidate to the 2K
-production path until this result is reviewed.
+retained and there is no resume.  The candidate was not connected to the 2K
+production path before this result was reviewed.
+
+That gate is closed by clean run
+`prefill-gap/layer-sweep-backbone-20260917-222206-47915` at commit `0790fb7`.
+The transactional sweep matched the two 128-token oracle chunks bitwise for
+hidden, pre-mix, and logits; logits argmax, route ties, every persistent
+state/publication/hash value, and invalid-request atomicity were exact.  It
+constructed 40 banks and loaded 15,360 experts rather than constructing one
+bank per outer chunk and layer.  Peak MLX active/cache/peak bytes were
+154,185,554,130 / 12,536,406,342 / 162,061,059,235; maximum RSS was
+164,053,532,672 bytes, peak process footprint was 169,272,030,992 bytes, and
+swap remained zero.  The 165.43-second two-path harness wall is not a
+performance result.
+
+The sweep is now connected to `TextGenerationReference` behind the explicit
+`DSV41_RUNTIME_LAYER_SWEEP=1` policy.  Prefill uses bounded transactional
+sweeps of at most 4,096 tokens; decode remains on the one-token oracle path.
+The default remains unchanged.  The first 2,063-token production-shape wall
+observation deliberately leaves batched dense QMM disabled so it measures the
+request-schedule inversion rather than combining two unqualified changes:
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_layer_sweep_prefill_measurement.sh
+```
+
+Allow 5--10 minutes and up to 340 GB Unified Memory, including about 289 GB of
+read-only one-time checkpoint reads.  The run writes the canonical result,
+progress, resource, identity, patch, and exit files below
+`artifacts/context-ladder/32k-run-<timestamp>-<pid>/`.  Failure is retained,
+partial state is not published, and resume is unsupported; rerun from a fresh
+model.  This is a full-path performance observation, not 32K qualification.
 
 Within step 1, the first no-new-kernel candidate is to replace the optimized
 path's one-row `PackedLinearReference::project_quantized()` schedule with the

@@ -395,5 +395,15 @@ The first implementation after audit closure introduces a transactional
 request-wide layer-sweep API.  It preserves 128-row primitive contracts while
 reversing `17 chunks × 40 layers` into `40 layers × 17 internal microtiles`,
 retains each layer's expert layout across the request, and publishes copied
-persistent state only after the full sweep succeeds.  A 256-token full-backbone
-parity gate must pass before 2K production connection.
+persistent state only after the full sweep succeeds.
+
+That gate passed cleanly in
+`prefill-gap/layer-sweep-backbone-20260917-222206-47915`: hidden, pre-mix, and
+logits were bit-exact; route ties, state/publication/hash, logits argmax, and
+invalid-request atomicity were exact.  The gate constructed 40 banks and used
+no swap.  The optimized generation API now selects bounded 4,096-token sweeps
+only with `DSV41_RUNTIME_LAYER_SWEEP=1`; its default and its one-token decode
+path remain the reference schedule.  The next full-path observation is
+`bash tools/benchmark/run_layer_sweep_prefill_measurement.sh`, with resident
+atlas and qualified chunk attention enabled and batched dense QMM explicitly
+disabled so the schedule inversion is measured in isolation.

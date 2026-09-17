@@ -813,6 +813,26 @@ cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_layer_sweep_backbone_check.sh
 ```
 
+`prefill-gap/layer-sweep-backbone-20260917-222206-47915`をreview済み。clean
+`0790fb7`、exit 0、tracked patch 0で、hidden / pre-mix / logitsはbitwise exact、
+logits argmax、route ties、persistent state/publication/hash、invalid-request
+atomicityもexactだった。bank construction 40、loaded experts 15,360、active/cache/peak
+154.19/12.54/162.06 GB、最大RSS 164.05 GB、peak footprint 169.27 GB、swap 0。
+165.43秒はoracleとcandidateを含むgate wallでありperformance値ではない。この結果で最小sweep
+correctness gateを閉じる。
+
+production generation prefillは`DSV41_RUNTIME_LAYER_SWEEP=1`でのみ最大4096-tokenのtransactional
+sweepを選択し、defaultとdecodeはreference scheduleのまま維持する。最初の2,063-token full-path観測は
+resident atlasとqualified chunk attentionを使うが、batched dense QMMを無効のまま固定し、schedule反転を
+単独測定する。5--10分、Unified Memory上限340 GB、checkpoint one-time read約289 GB、read-only、
+ログはcanonical `artifacts/context-ladder/32k-run-日時-PID/`、失敗時保持、partial state publishなし、
+resumeなし。
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_layer_sweep_prefill_measurement.sh
+```
+
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh

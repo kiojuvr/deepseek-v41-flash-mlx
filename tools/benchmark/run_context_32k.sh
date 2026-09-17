@@ -28,6 +28,8 @@ export DSV41_RUNTIME_COMPACT_EXPERT_BANK=${DSV41_RUNTIME_COMPACT_EXPERT_BANK:-0}
 export DSV41_RUNTIME_ROUTE_DIAGNOSTICS=${DSV41_RUNTIME_ROUTE_DIAGNOSTICS:-0}
 export DSV41_RUNTIME_INDEX_DIAGNOSTICS=${DSV41_RUNTIME_INDEX_DIAGNOSTICS:-1}
 export DSV41_RUNTIME_CHUNK_ATTENTION=${DSV41_RUNTIME_CHUNK_ATTENTION:-0}
+export DSV41_RUNTIME_LAYER_SWEEP=${DSV41_RUNTIME_LAYER_SWEEP:-0}
+export DSV41_RUNTIME_BATCHED_DENSE_QMM=${DSV41_RUNTIME_BATCHED_DENSE_QMM:-0}
 export DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES=${DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES:-0}
 export DSV41_RUNTIME_EXPERT_IO_THREADS=${DSV41_RUNTIME_EXPERT_IO_THREADS:-1}
 export DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK=${DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK:-0}
@@ -61,6 +63,8 @@ printf '%s\n' "checkpoint=$checkpoint" "context=$context" "base_prefill=$((prefi
  "route_diagnostics=$DSV41_RUNTIME_ROUTE_DIAGNOSTICS" \
  "index_diagnostics=$DSV41_RUNTIME_INDEX_DIAGNOSTICS" \
  "chunk_attention=$DSV41_RUNTIME_CHUNK_ATTENTION" \
+ "layer_sweep=$DSV41_RUNTIME_LAYER_SWEEP" \
+ "batched_dense_qmm=$DSV41_RUNTIME_BATCHED_DENSE_QMM" \
  "mlx_cache_limit_bytes=$DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES" \
  "expert_io_threads=$DSV41_RUNTIME_EXPERT_IO_THREADS" \
  "expert_assignment_chunk=$DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK" \
@@ -72,6 +76,7 @@ printf '%s\n' "checkpoint=$checkpoint" "context=$context" "base_prefill=$((prefi
 shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp \
  tools/benchmark/run_context_32k.sh tools/benchmark/run_resident_atlas_prefill_check.sh \
  tools/benchmark/run_resident_atlas_prefill_measurement.sh \
+ tools/benchmark/run_layer_sweep_prefill_measurement.sh \
  tools/benchmark/run_layer_component_profile.sh \
  tools/benchmark/run_resident_layer_component_profile.sh \
  tools/benchmark/run_shape_bucket_attention_profile.sh \

@@ -143,6 +143,8 @@ int main(int argc,char** argv) { try {
   {"route_diagnostics",dsv41::runtime_route_diagnostics_enabled()},
   {"index_diagnostics",dsv41::runtime_index_diagnostics_enabled()},
   {"chunk_attention",dsv41::runtime_chunk_attention_enabled()},
+  {"layer_sweep",dsv41::runtime_layer_sweep_enabled()},
+  {"batched_dense_qmm",dsv41::runtime_batched_dense_qmm_enabled()},
   {"mlx_cache_limit_bytes",dsv41::runtime_mlx_cache_limit_bytes()},
   {"expert_assignment_chunk",dsv41::runtime_expert_assignment_chunk()},
   {"component_profile",dsv41::runtime_component_profile_enabled()},
