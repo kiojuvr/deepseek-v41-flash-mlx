@@ -81,14 +81,14 @@ inline bool runtime_chunk_attention_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_CHUNK_ATTENTION must be 0 or 1");
 }
 
-// Fuse the qualified chunk core's QK, 64-key online softmax, BF16 probability
-// boundary and AV into one Metal dispatch per equal-shape group.  The existing
-// MLX graph remains the oracle and default until full-backbone qualification.
-inline bool runtime_fused_chunk_attention_enabled() {
- const char* value=std::getenv("DSV41_RUNTIME_FUSED_CHUNK_ATTENTION");
+// Batch the exact scalar-oracle Steel split-K QK topology across tokens. The
+// existing scalar MLX graph remains the oracle and default until full-backbone
+// qualification; softmax and the already-qualified AV batch remain unchanged.
+inline bool runtime_batched_splitk_qk_enabled() {
+ const char* value=std::getenv("DSV41_RUNTIME_BATCHED_SPLITK_QK");
  if(value==nullptr||std::string_view(value)=="0") return false;
  if(std::string_view(value)=="1") return true;
- throw std::runtime_error("DSV41_RUNTIME_FUSED_CHUNK_ATTENTION must be 0 or 1");
+ throw std::runtime_error("DSV41_RUNTIME_BATCHED_SPLITK_QK must be 0 or 1");
 }
 
 // Own prefill at the request boundary and execute it as a transactional

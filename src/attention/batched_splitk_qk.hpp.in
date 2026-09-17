@@ -1,0 +1,4 @@
+#pragma once
+inline constexpr const char* dsv41_batched_splitk_qk_source=R"splitkqk(@DSV41_BATCHED_SPLITK_QK@)splitkqk";
+inline constexpr const char* dsv41_batched_splitk_accum_source=R"splitkaccum(@DSV41_BATCHED_SPLITK_ACCUM@)splitkaccum";
+inline constexpr const char* dsv41_batched_splitk_header=R"splitkheader(@DSV41_STEEL_HEADER@)splitkheader";

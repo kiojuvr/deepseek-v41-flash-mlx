@@ -137,9 +137,30 @@ int main(int argc,char** argv){try{
   auto expected=mx::concatenate({mx::expand_dims(first,0),mx::expand_dims(second,0)},0);
   rms_report(candidate,expected,"chunk attention core");
   const auto telemetry=dsv41::attention_telemetry();
-  if(dsv41::runtime_fused_chunk_attention_enabled()&&
-     (telemetry.chunk_fused_attention_calls!=1||telemetry.chunk_scalar_qk_calls!=0||telemetry.chunk_av_batches!=0))
-   throw std::runtime_error("fused chunk attention dispatch telemetry mismatch");
+  if(dsv41::runtime_batched_splitk_qk_enabled()&&
+     (telemetry.chunk_batched_splitk_qk_calls!=2||telemetry.chunk_scalar_qk_calls!=0||telemetry.chunk_av_batches!=2))
+   throw std::runtime_error("batched split-K QK dispatch telemetry mismatch");
+  for(int live:{63,64,65,128}){
+   auto full_valid=mx::broadcast_to(mx::greater_equal(mx::arange(128,mx::int32),mx::array(128-live)),{2,128});
+   auto full_candidate=dsv41::swa_attention_masked_chunk(q,kv,sink,full_valid);
+   std::vector<mx::array> reference;
+   for(int token=0;token<2;++token)reference.push_back(mx::expand_dims(dsv41::swa_attention_masked_reference(
+    mx::reshape(mx::slice(q,{token,0,0},{token+1,64,512}),{64,512}),
+    mx::reshape(mx::slice(kv,{token,0,0},{token+1,128,512}),{128,512}),sink,
+    mx::greater_equal(mx::arange(128,mx::int32),mx::array(128-live))),0));
+   rms_report(full_candidate,mx::concatenate(reference,0),"chunk attention live-row ladder");
+  }
+  if(dsv41::runtime_batched_splitk_qk_enabled())for(int width:{1,31,32,33,39,40,63,64,65,127,128,129,640}){
+   auto width_kv=mx::astype(mx::reshape(mx::sin(mx::arange(2*width*512,mx::float32)),{2,width,512}),mx::bfloat16);
+   auto width_valid=mx::ones({2,width},mx::bool_);
+   auto width_candidate=dsv41::swa_attention_masked_chunk(q,width_kv,sink,width_valid);
+   std::vector<mx::array> reference;
+   for(int token=0;token<2;++token)reference.push_back(mx::expand_dims(dsv41::swa_attention_masked_reference(
+    mx::reshape(mx::slice(q,{token,0,0},{token+1,64,512}),{64,512}),
+    mx::reshape(mx::slice(width_kv,{token,0,0},{token+1,width,512}),{width,512}),sink,
+    mx::ones({width},mx::bool_)),0));
+   rms_report(width_candidate,mx::concatenate(reference,0),"chunk attention split-K shape ladder");
+  }
  }
  if(argc!=1&&argc!=3)throw std::runtime_error("usage: dsv41-swa-attention-test [checkpoint m1-summary]");
  if(argc==3){

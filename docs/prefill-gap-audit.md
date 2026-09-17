@@ -468,21 +468,33 @@ The synchronized 62.822960-second prefill is not compared with the normal
 Pinned oMLX uses a wide native packed-attention call with the official 64-key
 online maximum and BF16 probability boundary; DwarfStar likewise executes
 batch attention inside its layer sweep. The current runtime instead retains
-613,439 token-scalar QK invocations and 117,579 decomposed AV batches. The
-first adaptation keeps the existing BF16 cache ABI and fuses QK, the 64-key
-online reduction, BF16 probability rounding, AV, and sink normalization into
-one Metal dispatch per equal-shape reused-attention group. It does not alter
-persistent cache format, source-layer publication, or the token-serial oracle.
-The 2-token x 128-row fixture is bit-exact. The candidate remains opt-in with
-`DSV41_RUNTIME_FUSED_CHUNK_ATTENTION=1` pending this official-checkpoint gate:
+613,439 token-scalar QK invocations and 117,579 decomposed AV batches.
+
+The first one-dispatch QK/softmax/AV adaptation was rejected by clean run
+`attention/fused-chunk-backbone-20260918-013048-51465` at `392288c`. Chunk 0
+hidden relative RMS was 0.000928321, but pre-mix relative RMS was 0.00896325,
+above the fixed 0.002 gate; discrete route/state checks were therefore not
+reached. Peak process footprint was 142,117,727,720 bytes and swap remained
+zero. The 133.14-second failed-gate wall is not a performance result. The
+candidate's SIMD QK reduction did not preserve the scalar MLX Steel split-K
+topology, and it was removed rather than weakening the gate.
+
+The replacement batches the exact MLX 0.32.2 scalar Steel split-K topology
+across independent tokens. Each M=64, K=512 QK retains BM32/BN32/BK16,
+WM2/WN2, eight ordered split-K partitions, and the original accumulation;
+only the token axis shares two QK dispatches per 64-key block. Existing qualified softmax
+and batched AV remain unchanged. Synthetic 63/64/65/128-live-row cases and
+official-checkpoint layer 3 at positions 0 and 128 are now bit-exact. The
+candidate remains opt-in with `DSV41_RUNTIME_BATCHED_SPLITK_QK=1` pending this
+official-checkpoint gate:
 
 ```sh
-bash tools/benchmark/run_fused_chunk_attention_backbone_check.sh
+bash tools/benchmark/run_batched_splitk_qk_backbone_check.sh
 ```
 
 Allow about 5 minutes and 240 GB Unified Memory. It compares two 128-token,
 40-layer candidate chunks against the token-serial oracle, retains logs below
-`artifacts/attention/fused-chunk-backbone-<timestamp>-<pid>/`, leaves the
+`artifacts/attention/batched-splitk-qk-backbone-<timestamp>-<pid>/`, leaves the
 checkpoint read-only, and has no resume; a failed run is retained and rerun
 from fresh model/request state. This is a semantic/state promotion gate, not
 a full-path performance qualification.

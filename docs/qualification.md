@@ -863,19 +863,25 @@ exit 0、identity一致、token 339、swap 0。40層のGPU-completion component�
 post-MoE 1.129525秒（1.9%）だった。同期を含むprefill 62.822960秒は通常scheduleとの
 performance比較には使わない。この結果により次の支配項をAttentionと確定した。
 
-oMLXのwide packed attentionとDwarfStarのbatch attentionを踏まえ、既存BF16 cache ABIを
-変えず、QK、公式64-key online reduction、BF16 probability境界、AV、sink normalizationを
-equal-shape reuse groupごとに1 Metal dispatchへまとめる候補を追加した。token-serial oracleと
-persistent publication形式は変更しない。2 token x 128 rowの最小fixtureはbit-exactで通過した。
-公式checkpointの40層gateは約5分、Unified Memory上限240 GB、checkpoint read-only、失敗ログ保持、
-resumeなしで、次をfresh stateから実行する。
+最初のone-dispatch QK/softmax/AV候補はclean
+`attention/fused-chunk-backbone-20260918-013048-51465`、`392288c`でrejectした。chunk 0 hidden
+relative RMSは0.000928321だったが、pre-mixは0.00896325で固定上限0.002を超えたため、route/state
+gate前に停止した。peak footprint 142,117,727,720 bytes、swap 0。133.14秒wallはperformance値に
+使わない。scalar MLX Steel split-Kと異なるSIMD reductionが40層で増幅したため、kernelは削除した。
+
+代替候補はMLX 0.32.2 scalar oracleのM=64/K=512、BM32/BN32/BK16、WM2/WN2、8 split-K
+partitionとordered accumulationをそのまま保持し、独立token軸だけを64-key blockごとの
+2 dispatchへbatch化する。
+softmaxと既存qualified batched AVは変更しない。63/64/65/128 live-row合成fixtureと公式checkpoint
+layer 3のposition 0/128はいずれもbit-exactになった。40層gateは約5分、Unified Memory上限240 GB、
+checkpoint read-only、失敗ログ保持、resumeなしで、次をfresh stateから実行する。
 
 ```sh
-bash tools/benchmark/run_fused_chunk_attention_backbone_check.sh
+bash tools/benchmark/run_batched_splitk_qk_backbone_check.sh
 ```
 
-結果review前は`DSV41_RUNTIME_FUSED_CHUNK_ATTENTION`のdefaultを0のまま維持し、full-pathへは
-昇格しない。このgateはsemantic/state qualificationでありperformance qualificationではない。
+結果review前は`DSV41_RUNTIME_BATCHED_SPLITK_QK`のdefaultを0のまま維持し、full-pathへは昇格
+しない。このgateはsemantic/state qualificationでありperformance qualificationではない。
 
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx

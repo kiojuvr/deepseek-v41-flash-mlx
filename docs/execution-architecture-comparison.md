@@ -422,11 +422,13 @@ a local kernel.
 That synchronized profile (`32k-run-20260917-224750-48769`) attributes 41.180
 of 60.379 component seconds (68.2%) to attention, versus 17.838 seconds (29.5%)
 to MoE and 1.130 seconds (1.9%) to post-MoE. This closes the component gate
-required before a kernel change. The first candidate follows the oMLX and
-DwarfStar wide-attention schedule while retaining the current BF16 persistent
-cache ABI: one dispatch performs QK, official 64-key online reduction, BF16
-probability rounding, AV, and sink normalization for an equal-shape reused-
-attention group. Its minimal 2-token x 128-row fixture is bit-exact; the
-default remains off until
-`tools/benchmark/run_fused_chunk_attention_backbone_check.sh` passes and is
+required before a kernel change. The first one-dispatch attention candidate
+failed the fixed full-backbone gate because its SIMD reduction diverged from
+the scalar Steel split-K oracle (`pre-mix RMS 0.00896325`) and was removed.
+The replacement preserves MLX 0.32.2's exact per-token BM32/BN32/BK16,
+WM2/WN2, eight-partition QK reduction while batching the independent token
+matrices into two dispatches per 64-key block. Existing softmax and qualified batched AV remain
+unchanged. Synthetic boundary cases and official layer-3 128-token fixtures
+are bit-exact; the default remains off until
+`tools/benchmark/run_batched_splitk_qk_backbone_check.sh` passes and is
 reviewed.

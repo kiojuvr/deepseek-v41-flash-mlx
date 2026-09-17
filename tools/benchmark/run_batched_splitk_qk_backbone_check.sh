@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-run_dir="artifacts/attention/fused-chunk-backbone-$(date +%Y%m%d-%H%M%S)-$$"
+run_dir="artifacts/attention/batched-splitk-qk-backbone-$(date +%Y%m%d-%H%M%S)-$$"
 mkdir -p "$run_dir"
 finish(){
  status=$?
@@ -13,12 +13,12 @@ trap finish EXIT
 echo "Logs: $run_dir"
 checkpoint=${CHECKPOINT:-/Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-Flash}
 printf '%s\n' \
- 'scope=40 layers; token-serial oracle vs one-dispatch fused chunk attention; 2x128 tokens; official checkpoint' \
+ 'scope=40 layers; token-serial oracle vs token-batched exact Steel split-K QK; 2x128 tokens; official checkpoint' \
  'resources=allow 5 minutes; budget 240 GB Unified Memory; approximately 578 GB logical read-only checkpoint reads; no swap expected' \
  'gate=relative RMS <0.002 hidden/pre-mix/logits; logits argmax, route ties, persistent state/publication/hash and invalid-request atomicity exact' \
- 'kernel=one dispatch per equal-shape reused-attention group; official 64-key online reduction and BF16 probability boundary preserved' \
- 'logs=artifacts/attention/fused-chunk-backbone-<timestamp>-<pid>/{test.log,resource.log,identity.txt,tracked.patch,exit-code.txt}' \
- 'failure=retain the failed run directory; inspect test/resource logs; do not promote the fused candidate' \
+ 'kernel=scalar-oracle BM32/BN32/BK16/WM2/WN2 split-K reduction retained; independent token matrices share two dispatches per 64-key block' \
+ 'logs=artifacts/attention/batched-splitk-qk-backbone-<timestamp>-<pid>/{test.log,resource.log,identity.txt,tracked.patch,exit-code.txt}' \
+ 'failure=retain the failed run directory; inspect test/resource logs; do not promote the batched split-K candidate' \
  'resume=unsupported; rerun this script for fresh model/request state' > "$run_dir/config.txt"
 {
  cmake -S . -B build-mlx
@@ -29,7 +29,9 @@ git diff --binary > "$run_dir/tracked.patch"
 shasum -a 256 build-mlx/dsv41-text-backbone-test tests/attention/test_text_backbone.cpp \
  include/dsv41/execution_policy.hpp include/dsv41/swa_attention.hpp include/dsv41/attention_telemetry.hpp \
  include/dsv41/index_query.hpp include/dsv41/shared_attention.hpp \
- src/attention/swa_attention.cpp src/attention/fused_chunk_attention.hpp.in metal/attention/fused_chunk_attention.metal \
+ src/attention/swa_attention.cpp src/attention/batched_splitk_qk.hpp.in \
+ metal/attention/batched_splitk_qk.metal metal/attention/batched_splitk_accum.metal \
+ metal/attention/steel_gemm_header.metal \
  src/attention/compressed_layer.cpp src/attention/index_query.cpp src/attention/shared_attention.cpp \
  src/model/text_backbone.cpp src/model/text_encoder.cpp src/model/text_decoder.cpp \
  src/model/block.cpp src/model/compressed_block.cpp src/model/reused_block.cpp \
@@ -37,10 +39,10 @@ shasum -a 256 build-mlx/dsv41-text-backbone-test tests/attention/test_text_backb
  artifacts/checkpoint/summary.json artifacts/engram/metadata.json > "$run_dir/identity.txt"
 cmd=(env DSV41_RUNTIME_LAYER_FINITE_CHECKS=0 DSV41_RUNTIME_PACKED_EXPERT_BANK=0 \
  DSV41_RUNTIME_GROUP_SELECTED_EXPERTS=0 DSV41_RUNTIME_INDEX_DIAGNOSTICS=1 \
- DSV41_RUNTIME_CHUNK_ATTENTION=0 DSV41_RUNTIME_FUSED_CHUNK_ATTENTION=1 \
+ DSV41_RUNTIME_CHUNK_ATTENTION=0 DSV41_RUNTIME_BATCHED_SPLITK_QK=1 \
  DSV41_CHECK_LAYER_MAJOR_BACKBONE=1 DSV41_CHECK_CHUNK_ATTENTION_BACKBONE=1 \
  build-mlx/dsv41-text-backbone-test "$checkpoint" artifacts/checkpoint/summary.json artifacts/engram/metadata.json)
 printf '%q ' "${cmd[@]}" > "$run_dir/command.txt"; printf '\n' >> "$run_dir/command.txt"
 /usr/bin/vm_stat > "$run_dir/system-before.txt"
 (/usr/bin/time -l "${cmd[@]}") > >(tee "$run_dir/test.log") 2> >(tee "$run_dir/resource.log" >&2)
-echo 'Completed; review semantic/state/resource logs before enabling fused chunk attention in production.'
+echo 'Completed; review semantic/state/resource logs before enabling batched split-K QK in production.'

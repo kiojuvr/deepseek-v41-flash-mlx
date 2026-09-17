@@ -35,11 +35,27 @@ if(DSV41_ENABLE_MLX)
     metal/engram/fp8_header.metal metal/engram/activation_quant.metal metal/engram/projection.metal)
   configure_file(src/engram/layer_kernels.hpp.in generated/layer_kernels.hpp @ONLY)
   file(READ ${CMAKE_CURRENT_SOURCE_DIR}/metal/attention/kv_quant.metal DSV41_KV_QUANT)
-  file(READ ${CMAKE_CURRENT_SOURCE_DIR}/metal/attention/fused_chunk_attention.metal DSV41_FUSED_CHUNK_ATTENTION)
+  file(READ ${CMAKE_CURRENT_SOURCE_DIR}/metal/attention/batched_splitk_qk.metal DSV41_BATCHED_SPLITK_QK)
+  file(READ ${CMAKE_CURRENT_SOURCE_DIR}/metal/attention/batched_splitk_accum.metal DSV41_BATCHED_SPLITK_ACCUM)
+  list(GET MLX_INCLUDE_DIRS 0 DSV41_MLX_INCLUDE_DIR)
+  file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/metal-module-cache)
+  execute_process(COMMAND xcrun -sdk macosx metal -E -P
+    -fmodules-cache-path=${CMAKE_CURRENT_BINARY_DIR}/metal-module-cache
+    -I ${DSV41_MLX_INCLUDE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/metal/attention/steel_gemm_header.metal
+    -o ${CMAKE_CURRENT_BINARY_DIR}/generated/steel_gemm_header.metal
+    RESULT_VARIABLE DSV41_STEEL_PREPROCESS_RESULT ERROR_VARIABLE DSV41_STEEL_PREPROCESS_ERROR)
+  if(NOT DSV41_STEEL_PREPROCESS_RESULT EQUAL 0)
+    message(FATAL_ERROR "cannot preprocess MLX Steel headers: ${DSV41_STEEL_PREPROCESS_ERROR}")
+  endif()
+  file(READ ${CMAKE_CURRENT_BINARY_DIR}/generated/steel_gemm_header.metal DSV41_STEEL_HEADER)
+  string(REGEX REPLACE "#pragma clang module import[^\n]*\n" "" DSV41_STEEL_HEADER "${DSV41_STEEL_HEADER}")
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    metal/attention/kv_quant.metal metal/attention/fused_chunk_attention.metal)
+    metal/attention/kv_quant.metal
+    metal/attention/batched_splitk_qk.metal metal/attention/batched_splitk_accum.metal
+    metal/attention/steel_gemm_header.metal)
   configure_file(src/attention/kv_quant.hpp.in generated/kv_quant.hpp @ONLY)
-  configure_file(src/attention/fused_chunk_attention.hpp.in generated/fused_chunk_attention.hpp @ONLY)
+  configure_file(src/attention/batched_splitk_qk.hpp.in generated/batched_splitk_qk.hpp @ONLY)
   file(READ ${CMAKE_CURRENT_SOURCE_DIR}/metal/moe/route_select.metal DSV41_ROUTE_SELECT)
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS metal/moe/route_select.metal)
   configure_file(src/moe/route_select.hpp.in generated/route_select.hpp @ONLY)

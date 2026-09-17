@@ -311,10 +311,10 @@ int main(int argc,char** argv) { try {
     at.index_host_readbacks!=0)throw std::runtime_error("resident production path performed an index result readback");
  if(dsv41::runtime_chunk_attention_enabled()){
   if(at.chunk_attention_calls==0)throw std::runtime_error("chunk attention was enabled but never invoked");
-  if(dsv41::runtime_fused_chunk_attention_enabled()){
-   if(at.chunk_fused_attention_calls==0)throw std::runtime_error("fused chunk attention was enabled but never invoked");
-   if(at.chunk_scalar_qk_calls!=0||at.chunk_av_batches!=0)
-    throw std::runtime_error("fused chunk attention regressed to the decomposed QK/AV graph");
+  if(dsv41::runtime_batched_splitk_qk_enabled()){
+   if(at.chunk_batched_splitk_qk_calls==0)throw std::runtime_error("batched split-K QK was enabled but never invoked");
+   if(at.chunk_scalar_qk_calls!=0||at.chunk_av_batches==0)
+    throw std::runtime_error("batched split-K QK regressed to scalar QK or produced no AV batches");
   }else if(at.chunk_av_batches==0)throw std::runtime_error("chunk attention produced no AV batches");
   if(at.chunk_scalar_av_calls!=0)throw std::runtime_error("chunk attention regressed to scalar AV calls");
  }
@@ -322,7 +322,7 @@ int main(int argc,char** argv) { try {
   {"concat_output_bytes",at.concat_output_bytes},{"cumulative_bytes_copied",at.cumulative_bytes_copied},
   {"logical_tokens",at.logical_tokens},{"attention_rows",at.attention_rows},{"indexer_rows",at.indexer_rows},
   {"index_host_readbacks",at.index_host_readbacks},{"token_serial_attention_calls",at.token_serial_attention_calls},
-  {"chunk_attention_calls",at.chunk_attention_calls},{"chunk_fused_attention_calls",at.chunk_fused_attention_calls},
+  {"chunk_attention_calls",at.chunk_attention_calls},{"chunk_batched_splitk_qk_calls",at.chunk_batched_splitk_qk_calls},
   {"chunk_scalar_qk_calls",at.chunk_scalar_qk_calls},
   {"chunk_scalar_av_calls",at.chunk_scalar_av_calls},{"chunk_av_batches",at.chunk_av_batches}};
  if(dsv41::runtime_component_profile_enabled()){
