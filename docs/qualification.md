@@ -833,6 +833,12 @@ cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_layer_sweep_prefill_measurement.sh
 ```
 
+初回 `context-ladder/32k-run-20260917-222949-48397` はclean `b970316`だったが、
+model launch前にmacOS標準Bashの`set -u`が空のtarget-environment配列展開を拒否して終了した。
+exit 1、tracked patch 0で、checkpoint load/prefill/state mutationには未到達のためqualification値を
+含まない。runnerはtrace/direct両分岐で空配列を明示的に分岐し、空の場合は`env` wrapper自体を
+省略するよう修正した。失敗ディレクトリは保持し、修正版をfresh rerunする。
+
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh

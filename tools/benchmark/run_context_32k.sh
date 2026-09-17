@@ -130,11 +130,19 @@ if [[ -n "${DSV41_XCTRACE_OUTPUT:-}" ]]; then
  # The GPU instrument is system-wide and produced a 12 GB package which kept
  # finalizing after the target exited.  Metal Application alone keeps the
  # capture target-scoped and is sufficient for command-buffer/encoder records.
- (/usr/bin/time -l xcrun xctrace record \
-   --instrument 'Metal Application' \
-   --output "$DSV41_XCTRACE_OUTPUT" "${trace_target_env[@]}" \
-   --target-stdout - --launch -- "${cmd[@]}") \
-   > >(tee "$run_dir/test.log") 2> >(tee "$run_dir/resource.log" >&2)
+ if ((${#trace_target_env[@]})); then
+  (/usr/bin/time -l xcrun xctrace record \
+    --instrument 'Metal Application' \
+    --output "$DSV41_XCTRACE_OUTPUT" "${trace_target_env[@]}" \
+    --target-stdout - --launch -- "${cmd[@]}") \
+    > >(tee "$run_dir/test.log") 2> >(tee "$run_dir/resource.log" >&2)
+ else
+  (/usr/bin/time -l xcrun xctrace record \
+    --instrument 'Metal Application' \
+    --output "$DSV41_XCTRACE_OUTPUT" \
+    --target-stdout - --launch -- "${cmd[@]}") \
+    > >(tee "$run_dir/test.log") 2> >(tee "$run_dir/resource.log" >&2)
+ fi
 else
  direct_target_env=()
  if [[ -n "${DSV41_DIRECT_TARGET_DYLD:-}" ]]; then
@@ -146,8 +154,13 @@ else
  if [[ -n "${DSV41_METAL_DISPATCH_COUNTER_SCOPED:-}" ]]; then
   direct_target_env+=("DSV41_METAL_DISPATCH_COUNTER_SCOPED=$DSV41_METAL_DISPATCH_COUNTER_SCOPED")
  fi
- (/usr/bin/time -l env "${direct_target_env[@]}" "${cmd[@]}") \
-   > >(tee "$run_dir/test.log") 2> >(tee "$run_dir/resource.log" >&2)
+ if ((${#direct_target_env[@]})); then
+  (/usr/bin/time -l env "${direct_target_env[@]}" "${cmd[@]}") \
+    > >(tee "$run_dir/test.log") 2> >(tee "$run_dir/resource.log" >&2)
+ else
+  (/usr/bin/time -l "${cmd[@]}") \
+    > >(tee "$run_dir/test.log") 2> >(tee "$run_dir/resource.log" >&2)
+ fi
 fi
 /usr/bin/vm_stat > "$run_dir/system-after.txt"
 echo "Completed; repo canonical result/resource logs require review. This single run does not qualify 32K, performance, API, or 256K."
