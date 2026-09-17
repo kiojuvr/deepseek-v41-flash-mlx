@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-root="artifacts/prefill-gap/omlx-metal-$(date +%Y%m%d-%H%M%S)-$$"
+root="$(pwd)/artifacts/prefill-gap/omlx-metal-$(date +%Y%m%d-%H%M%S)-$$"
 mkdir -p "$root"
 counter="$root/metal-dispatch-counter.dylib"
 omlx_source=${OMLX_SOURCE:-/Users/kioju/omlx-0.7.0.dev2}
