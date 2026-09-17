@@ -6,7 +6,7 @@ printf '%s\n' \
   'scope=1 model; model-lifetime 40-layer resident atlas; 2063-token shape-bucket prefill + 1 decode; additive attention/MoE/post-MoE GPU-completion wall' \
   'resources=allow 5-10 minutes; Unified Memory budget 340 GB; about 289 GB one-time checkpoint reads; checkpoint read-only' \
   'measurement=component synchronization perturbs normal lazy execution; compare to reviewed resident component profile, not unsynchronized wall' \
-  'checks=40 initialization banks; zero warm constructions and route/index readbacks; chunk groups and retained scalar QK/AV dispatches recorded' \
+  'checks=40 initialization banks; zero warm constructions and route/index readbacks; chunk groups, retained scalar QK calls, and AV batches recorded' \
   'logs=artifacts/context-ladder/32k-run-<timestamp>-<pid>/{result.json,result.json.progress.jsonl,resource.log,identity.txt}' \
   'failure=retain the failed run directory and inspect exit-code/test/resource logs; partial atlas/state is never reused' \
   'resume=unsupported because publication is transactional; rerun this script for a fresh model and request state'

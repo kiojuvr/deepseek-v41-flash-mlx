@@ -614,12 +614,16 @@ performance値ではない。shape-bucket candidateの40層correctness gateだ�
 
 次の長時間測定は1 resident model、2,063 prefill + 1 decode、component同期あり、340 GB予算、5--10分。
 既存resident component profileと同じ測定semanticsでAttention wall、total prefill、chunk group、残存scalar
-QK/AV callを記録する。失敗directory保持、resumeなし。
+QK call、AV batchを記録する。失敗directory保持、resumeなし。
 
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_shape_bucket_attention_profile.sh
 ```
+
+40層gate後、同一shape bucket内のAVだけをrank-3 matmulへまとめた。公式layer 2→3のpositions 0--127 /
+128--255 fixtureはoutput/state bit-exactで、scalar QKは変更していない。この短いfixtureは性能qualificationでも
+40層qualificationでもない。component profileで効果を確認して候補を残す場合、同じ40層gateを再実行する。
 
 そのresident rerun `context-ladder/32k-run-20260916-100044-16544`をreview済み。exit 0、
 全identity一致、bank construction exactly 40。chunk 0は49.217220秒、chunk 1は17.518658秒

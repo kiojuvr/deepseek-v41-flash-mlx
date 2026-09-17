@@ -284,8 +284,12 @@ hidden, pre-mix, and logits bitwise; route ties and all state/publication/hash
 checks were exact, including invalid-token atomicity. Maximum RSS was
 160,473,219,072 bytes, peak footprint 165,164,675,696 bytes, and swap remained
 zero. The 227.03-second two-model harness wall is not a production performance
-result. The next measurement uses one resident model with component boundaries
-and records shape buckets plus retained scalar QK/AV dispatches.
+result. After that gate, AV was batched only within an equal-shape bucket. The
+same official 0--127 and 128--255 fixtures remained bit-exact for output and
+state, while scalar Steel split-K QK was left unchanged. The next measurement
+uses one resident model with component boundaries and records shape buckets,
+retained scalar QK calls, and AV batches. This AV extension remains a candidate:
+if its component profile warrants retention, it must repeat the 40-layer gate.
 
 The next loop should be architecture-first and preserve the project's stated
 correctness priority:

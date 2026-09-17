@@ -291,7 +291,7 @@ int main(int argc,char** argv) { try {
   {"logical_tokens",at.logical_tokens},{"attention_rows",at.attention_rows},{"indexer_rows",at.indexer_rows},
   {"index_host_readbacks",at.index_host_readbacks},{"token_serial_attention_calls",at.token_serial_attention_calls},
   {"chunk_attention_calls",at.chunk_attention_calls},{"chunk_scalar_qk_calls",at.chunk_scalar_qk_calls},
-  {"chunk_scalar_av_calls",at.chunk_scalar_av_calls}};
+  {"chunk_scalar_av_calls",at.chunk_scalar_av_calls},{"chunk_av_batches",at.chunk_av_batches}};
  if(dsv41::runtime_component_profile_enabled()){
   const auto profile=dsv41::read_runtime_profile();J layers=J::array();
   double layer_total=0.0,attention_total=0.0,moe_total=0.0,post_total=0.0;

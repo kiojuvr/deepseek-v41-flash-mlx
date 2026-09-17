@@ -257,8 +257,10 @@ dispatch数はtelemetryへ明記し、削減済みと偽らない。
 40層gate `attention/chunk-backbone-20260917-113353-41239`はclean commit `731c6aa`、identity一致、
 tracked patch 0。2×128のhidden / pre-mix / logitsはbit-exact、route tie、state/publication/hash、invalid-token
 atomicityもexactだった。最大RSS 160,473,219,072、peak footprint 165,164,675,696 bytes、swap 0。二重model
-harnessの227.03秒はperformance判定に使わない。次は1 resident modelのcomponent profileでAttention wallと
-shape bucket / scalar QK/AV dispatch数を同時に測る。
+harnessの227.03秒はperformance判定に使わない。その後、同一shape bucket内のAVだけをrank-3 matmulへ
+まとめ、公式layer 2→3 fixtureのpositions 0--127と128--255でoutput/stateのbit-exactを再確認した。
+QKはscalar Steel split-Kのまま保持する。次は1 resident modelのcomponent profileでAttention wall、
+shape bucket / scalar QK call / AV batch数を同時に測る。このAV拡張を残す場合は40層gateを再実行する。
 
 2×128 compact promotionでは実route unionの合計loaded expertが10,543（80 bank constructions、
 individual / compact比較の合計）で、full bankの30,720 expert loadの34.3%だった。

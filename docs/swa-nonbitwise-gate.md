@@ -84,3 +84,7 @@ bit-exact。残存scalar dispatchはtelemetryへ明示し、同じ40層gateを�
 state/publication/hash、invalid-token atomicityをすべてexactで通過した。clean `731c6aa`、identity一致、
 tracked patch 0、swap 0。これでcorrectness gateを閉じるが、二重model harnessの227.03秒はperformance
 判定に使わない。次はresident component profileで残存QK/AV dispatchを含むwallを測る。
+
+gate通過後の限定拡張として、同じshape bucket内のAVだけをrank-3 matmulへまとめた。公式layer 2→3の
+positions 0--127 / 128--255は再びoutput/state bit-exactで、QKはscalar Steel split-Kを保持する。
+まずresident component profileでAttention wallを測り、候補を残す場合に40層gateを再実行する。

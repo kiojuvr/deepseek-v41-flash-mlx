@@ -66,14 +66,8 @@ mx::array swa_attention_masked_chunk(const mx::array& q,const mx::array& kv,
   auto exponent=mx::exp(mx::subtract(scores,next_max));
   denominator=mx::add(mx::multiply(denominator,rescale),mx::sum(exponent,-1,true));
   auto rounded=mx::astype(mx::astype(exponent,mx::bfloat16),mx::float32);
-  std::vector<mx::array> value_rows;value_rows.reserve(tokens);
-  for(int token=0;token<tokens;++token){
-   auto token_probability=mx::reshape(mx::slice(rounded,{token,0,0},{token+1,64,last-first}),{64,last-first});
-   auto token_keys=mx::reshape(mx::slice(keys,{token,0,0},{token+1,last-first,512}),{last-first,512});
-   value_rows.push_back(mx::expand_dims(mx::matmul(token_probability,token_keys),0));
-  }
-  { std::lock_guard l(attention_telemetry_mutex());attention_telemetry().chunk_scalar_av_calls+=tokens; }
-  accumulated=mx::add(mx::multiply(accumulated,rescale),mx::concatenate(value_rows,0));maximum=next_max;
+  accumulated=mx::add(mx::multiply(accumulated,rescale),mx::matmul(rounded,keys));maximum=next_max;
+  { std::lock_guard l(attention_telemetry_mutex());++attention_telemetry().chunk_av_batches; }
  }
  denominator=mx::add(denominator,mx::exp(mx::subtract(mx::reshape(sink,{1,64,1}),maximum)));
  return mx::astype(mx::divide(accumulated,denominator),mx::bfloat16);
