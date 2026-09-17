@@ -361,3 +361,20 @@ Those results use different quantization and kernels and therefore cannot
 predict official-checkpoint throughput. They do establish that the scheduling,
 state-lifetime, and submission architecture is practical on the exact target
 hardware/model family.
+
+## 2026-09-17 gap-audit checkpoint
+
+The production-shape lazy run
+`context-ladder/32k-run-20260917-123159-42514` was reviewed clean at
+`7a7c66a`: 2,063-token prefill was 106.233166 seconds / 19.41955 token/s,
+next token remained 339, warm bank construction and route/index readback were
+zero, and swap remained zero.  This is a full-path observation, not a paired
+oMLX qualification.
+
+The next action is now governed by the
+[execution-work gap audit](prefill-gap-audit.md).  Its dynamic counters and
+pinned-source comparison identify four simultaneous multipliers: 17 request
+chunks / 680 layer visits, 2,040 routed QMM invocations, 613,439 scalar QK plus
+117,579 AV batch invocations, and 340 blocking eval calls plus 17 explicit
+synchronizations in the canonical measured prefill.  No additional local
+Metal kernel is authorized until the provided Metal System Trace is reviewed.

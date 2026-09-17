@@ -276,6 +276,18 @@ hash、invalid-token atomicityもexactだった。最大RSS 160,476,315,648、pe
 swap 0でcompression増加もない。二重model harnessの194.38秒はperformance値に使わない。通常lazy scheduleの
 resident optimized runnerへchunk attentionを明示接続し、そのfull-path wallをreviewしてから既定値を反転する。
 
+通常lazy scheduleのfull-path run `context-ladder/32k-run-20260917-123159-42514`をreview済み。
+clean `7a7c66a`、exit 0、tracked patch 0、identity一致。2,063-token prefillは106.233166秒 /
+19.41955 tok/s、decodeは0.174582秒、生成tokenは339。model-init bank 40、warm construction 0、
+route/index readback 0、scalar AV 0を維持した。MLX peak 302,822,383,907 bytes、最大RSS
+273,313,529,856 bytes、peak footprint 305,867,454,968 bytes、swap 0だった。
+
+ここで局所component改善を停止し、[execution-work gap audit](prefill-gap-audit.md)へ移行した。
+128-row request chunkによりlayer visit / routed QMMが17倍繰り返され、attentionは613,439 scalar QKと
+117,579 AV batchへ分断される。canonical harnessを含むprefill同期境界は340 `mx::eval` + 17
+`mx::synchronize`である。Metal総dispatchは推測せず、再現可能な`run_prefill_gap_metal_capture.sh`で
+閉じる。trace reviewまでは新しい局所Metal kernelに着手しない。
+
 2×128 compact promotionでは実route unionの合計loaded expertが10,543（80 bank constructions、
 individual / compact比較の合計）で、full bankの30,720 expert loadの34.3%だった。
 ただし比較用individual modelのcacheが同一processに残るため、測定の156 GB cacheは

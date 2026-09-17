@@ -767,6 +767,26 @@ loaded expert 9,748、bank constructions 80で揃った。1 workerは40.138459�
 （8.878751 token/s、sys 31.80秒）、8 workerは30.913908秒（8.281062 token/s、sys 70.81秒）だった。
 4 workerは8 workerよりwall 6.7%短く、sys負荷も低いため、次の32K候補値とする。ただし反復pairedは未実施のため、runner既定値1は変更しない。
 
+### Prefill execution-work gap capture
+
+最新の通常lazy run `context-ladder/32k-run-20260917-123159-42514`はclean `7a7c66a`、exit 0、
+tracked patch 0、identity一致。2,063 prefillは106.233166秒 / 19.41955 tok/s、生成token 339、
+warm bank constructionとroute/index readbackは0、swapも0だった。このrunとpinned oMLX/ds4 codeの
+比較結果は[gap audit](prefill-gap-audit.md)に固定した。
+
+Metal command / dispatch総数を閉じる長時間captureは以下。1 model、公式checkpoint、2,063 prefill +
+1 decode、10--20分、Unified Memory 340 GB、one-time checkpoint read約289 GB、traceは数十GBに
+なり得る。trace overheadがあるためwall性能値に使わない。ログは`artifacts/prefill-gap/metal-日時-PID/`、
+失敗時も全保持、resumeなし。partial traceのcountは採用しない。
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_prefill_gap_metal_capture.sh
+```
+
+成功後は`summarize_prefill_metal_trace.py`で表をexportする。Instrumentsがkernel dispatch eventを公開しない
+場合はnullとして扱い、encoder countをdispatch countへ読み替えない。capture reviewまで局所kernel作業は停止する。
+
 32Kへの次の長時間測定は、メモリフットプリントとI/O量が大きいため、実行前に以下のコマンドを用意する。
 
 ```sh

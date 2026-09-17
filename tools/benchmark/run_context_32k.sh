@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-run_dir="artifacts/context-ladder/32k-run-$(date +%Y%m%d-%H%M%S)-$$"
+run_dir=${DSV41_CONTEXT_RUN_DIR:-artifacts/context-ladder/32k-run-$(date +%Y%m%d-%H%M%S)-$$}
 mkdir -p "$run_dir"
 finish(){
  status=$?
@@ -65,6 +65,7 @@ printf '%s\n' "checkpoint=$checkpoint" "context=$context" "base_prefill=$((prefi
  "expert_io_threads=$DSV41_RUNTIME_EXPERT_IO_THREADS" \
  "expert_assignment_chunk=$DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK" \
  "component_profile=$DSV41_RUNTIME_COMPONENT_PROFILE" \
+ "metal_trace=${DSV41_XCTRACE_OUTPUT:-disabled}" \
  "execution=${DSV41_CONTEXT_EXECUTION:-individual}" \
  "cache_condition=${CACHE_CONDITION:-unknown}" "run_conditions=${RUN_CONDITIONS:-unknown}" \
  "pattern=$pattern" > "$run_dir/config.txt"
@@ -109,6 +110,13 @@ if [[ "${DSV41_DRY_RUN:-0}" == 1 ]]; then
 fi
 /usr/sbin/sysctl hw.memsize > "$run_dir/system-before.txt"
 /usr/bin/vm_stat >> "$run_dir/system-before.txt"
-(/usr/bin/time -l "${cmd[@]}") > >(tee "$run_dir/test.log") 2> >(tee "$run_dir/resource.log" >&2)
+if [[ -n "${DSV41_XCTRACE_OUTPUT:-}" ]]; then
+ mkdir -p "$(dirname "$DSV41_XCTRACE_OUTPUT")"
+ (/usr/bin/time -l xcrun xctrace record --template 'Metal System Trace' \
+   --output "$DSV41_XCTRACE_OUTPUT" --target-stdout - --launch -- "${cmd[@]}") \
+   > >(tee "$run_dir/test.log") 2> >(tee "$run_dir/resource.log" >&2)
+else
+ (/usr/bin/time -l "${cmd[@]}") > >(tee "$run_dir/test.log") 2> >(tee "$run_dir/resource.log" >&2)
+fi
 /usr/bin/vm_stat > "$run_dir/system-after.txt"
 echo "Completed; repo canonical result/resource logs require review. This single run does not qualify 32K, performance, API, or 256K."
