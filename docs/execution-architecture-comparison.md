@@ -277,6 +277,16 @@ official layer-2-to-3 fixture is bit-exact for both positions 0--127 and
 128--255, including output and state. Telemetry explicitly counts the retained
 scalar QK/AV calls; this candidate still requires the unchanged 40-layer gate.
 
+That gate is now closed by clean run
+`attention/chunk-backbone-20260917-113353-41239` at commit `731c6aa` with an
+empty tracked patch and matching identities. Both 128-token chunks matched
+hidden, pre-mix, and logits bitwise; route ties and all state/publication/hash
+checks were exact, including invalid-token atomicity. Maximum RSS was
+160,473,219,072 bytes, peak footprint 165,164,675,696 bytes, and swap remained
+zero. The 227.03-second two-model harness wall is not a production performance
+result. The next measurement uses one resident model with component boundaries
+and records shape buckets plus retained scalar QK/AV dispatches.
+
 The next loop should be architecture-first and preserve the project's stated
 correctness priority:
 

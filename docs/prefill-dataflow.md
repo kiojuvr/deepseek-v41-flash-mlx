@@ -254,6 +254,12 @@ row数が同じtokenだけをshape bucketとしてsoftmax graphへまとめる�
 公式layer 2→3 fixtureのpositions 0--127と128--255でoutput/stateがbit-exactになった。残るscalar QK/AV
 dispatch数はtelemetryへ明記し、削減済みと偽らない。
 
+40層gate `attention/chunk-backbone-20260917-113353-41239`はclean commit `731c6aa`、identity一致、
+tracked patch 0。2×128のhidden / pre-mix / logitsはbit-exact、route tie、state/publication/hash、invalid-token
+atomicityもexactだった。最大RSS 160,473,219,072、peak footprint 165,164,675,696 bytes、swap 0。二重model
+harnessの227.03秒はperformance判定に使わない。次は1 resident modelのcomponent profileでAttention wallと
+shape bucket / scalar QK/AV dispatch数を同時に測る。
+
 2×128 compact promotionでは実route unionの合計loaded expertが10,543（80 bank constructions、
 individual / compact比較の合計）で、full bankの30,720 expert loadの34.3%だった。
 ただし比較用individual modelのcacheが同一processに残るため、測定の156 GB cacheは

@@ -606,6 +606,21 @@ selected-row countが等しいtokenだけを同じsoftmax graphへ入れる。�
 2×128 fixtureはattention outputとstateがbit-exact。保持したscalar QK/AV callはtelemetryへ別計上する。
 40層、route/index、wall timeは未qualificationで、長時間gateのcommandと固定閾値は変更しない。
 
+40層run `attention/chunk-backbone-20260917-113353-41239`をreview済み。exit 0、commit `731c6aa`、
+tracked patch 0、identity全件一致。両128-token chunkのhidden / pre-mix / logitsはbit-exactで、route tie、
+全state/publication/hash、invalid-token atomicityもexact。最大RSS 160,473,219,072、peak footprint
+165,164,675,696 bytes、swap 0。227.03秒はoracleとcandidateを同時に持つcorrectness harness全体なので
+performance値ではない。shape-bucket candidateの40層correctness gateだけを閉じる。
+
+次の長時間測定は1 resident model、2,063 prefill + 1 decode、component同期あり、340 GB予算、5--10分。
+既存resident component profileと同じ測定semanticsでAttention wall、total prefill、chunk group、残存scalar
+QK/AV callを記録する。失敗directory保持、resumeなし。
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_shape_bucket_attention_profile.sh
+```
+
 そのresident rerun `context-ladder/32k-run-20260916-100044-16544`をreview済み。exit 0、
 全identity一致、bank construction exactly 40。chunk 0は49.217220秒、chunk 1は17.518658秒
 （7.306462 token/s）、256-token prefillは66.739255秒（3.835823 token/s）。attention chunk化前の

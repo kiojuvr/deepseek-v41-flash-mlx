@@ -79,3 +79,8 @@ BF16 mismatch 2,595,308）。clean revision / identity一致、swap 0を確認�
 Steel split-Kとなることを確認したため、次候補はQK/AVをtoken-wiseに保持し、同じraw offset / selected
 row countのtokenだけをshape bucketへまとめる。公式layer 2→3のpositions 0--127 / 128--255はoutput/state
 bit-exact。残存scalar dispatchはtelemetryへ明示し、同じ40層gateを再実行する。
+
+40層gate `attention/chunk-backbone-20260917-113353-41239`は2×128のhidden / pre-mix / logits、route tie、
+state/publication/hash、invalid-token atomicityをすべてexactで通過した。clean `731c6aa`、identity一致、
+tracked patch 0、swap 0。これでcorrectness gateを閉じるが、二重model harnessの227.03秒はperformance
+判定に使わない。次はresident component profileで残存QK/AV dispatchを含むwallを測る。
