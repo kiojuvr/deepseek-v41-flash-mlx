@@ -2,6 +2,8 @@
 #include "dsv41/model_entry.hpp"
 #include "dsv41/layer_owner.hpp"
 #include "dsv41/runtime_profile.hpp"
+#include <algorithm>
+#include <iterator>
 #include <stdexcept>
 namespace dsv41 {
 namespace mx=mlx::core;
@@ -44,6 +46,64 @@ BlockResult TextDecoderReference::forward_packed_chunk(const mx::array& h,const 
  }
  next.producer.publication()=publications.back();
  mx::eval(out.hidden,out.pre_mix);state=std::move(next);return out;
+}
+BlockResult TextDecoderReference::forward_packed_sweep(const mx::array& h,const mx::array& pre,
+ TextDecoderState& state,std::uint64_t start) const{
+ if(h.dtype()!=mx::bfloat16||h.ndim()!=3||h.shape(0)<1||h.shape(1)!=4||h.shape(2)!=5120||
+    pre.dtype()!=mx::float32||pre.shape()!=mx::Shape({h.shape(0),4})||state.producer.position()!=start||
+    start>=1048576||std::uint64_t(h.shape(0))>1048576-start)
+  throw std::runtime_error("invalid packed decoder sweep input/state");
+ for(const auto& s:state.reuse)if(s.position()!=start)throw std::runtime_error("invalid packed decoder sweep reuse position");
+ auto next=state;BlockResult out{h,pre};const std::size_t tokens=h.shape(0);
+ auto tile_input=[&](std::size_t offset,std::size_t count){
+  return BlockResult{
+   mx::slice(out.hidden,{int(offset),0,0},{int(offset+count),4,5120}),
+   mx::slice(out.pre_mix,{int(offset),0},{int(offset+count),4})};
+ };
+ auto materialize=[&](std::vector<mx::array>& hidden,std::vector<mx::array>& pre_mix){
+  out={mx::concatenate(hidden,0),mx::concatenate(pre_mix,0)};mx::eval(out.hidden,out.pre_mix);
+ };
+ auto run_producer=[&](int layer,const auto& block,auto& layer_state,
+                       std::vector<SharedAttentionReference>& publications){
+  auto started=runtime_profile_start();std::vector<mx::array> hidden,pre_mix;publications.clear();
+  hidden.reserve((tokens+127)/128);pre_mix.reserve(hidden.capacity());publications.reserve(tokens);
+  try{
+   for(std::size_t offset=0;offset<tokens;offset+=128){
+    const auto count=std::min<std::size_t>(128,tokens-offset);auto input=tile_input(offset,count);
+    std::vector<SharedAttentionReference> tile_publications;
+    auto result=block.forward_packed_chunk(input.hidden,input.pre_mix,layer_state,start+offset,&tile_publications);
+    hidden.push_back(result.hidden);pre_mix.push_back(result.pre_mix);
+    publications.insert(publications.end(),std::make_move_iterator(tile_publications.begin()),
+                         std::make_move_iterator(tile_publications.end()));
+   }
+  }catch(...){block.release_packed_bank();throw;}
+  block.release_packed_bank();materialize(hidden,pre_mix);
+  record_runtime_layer(layer,runtime_profile_elapsed(started));
+ };
+ auto run_reuse=[&](int layer,const auto& block,auto& layer_state,
+                    std::vector<SharedAttentionReference>& publications){
+  auto started=runtime_profile_start();std::vector<mx::array> hidden,pre_mix;
+  hidden.reserve((tokens+127)/128);pre_mix.reserve(hidden.capacity());
+  try{
+   for(std::size_t offset=0;offset<tokens;offset+=128){
+    const auto count=std::min<std::size_t>(128,tokens-offset);auto input=tile_input(offset,count);
+    std::vector<SharedAttentionReference> tile_publications(
+     publications.begin()+offset,publications.begin()+offset+count);
+    auto result=block.forward_packed_chunk(input.hidden,input.pre_mix,layer_state,
+                                           tile_publications,start+offset);
+    hidden.push_back(result.hidden);pre_mix.push_back(result.pre_mix);
+    std::move(tile_publications.begin(),tile_publications.end(),publications.begin()+offset);
+   }
+  }catch(...){block.release_packed_bank();throw;}
+  block.release_packed_bank();materialize(hidden,pre_mix);
+  record_runtime_layer(layer,runtime_profile_elapsed(started));
+ };
+ std::vector<SharedAttentionReference> publications;
+ run_producer(20,*producer_,next.producer,publications);
+ for(int layer=21;layer<40;++layer){
+  const int slot=reuse_slot(layer);run_reuse(layer,*reuse_[slot],next.reuse[slot],publications);
+ }
+ next.producer.publication()=publications.back();state=std::move(next);return out;
 }
 BlockResult TextDecoderReference::forward(const mx::array& h,const mx::array& pre,TextDecoderState& state,std::uint64_t start,TraceSink* trace) const{
  if(h.dtype()!=mx::bfloat16||h.ndim()!=3||h.shape(0)<1||h.shape(0)>128||h.shape(1)!=4||h.shape(2)!=5120||

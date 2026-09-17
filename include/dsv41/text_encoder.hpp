@@ -27,6 +27,10 @@ public:
  // Explicit layer-major candidate; releases each packed bank after evaluation.
  BlockResult forward_packed_chunk(std::span<const std::uint32_t> ids,
                                   TextEncoderState& state,std::uint64_t start) const;
+ // Transactional request-wide layer sweep. Primitive kernels retain their
+ // 128-row contract; the sweep owns microtiling and publishes state once.
+ BlockResult forward_packed_sweep(std::span<const std::uint32_t> ids,
+                                  TextEncoderState& state,std::uint64_t start) const;
 private:
  std::shared_ptr<const EngramMetadata> metadata_;
  TextEntryReference entry_;

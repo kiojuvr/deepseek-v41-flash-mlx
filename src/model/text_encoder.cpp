@@ -2,6 +2,8 @@
 #include "dsv41/layer_owner.hpp"
 #include "dsv41/execution_policy.hpp"
 #include "dsv41/runtime_profile.hpp"
+#include <algorithm>
+#include <iterator>
 #include <stdexcept>
 namespace dsv41 {
 namespace mx=mlx::core;
@@ -64,6 +66,103 @@ BlockResult TextEncoderReference::forward_packed_chunk(std::span<const std::uint
   next.producer[slot].publication()=publications.back();
  }
  mx::eval(out.hidden,out.pre_mix);state=std::move(next);return out;
+}
+BlockResult TextEncoderReference::forward_packed_sweep(std::span<const std::uint32_t> ids,
+ TextEncoderState& state,std::uint64_t start) const{
+ if(state.metadata!=metadata_||state.hash.position()!=start||ids.empty()||
+    start>=1048576||ids.size()>1048576-start)throw std::runtime_error("invalid packed encoder sweep request");
+ for(const auto& s:state.swa)if(s.position()!=start)throw std::runtime_error("invalid packed encoder sweep SWA position");
+ for(const auto& s:state.producer)if(s.position()!=start)throw std::runtime_error("invalid packed encoder sweep producer position");
+ for(const auto& s:state.reuse)if(s.position()!=start)throw std::runtime_error("invalid packed encoder sweep reuse position");
+ for(auto id:ids)if(id>=129280||id==129264)throw std::runtime_error("packed encoder sweep requires text IDs");
+ auto next=state;std::vector<std::uint64_t> hashes;hashes.reserve(ids.size()*48);
+ std::vector<mx::array> entry_hidden,entry_pre;
+ for(std::size_t offset=0;offset<ids.size();offset+=128){
+  const auto count=std::min<std::size_t>(128,ids.size()-offset);
+  auto tile=ids.subspan(offset,count);auto tile_hashes=next.hash.append(tile,{},start+offset);
+  hashes.insert(hashes.end(),tile_hashes.begin(),tile_hashes.end());
+  auto entry=entry_.forward(tile);entry_hidden.push_back(entry.hidden);entry_pre.push_back(entry.pre_mix);
+ }
+ BlockResult out{mx::concatenate(entry_hidden,0),mx::concatenate(entry_pre,0)};
+ auto materialize=[&](std::vector<mx::array>& hidden,std::vector<mx::array>& pre){
+  out={mx::concatenate(hidden,0),mx::concatenate(pre,0)};mx::eval(out.hidden,out.pre_mix);
+ };
+ auto tile_input=[&](std::size_t offset,std::size_t count){
+  return BlockResult{
+   mx::slice(out.hidden,{int(offset),0,0},{int(offset+count),4,5120}),
+   mx::slice(out.pre_mix,{int(offset),0},{int(offset+count),4})};
+ };
+ auto apply_engram=[&](const EngramLayerReference& layer,int slot){
+  std::vector<mx::array> hidden;hidden.reserve((ids.size()+127)/128);
+  for(std::size_t offset=0;offset<ids.size();offset+=128){
+   const auto count=std::min<std::size_t>(128,ids.size()-offset);
+   std::vector<std::uint64_t> rows;rows.reserve(count*24);
+   for(std::size_t token=offset;token<offset+count;++token)
+    rows.insert(rows.end(),hashes.begin()+token*48+slot*24,hashes.begin()+token*48+slot*24+24);
+   auto input=mx::slice(out.hidden,{int(offset),0,0},{int(offset+count),4,5120});
+   hidden.push_back(layer.forward(input,rows).output);
+  }
+  out.hidden=mx::concatenate(hidden,0);mx::eval(out.hidden);
+ };
+ auto run_plain=[&](int layer,const auto& block,auto& layer_state){
+  auto started=runtime_profile_start();std::vector<mx::array> hidden,pre;
+  hidden.reserve((ids.size()+127)/128);pre.reserve(hidden.capacity());
+  try{
+   for(std::size_t offset=0;offset<ids.size();offset+=128){
+    const auto count=std::min<std::size_t>(128,ids.size()-offset);auto input=tile_input(offset,count);
+    auto result=block.forward_packed_chunk(input.hidden,input.pre_mix,layer_state,start+offset);
+    hidden.push_back(result.hidden);pre.push_back(result.pre_mix);
+   }
+  }catch(...){block.release_packed_bank();throw;}
+  block.release_packed_bank();materialize(hidden,pre);
+  record_runtime_layer(layer,runtime_profile_elapsed(started));
+ };
+ auto run_producer=[&](int layer,const auto& block,auto& layer_state,
+                       std::vector<SharedAttentionReference>& publications){
+  auto started=runtime_profile_start();std::vector<mx::array> hidden,pre;publications.clear();
+  hidden.reserve((ids.size()+127)/128);pre.reserve(hidden.capacity());publications.reserve(ids.size());
+  try{
+   for(std::size_t offset=0;offset<ids.size();offset+=128){
+    const auto count=std::min<std::size_t>(128,ids.size()-offset);auto input=tile_input(offset,count);
+    std::vector<SharedAttentionReference> tile_publications;
+    auto result=block.forward_packed_chunk(input.hidden,input.pre_mix,layer_state,start+offset,&tile_publications);
+    hidden.push_back(result.hidden);pre.push_back(result.pre_mix);
+    publications.insert(publications.end(),std::make_move_iterator(tile_publications.begin()),
+                         std::make_move_iterator(tile_publications.end()));
+   }
+  }catch(...){block.release_packed_bank();throw;}
+  block.release_packed_bank();materialize(hidden,pre);
+  record_runtime_layer(layer,runtime_profile_elapsed(started));
+ };
+ auto run_reuse=[&](int layer,const auto& block,auto& layer_state,
+                    std::vector<SharedAttentionReference>& publications){
+  auto started=runtime_profile_start();std::vector<mx::array> hidden,pre;
+  hidden.reserve((ids.size()+127)/128);pre.reserve(hidden.capacity());
+  try{
+   for(std::size_t offset=0;offset<ids.size();offset+=128){
+    const auto count=std::min<std::size_t>(128,ids.size()-offset);auto input=tile_input(offset,count);
+    std::vector<SharedAttentionReference> tile_publications(
+     publications.begin()+offset,publications.begin()+offset+count);
+    auto result=block.forward_packed_chunk(input.hidden,input.pre_mix,layer_state,
+                                           tile_publications,start+offset);
+    hidden.push_back(result.hidden);pre.push_back(result.pre_mix);
+    std::move(tile_publications.begin(),tile_publications.end(),publications.begin()+offset);
+   }
+  }catch(...){block.release_packed_bank();throw;}
+  block.release_packed_bank();materialize(hidden,pre);
+  record_runtime_layer(layer,runtime_profile_elapsed(started));
+ };
+ run_plain(0,*swa_[0],next.swa[0]);apply_engram(engram1_,0);run_plain(1,*swa_[1],next.swa[1]);
+ for(int source:{2,8,14}){
+  if(source==14)apply_engram(engram14_,1);
+  const int slot=producer_slot(source);std::vector<SharedAttentionReference> publications;
+  run_producer(source,*producer_[slot],next.producer[slot],publications);
+  for(int layer=source+1;layer<source+6;++layer){
+   const int index=reuse_slot(layer);run_reuse(layer,*reuse_[index],next.reuse[index],publications);
+  }
+  next.producer[slot].publication()=publications.back();
+ }
+ state=std::move(next);return out;
 }
 TextEncoderReference::TextEncoderReference(WeightCatalog& c,std::shared_ptr<const EngramMetadata> m,
  std::shared_ptr<const ResidentExpertAtlas> atlas)

@@ -110,10 +110,11 @@ int main(int argc,char** argv) { try {
  const std::size_t prefill=context-decode,base=prefill-teacher,teacher_head=teacher-tail;
  const char* mode_env=std::getenv("DSV41_CONTEXT_EXECUTION");
  const std::string mode=mode_env?mode_env:"individual";
- if(mode!="individual"&&mode!="layer_major")throw std::runtime_error("invalid DSV41_CONTEXT_EXECUTION");
+ if(mode!="individual"&&mode!="layer_major"&&mode!="sweep")throw std::runtime_error("invalid DSV41_CONTEXT_EXECUTION");
  const bool layer_major=mode=="layer_major";
- if(layer_major&&(!dsv41::runtime_packed_expert_bank_enabled()||dsv41::runtime_group_selected_experts_enabled()))
-  throw std::runtime_error("layer_major requires packed bank enabled and selected grouping disabled");
+ const bool sweep=mode=="sweep";
+ if((layer_major||sweep)&&(!dsv41::runtime_packed_expert_bank_enabled()||dsv41::runtime_group_selected_experts_enabled()))
+  throw std::runtime_error("layer-major execution requires packed bank enabled and selected grouping disabled");
  const double wall_budget=nonnegative_environment_seconds("DSV41_CONTEXT_WALL_BUDGET_SECONDS");
  const double projected_wall_limit=
   nonnegative_environment_seconds("DSV41_CONTEXT_PROJECTED_WALL_LIMIT_SECONDS");
@@ -131,7 +132,7 @@ int main(int argc,char** argv) { try {
  J report={{"schema_version",1},{"status","measurement_completed_requires_review"},
   {"scope","One native context-ladder measurement. No external oracle, cold-cache proof, acceptance threshold, or 256K qualification."},
   {"context_tokens",context},{"base_prefill_tokens",base},{"teacher_continuation_tokens",teacher},
-  {"tail_teacher_tokens",tail},{"decode_tokens",decode},{"prefill_chunk_tokens",128},
+  {"tail_teacher_tokens",tail},{"decode_tokens",decode},{"prefill_chunk_tokens",sweep?prefill:128},
   {"wall_budget_seconds",wall_budget},{"projected_wall_limit_seconds",projected_wall_limit},
   {"layer_finite_checks",dsv41::runtime_layer_finite_checks_enabled()},
   {"execution",mode},{"bank_construction_included_in_prefill",
@@ -178,10 +179,11 @@ int main(int argc,char** argv) { try {
    const auto constructions_before=dsv41::packed_expert_bank_construction_count();
    const auto experts_before=dsv41::packed_expert_bank_loaded_expert_count();
    const auto union_before=dsv41::route_union_stats();
-   const auto size=std::min<std::size_t>(128,begin+count-offset);
+   const auto size=sweep?begin+count-offset:std::min<std::size_t>(128,begin+count-offset);
    auto chunk_started=Clock::now();
    auto input=std::span(ids).subspan(offset,size);
-   last.emplace(layer_major?model.forward_packed_chunk(input,state,offset):model.forward(input,state,offset));
+   last.emplace(sweep?model.forward_packed_sweep(input,state,offset):
+                layer_major?model.forward_packed_chunk(input,state,offset):model.forward(input,state,offset));
    evaluate(*last); offset+=size; ++chunks;
    if(dsv41::runtime_resident_expert_atlas_enabled()&&
       dsv41::packed_expert_bank_construction_count()!=constructions_before)
@@ -260,7 +262,8 @@ int main(int argc,char** argv) { try {
  for(std::size_t i=1;i<decode;++i) {
   auto decode_started=Clock::now();
   const std::array<std::uint32_t,1> one{generated.back()};
-  auto value=layer_major?model.forward_packed_chunk(one,state,prefill+i-1):model.forward(one,state,prefill+i-1); evaluate(value);
+  auto value=sweep?model.forward_packed_sweep(one,state,prefill+i-1):
+   layer_major?model.forward_packed_chunk(one,state,prefill+i-1):model.forward(one,state,prefill+i-1); evaluate(value);
   auto step=model.logits(value); mx::eval(step); mx::synchronize();
   generated.push_back(dsv41::greedy_reference(step));
   latencies.push_back(seconds(decode_started));

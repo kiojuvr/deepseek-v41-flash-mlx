@@ -386,4 +386,14 @@ compute encoders, and 12,358,908 prefill compute dispatches, or 5,990.7
 dispatches/token and 18,174.9 per 128-token layer visit.  The replacement
 runner therefore launches no Instruments trace and gates command-buffer,
 encoder, and dispatch selector counters to prefill.  A paired pinned-oMLX
-runner applies the same counter to one 2,063-row official-checkpoint sweep.
+runner applied the same counter to one 2,063-row official-checkpoint sweep and
+measured only 1,595 command buffers, 918 compute encoders, and 7,463 dispatches.
+The current/oMLX ratios are therefore 168.7x, 258.5x, and 1,656.0x
+respectively, directly explaining the observed 9.75--9.89x wall gap.
+
+The first implementation after audit closure introduces a transactional
+request-wide layer-sweep API.  It preserves 128-row primitive contracts while
+reversing `17 chunks × 40 layers` into `40 layers × 17 internal microtiles`,
+retains each layer's expert layout across the request, and publishes copied
+persistent state only after the full sweep succeeds.  A 256-token full-backbone
+parity gate must pass before 2K production connection.

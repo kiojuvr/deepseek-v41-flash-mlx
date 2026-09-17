@@ -23,6 +23,11 @@ admit approximately 2,048 rows, visit the 40 layers once, keep state decisions
 on device, and fuse each layer's QK, softmax, and AV into one attention compute
 invocation.
 
+The paired selector capture measures **12,358,908 versus 7,463 compute
+dispatches**, a **1,656.0x dispatch amplification**, alongside **168.7x more
+command buffers** and **258.5x more compute encoders**.  This directly closes
+the execution-work explanation for the measured 9.75--9.89x wall gap.
+
 This establishes the next unit of work as a 2,048-row transactional layer
 sweep with fused attention and grouped routed MoE.  Further optimization of a
 single existing scalar QK, AV, QMM, or SWA primitive is not justified.
@@ -71,8 +76,8 @@ first sweep and are not presented as captured Metal totals.
 | Chunk-attention host groups | 17,910 | no token/shape host grouping in the core | no token/shape host grouping in the core | 447.75 groups per layer versus one core dispatch |
 | Index score rows | 13,837,056 | device query tiles, normally up to 512 query rows | 32-query-row score batches on index-source layers | all keep results on device; current still over-materializes consumers |
 | Route/index result readbacks | 0 / 0 | 0 in resident normal path | 0 | gap already closed |
-| Metal command buffers / compute encoders | **269,115 / 237,345** | paired capture pending | source schedule owns one wide graph | 395.8 / 349.0 per current layer visit |
-| Metal compute dispatches | **12,358,908** | paired capture pending | source schedule is wide/fused | 5,990.7/token; 18,174.9 per current layer visit |
+| Metal command buffers / compute encoders | **269,115 / 237,345** | **1,595 / 918** | source schedule owns one wide graph | **168.7x / 258.5x** |
+| Metal compute dispatches | **12,358,908** | **7,463** | source schedule is wide/fused | **1,656.0x**; 5,990.7 vs 3.62/token |
 | Attention state concatenations counted | 102, 25,257,984 copied bytes | cache arrays updated in the lazy chunk graph | preallocated workspace and bulk publication | current count excludes additional reuse gather/temporary arrays |
 | Warm expert layout conversions | 0; 40 one-time model banks | 0 | 0 | gap already closed |
 
@@ -319,6 +324,19 @@ Memory, and about 289 GB checkpoint reads.  Logs are written to
 `artifacts/prefill-gap/omlx-metal-<timestamp>-<pid>/`; partial output is not a
 count and there is no resume.
 
+The successful paired run
+`artifacts/prefill-gap/omlx-metal-20260917-221148-47392` is clean at local
+revision `2420820` and oMLX `b390b31` (exit zero and pinned identities).  Its
+single sweep produced next token 339 and all 40 cache offsets were exactly
+2,063.  It measured 1,595 command buffers, 918 compute encoders, and 7,463
+compute dispatches.  The hook-instrumented 10.901-second prefill is 189.24
+token/s; it is diagnostic rather than a performance qualification.  Compared
+with the current clean counter run, command buffers are 168.7x, encoders
+258.5x, and dispatches 1,656.0x fewer.  The hook-to-hook wall ratio is 9.89x;
+the normal current run versus paired oMLX is about 9.75x.  The approximately
+10x gap is therefore fully explained by current execution-work amplification,
+not by a missing isolated kernel throughput improvement.
+
 The first oMLX attempt `omlx-metal-20260917-220157-47153` intentionally remains
 as a failed diagnostic.  It used resident Engram rather than the reviewed oMLX
 setting and aborted during model load with Metal OOM (408,665,719,208-byte peak
@@ -335,8 +353,8 @@ plus MLX 0.32.2 before loading the model.
 
 ## Architecture decision
 
-No new local kernel work begins until the paired oMLX count is reviewed.  After review,
-implementation order is:
+The paired count is reviewed and the gap audit is closed.  Implementation
+continues in this order:
 
 1. replace the 128-row outer request schedule with a 2,048-row transactional
    layer sweep and preallocated state/workspace, eliminating the 17x layer and
@@ -349,6 +367,36 @@ implementation order is:
    status and checking it only at the atomic chunk commit;
 5. repeat the existing route/index/publication/continuation/logits/generation
    qualification and same-fixture full-path measurement.
+
+### Transactional layer-sweep candidate
+
+The first post-audit implementation adds `forward_packed_sweep` at the
+backbone, encoder, and decoder boundaries.  It owns the complete request and
+inverts the old `17 chunks × 40 layers` host schedule into `40 layers × 17
+internal microtiles`.  Existing 128-row primitives and the reference path are
+unchanged.  Each layer retains its expert bank across all request microtiles,
+materializes the completed layer tensor once, and then releases it.  Producer
+publications remain request-local across the five consumer layers.  Encoder,
+decoder, hash, attention, and publication state are copied up front and are
+published to the caller only after the complete 40-layer sweep succeeds.
+
+This is an execution-ownership change, not yet a claim of 2,048-row kernels:
+the microtile dimension remains 128 until the layer-sweep parity gate passes.
+The minimal gate compares two 128-token oracle chunks with one transactional
+256-token sweep, including hidden/pre-mix/logits semantic bounds, logits
+argmax, route ties, all persistent state/publication/hash values, and an
+invalid-token atomicity check:
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_layer_sweep_backbone_check.sh
+```
+
+Allow 5--10 minutes, up to 240 GB Unified Memory, and substantial read-only
+checkpoint expert reads.  Logs are stored under
+`artifacts/prefill-gap/layer-sweep-backbone-<timestamp>-<pid>/`; failure is
+retained and there is no resume.  Do not connect the candidate to the 2K
+production path until this result is reviewed.
 
 Within step 1, the first no-new-kernel candidate is to replace the optimized
 path's one-row `PackedLinearReference::project_quantized()` schedule with the

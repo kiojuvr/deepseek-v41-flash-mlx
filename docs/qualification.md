@@ -798,6 +798,21 @@ model load中にpeak footprint 408,665,719,208 bytesでMetal OOMとなり、pref
 次の試行はpinned sourceにapp bundleのMLX 0.31.2を混在させたためempty packed cache初期化で失敗した。
 runnerは既存oMLX venvのoMLX 0.7.0.dev2 / MLX 0.32.2を事前検証する。
 
+paired成功run `omlx-metal-20260917-221148-47392`はexit 0、oMLX `b390b31`、next token 339、
+全40 cache offset 2063。command buffer 1,595、compute encoder 918、dispatch 7,463だった。
+current比はそれぞれ168.7x、258.5x、1,656.0xで、hook-to-hook wall比9.89xを十分説明する。
+これでgap auditを閉じ、次は局所kernelではなく2,048-row transactional layer sweepへ進む。
+
+最初のsweep gateは2x128-token oracle chunkと1x256-token transactional layer sweepを比較する。
+hidden/pre-mix/logits relative RMS <0.002、logits argmax、route ties、state/publication/hash、
+invalid-request atomicityを確認する。5--10分、Unified Memory上限240 GB、checkpoint read-only、
+ログは`artifacts/prefill-gap/layer-sweep-backbone-日時-PID/`、失敗時保持、resumeなし。
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_layer_sweep_backbone_check.sh
+```
+
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh

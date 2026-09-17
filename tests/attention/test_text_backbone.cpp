@@ -110,6 +110,34 @@ int main(int argc,char** argv){try{
    for(int i=0;i<3;++i)publication_same(a.encoder.producer[i],b.encoder.producer[i],3+6*i);
    publication_same(a.decoder.producer,b.decoder.producer,39);
   };
+  if(std::getenv("DSV41_CHECK_LAYER_SWEEP_BACKBONE")){
+   std::vector<std::uint32_t> input(256);for(int i=0;i<256;++i)input[i]=std::uint32_t((i*7919)%129263);
+   if(setenv("DSV41_RUNTIME_CHUNK_ATTENTION","0",1)!=0)throw std::runtime_error("cannot select sweep oracle attention");
+   dsv41::reset_route_tie_records();std::vector<mx::array> expected_hidden,expected_pre;
+   for(int offset:{0,128}){auto part=model.forward(std::span(input).subspan(offset,128),expected_state,offset);
+    expected_hidden.push_back(part.hidden);expected_pre.push_back(part.pre_mix);}
+   dsv41::BlockResult expected{mx::concatenate(expected_hidden,0),mx::concatenate(expected_pre,0)};
+   auto expected_ties=dsv41::route_tie_records();dsv41::reset_route_tie_records();
+   if(setenv("DSV41_RUNTIME_CHUNK_ATTENTION","1",1)!=0)throw std::runtime_error("cannot select sweep attention");
+   auto actual=packed.forward_packed_sweep(input,actual_state,0);auto actual_ties=dsv41::route_tie_records();
+   semantic_same(actual.hidden,expected.hidden,"layer-sweep hidden");
+   semantic_same(actual.pre_mix,expected.pre_mix,"layer-sweep pre-mix");
+   semantic_same(packed.logits(actual),model.logits(expected),"layer-sweep logits",true);
+   full_state_same(actual_state,expected_state);
+   auto order=[](const auto& x,const auto& y){return std::tie(x.token,x.layer)<std::tie(y.token,y.layer);};
+   std::sort(actual_ties.begin(),actual_ties.end(),order);std::sort(expected_ties.begin(),expected_ties.end(),order);
+   ties_same(actual_ties,expected_ties,"layer-sweep route ties");
+   auto saved=actual_state;auto invalid=input;invalid[129]=129264;bool rejected=false;
+   try{packed.forward_packed_sweep(invalid,actual_state,256);}catch(const std::exception&){rejected=true;}
+   if(!rejected)throw std::runtime_error("invalid sweep token accepted");full_state_same(saved,actual_state);
+   std::cout<<"PASS: transactional 256-token/40-layer sweep hidden/pre-mix/logits bounded; "
+    <<"state/publication/hash/route ties and invalid-request atomicity exact; active_bytes="<<mx::get_active_memory()
+    <<" cache_bytes="<<mx::get_cache_memory()<<" peak_bytes="<<mx::get_peak_memory()
+    <<" bank_constructions="<<dsv41::packed_expert_bank_construction_count()
+    <<" loaded_experts="<<dsv41::packed_expert_bank_loaded_expert_count()
+    <<"; performance/2K/32K unqualified"<<std::endl;
+   return 0;
+  }
   std::vector<std::uint32_t> input(128);for(int i=0;i<128;++i)input[i]=std::uint32_t((i*7919)%129263);
   for(int chunk_index=0;chunk_index<2;++chunk_index){
    const auto start=std::uint64_t(chunk_index*128);
