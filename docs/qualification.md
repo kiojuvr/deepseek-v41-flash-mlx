@@ -795,6 +795,8 @@ clean `2e363b7`のno-Instruments runはprefill限定でcommand buffer 269,115、
 review済みoMLX設定のEngram SSD offload有効・MTP weights保持、ログは
 `artifacts/prefill-gap/omlx-metal-日時-PID/`、失敗時保持、resumeなし。resident Engramでの初回試行は
 model load中にpeak footprint 408,665,719,208 bytesでMetal OOMとなり、prefill未到達なのでcountには使わない。
+次の試行はpinned sourceにapp bundleのMLX 0.31.2を混在させたためempty packed cache初期化で失敗した。
+runnerは既存oMLX venvのoMLX 0.7.0.dev2 / MLX 0.32.2を事前検証する。
 
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx

@@ -7,9 +7,7 @@ mkdir -p "$root"
 counter="$root/metal-dispatch-counter.dylib"
 omlx_source=${OMLX_SOURCE:-/Users/kioju/omlx-0.7.0.dev2}
 checkpoint=${CHECKPOINT:-/Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-Flash}
-python_root=/Applications/oMLX.app/Contents/Resources/Python
-python="$python_root/cpython-3.11/bin/python3.11"
-mlx_site="$python_root/framework-mlx-base/lib/python3.11/site-packages"
+python=${OMLX_PYTHON:-/Users/kioju/.venvs/omlx-0.7.0.dev2/bin/python}
 
 printf '%s\n' \
  'scope=pinned oMLX b390b31; reviewed DeepSeek-V4.1 settings (Engram SSD offload, MTP preserved); official checkpoint; exactly 2063 prompt tokens in one model call; process-local prefill dispatch count' \
@@ -29,6 +27,7 @@ trap finish EXIT
 test "$(git -C "$omlx_source" rev-parse HEAD)" = b390b31e0c6831225fed0f24d278eb1db7fcb68b
 test -z "$(git -C "$omlx_source" status --short --untracked-files=no)"
 test -x "$python"
+test "$("$python" -c 'import importlib.metadata as m; print(m.version("omlx"), m.version("mlx"))')" = "0.7.0.dev2 0.32.2"
 xcrun clang++ -std=c++17 -O2 -fobjc-arc -dynamiclib \
  tools/benchmark/metal_dispatch_counter.mm -framework Foundation \
  -framework Metal -o "$counter"
@@ -45,9 +44,7 @@ python3 tools/reference/expand_token_pattern.py \
 } > "$root/identity.txt"
 
 (/usr/bin/time -l env \
- PYTHONHOME="$python_root/cpython-3.11" \
  PYTHONDONTWRITEBYTECODE=1 \
- PYTHONPATH="$omlx_source:$mlx_site" \
  DYLD_INSERT_LIBRARIES="$counter" \
  DSV41_METAL_DISPATCH_COUNTER_LIBRARY="$counter" \
  DSV41_METAL_DISPATCH_COUNTER_OUTPUT="$root/metal-dispatch-counts.json" \

@@ -325,6 +325,14 @@ setting and aborted during model load with Metal OOM (408,665,719,208-byte peak
 footprint, before prefill or counter output).  It contributes no comparison
 count.
 
+The second attempt `omlx-metal-20260917-220634-47256` loaded successfully with
+Engram offload but mixed pinned oMLX (which requires MLX 0.32.2) with the older
+app-bundle MLX 0.31.2.  That runtime rejects the model's zero-length packed
+cache initialization and failed before evaluated prefill completion.  It also
+contributes no count.  The runner now requires the existing clean
+`/Users/kioju/.venvs/omlx-0.7.0.dev2` environment and verifies oMLX 0.7.0.dev2
+plus MLX 0.32.2 before loading the model.
+
 ## Architecture decision
 
 No new local kernel work begins until the paired oMLX count is reviewed.  After review,
