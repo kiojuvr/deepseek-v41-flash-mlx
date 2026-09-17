@@ -786,8 +786,18 @@ cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_prefill_gap_metal_capture.sh
 ```
 
-成功後は`summarize_prefill_metal_trace.py`で表をexportする。Instrumentsがkernel dispatch eventを公開しない
-場合はnullとして扱い、encoder countをdispatch countへ読み替えない。capture reviewまで局所kernel作業は停止する。
+成功後は`result.json`と`metal-dispatch-counts.json`を併読する。command buffer、compute encoder、
+dispatchは別のcountであり相互に読み替えない。paired oMLX countのreviewまで局所kernel作業は停止する。
+
+clean `2e363b7`のno-Instruments runはprefill限定でcommand buffer 269,115、compute encoder
+237,345、compute dispatch 12,358,908を測定した。paired oMLX countは次をユーザーが実行する。
+同じ2,063 token、公式checkpoint、5--10分、Unified Memory上限340 GB、checkpoint read約289 GB、
+ログは`artifacts/prefill-gap/omlx-metal-日時-PID/`、失敗時保持、resumeなし。
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh
+```
 
 32Kへの次の長時間測定は、メモリフットプリントとI/O量が大きいため、実行前に以下のコマンドを用意する。
 

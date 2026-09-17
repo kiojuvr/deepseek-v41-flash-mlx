@@ -381,7 +381,9 @@ synchronizations in the canonical measured prefill.  The initial 12 GB Metal
 System Trace did not finalize into an exportable document and is explicitly
 rejected in the audit.  Both `Metal Application + GPU` and `Metal Application`
 alone showed the same failure mode after target exit.  The retained
-process-local counter measured 12,358,907 prefill compute dispatches, or
-5,990.7/token and 18,174.9 per 128-token layer visit.  The replacement runner
-therefore launches no Instruments trace and gates command-buffer, encoder, and
-dispatch selector counters to prefill.
+process-local counter confirmation measured 269,115 command buffers, 237,345
+compute encoders, and 12,358,908 prefill compute dispatches, or 5,990.7
+dispatches/token and 18,174.9 per 128-token layer visit.  The replacement
+runner therefore launches no Instruments trace and gates command-buffer,
+encoder, and dispatch selector counters to prefill.  A paired pinned-oMLX
+runner applies the same counter to one 2,063-row official-checkpoint sweep.

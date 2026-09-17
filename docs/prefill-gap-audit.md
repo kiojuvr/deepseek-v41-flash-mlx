@@ -16,7 +16,9 @@ wide dense projections into **594,144 one-row packed QMM invocations** plus
 **181,544 one-row/batched-one-row FP GEMMs**, creates another **2,040** routed
 gather-QMM invocations, fragments the attention core into **613,439 scalar QK
 plus 117,579 AV batch invocations**, and crosses **340 blocking `mx::eval` plus
-17 explicit synchronize calls** during the measured prefill.  oMLX and ds4
+17 explicit synchronize calls** during the measured prefill.  This expands to
+**269,115 command buffers, 237,345 compute encoders, and 12,358,908 Metal
+compute dispatches**.  oMLX and ds4
 admit approximately 2,048 rows, visit the 40 layers once, keep state decisions
 on device, and fuse each layer's QK, softmax, and AV into one attention compute
 invocation.
@@ -69,6 +71,8 @@ first sweep and are not presented as captured Metal totals.
 | Chunk-attention host groups | 17,910 | no token/shape host grouping in the core | no token/shape host grouping in the core | 447.75 groups per layer versus one core dispatch |
 | Index score rows | 13,837,056 | device query tiles, normally up to 512 query rows | 32-query-row score batches on index-source layers | all keep results on device; current still over-materializes consumers |
 | Route/index result readbacks | 0 / 0 | 0 in resident normal path | 0 | gap already closed |
+| Metal command buffers / compute encoders | **269,115 / 237,345** | paired capture pending | source schedule owns one wide graph | 395.8 / 349.0 per current layer visit |
+| Metal compute dispatches | **12,358,908** | paired capture pending | source schedule is wide/fused | 5,990.7/token; 18,174.9 per current layer visit |
 | Attention state concatenations counted | 102, 25,257,984 copied bytes | cache arrays updated in the lazy chunk graph | preallocated workspace and bulk publication | current count excludes additional reuse gather/temporary arrays |
 | Warm expert layout conversions | 0; 40 one-time model banks | 0 | 0 | gap already closed |
 
@@ -249,7 +253,7 @@ decode with a process-local Metal selector hook.  Instruments is not launched.
 Allow 5--10 minutes, up to 340 GB Unified Memory, and about 289 GB of one-time
 checkpoint reads.  Selector-hook overhead invalidates wall time.  Logs are retained under
 `artifacts/prefill-gap/metal-<timestamp>-<pid>/`; failure preserves partial
-files, but partial traces are not counts.  There is no safe resume; rerun with
+files, but partial runs are not counts.  There is no safe resume; rerun with
 fresh model/request state.
 
 The hook is enabled only across the three prefill phases and writes exact
@@ -278,8 +282,8 @@ repeated the mistake of combining `Metal Application` with the system-wide
 again remained in finalization until interrupted.  Its trace was deleted; its
 result and 12,358,933 whole-process dispatch count are retained only as a
 diagnostic and are not a prefill-scoped count.  The runner now uses only
-`Metal Application`, and the counter starts disabled until the context runner
-enters prefill.
+`Metal Application`; the later replacement below removes Instruments
+entirely.
 
 A third capture at `artifacts/prefill-gap/metal-20260917-213606-46543` proved
 that `Metal Application` alone is also unsuitable: it generated an 11 GB
@@ -291,9 +295,32 @@ dispatches** (10,468,136 `dispatchThreads`, 1,890,771
 The invalid trace was deleted.  The runner now launches the target directly
 with the hook and creates no Instruments package.
 
+The no-Instruments confirmation
+`artifacts/prefill-gap/metal-20260917-214856-46825` is clean at `2e363b7`
+(both exits zero, empty tracked patch).  It reproduced 12,358,908 prefill
+dispatches and additionally measured 269,115 command buffers and 237,345
+compute encoders.  The one-dispatch difference from the preceding run is
+normal setup/lazy-cache variation and does not alter the amplification result.
+Its 107.777-second prefill is not a performance sample because the selector
+hook serializes shape accounting.
+
+The paired oMLX counter uses the same hook without Instruments:
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh
+```
+
+It pins clean oMLX `b390b31`, loads the same read-only official checkpoint,
+uses the same 2,063 token IDs in one model call, and enables counting only
+after model load/cache creation.  Allow 5--10 minutes, up to 340 GB Unified
+Memory, and about 289 GB checkpoint reads.  Logs are written to
+`artifacts/prefill-gap/omlx-metal-<timestamp>-<pid>/`; partial output is not a
+count and there is no resume.
+
 ## Architecture decision
 
-No new local kernel work begins until the focused capture is reviewed.  After review,
+No new local kernel work begins until the paired oMLX count is reviewed.  After review,
 implementation order is:
 
 1. replace the 128-row outer request schedule with a 2,048-row transactional
