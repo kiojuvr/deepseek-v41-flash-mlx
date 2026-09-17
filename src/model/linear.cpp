@@ -1,4 +1,5 @@
 #include "dsv41/linear.hpp"
+#include "dsv41/execution_policy.hpp"
 #include "layer_kernels.hpp"
 #include "engram_kernel_source.hpp"
 #include <algorithm>
@@ -72,7 +73,10 @@ int PackedLinearReference::output_dims() const { return impl_->n; }
 int PackedLinearReference::bits() const { return impl_->bits; }
 mx::array PackedLinearReference::forward(const mx::array& input) const {
     activation_shape(input); check(input.shape(1)==impl_->k,"linear input width mismatch");
-    return project_quantized(linear_activation_reference(input));
+    auto activation=linear_activation_reference(input);
+    if(runtime_batched_dense_qmm_enabled()&&input.shape(0)>1)
+        return project_batch_diagnostic(activation);
+    return project_quantized(activation);
 }
 mx::array PackedLinearReference::project_quantized(const LinearActivation& a) const {
     activation_shape(a.decoded);

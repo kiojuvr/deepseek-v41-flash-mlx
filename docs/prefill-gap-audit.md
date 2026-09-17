@@ -11,13 +11,15 @@ and DwarfStar/ds4 `8db1d1d155cb0400a86a86b9c62d0defb3a6148b`.
 ## Result in one sentence
 
 The remaining near-10x wall gap is not one slow component: the current runtime
-runs the whole 40-layer schedule **17 times** at 128 rows, creates **2,040**
-routed QMM invocations instead of a wide-sweep grouped schedule, fragments the
-attention core into **613,439 scalar QK plus 117,579 AV batch invocations**, and
-crosses **340 blocking `mx::eval` plus 17 explicit synchronize calls** during
-the measured prefill.  oMLX and ds4 admit approximately 2,048 rows, visit the
-40 layers once, keep state decisions on device, and fuse each layer's QK,
-softmax, and AV into one attention compute invocation.
+runs the whole 40-layer schedule **17 times** at 128 rows, explicitly lowers
+wide dense projections into **594,144 one-row packed QMM invocations** plus
+**181,544 one-row/batched-one-row FP GEMMs**, creates another **2,040** routed
+gather-QMM invocations, fragments the attention core into **613,439 scalar QK
+plus 117,579 AV batch invocations**, and crosses **340 blocking `mx::eval` plus
+17 explicit synchronize calls** during the measured prefill.  oMLX and ds4
+admit approximately 2,048 rows, visit the 40 layers once, keep state decisions
+on device, and fuse each layer's QK, softmax, and AV into one attention compute
+invocation.
 
 This establishes the next unit of work as a 2,048-row transactional layer
 sweep with fused attention and grouped routed MoE.  Further optimization of a
@@ -55,8 +57,11 @@ first sweep and are not presented as captured Metal totals.
 | Request/scheduler chunks | 17 | 1 | 1 wide sweep | 17x |
 | Layer visits | 680 | 40 | 40 | 17x |
 | Routed assignments | 495,120 | same semantic `6T` | same semantic `6T` | no arithmetic amplification implied |
-| Routed QMM invocations | 2,040, three per layer visit | grouped primitives once per layer; exact Metal expansion needs capture | MXFP4 pre-M5 path: map + fused gate/up/SwiGLU + down + sum, 4 kernels/layer | Current projection calls are 25.5x ds4's two projection kernels/layer; 12.75x versus all four routed kernels |
+| Dense packed QMM invocations | **594,144**, all explicitly one-row | 288 wide logical QMM calls: seven/layer plus one on eight index-source layers; Metal expansion pending paired capture | wide layer tensors | **2,063x per corresponding projection**, 2,063.0x in aggregate |
+| Routed QMM invocations | 2,040, three per layer visit | official MXFP4 path: paired gate/up + down once/layer, 80 projection dispatches | MXFP4 pre-M5 path: paired gate/up + down once/layer | **25.5x** versus 80 paired/down projection dispatches |
 | Routed QMM rows | 1,485,360 | same three logical projections, expert-major | same logical projections, non-empty expert tiles | row count is expected work; dispatch shape is the defect |
+| Token-serial FP GEMMs | **181,544**: router 82,520; grouped `wo_a` 82,520; index weight 16,504 | corresponding inputs remain wide | corresponding inputs remain wide | host-created one-row graph amplification |
+| Explicit activation quantize/decode kernels | **18,912** | about 288 single-pass quantizers on the source-visible wide official path | fused into wide expert/projection schedules | approximately **65.7x** |
 | Scalar QK invocations | 613,439 | 40 packed-attention compute invocations | 40 attention compute invocations | 15,336x invocation fragmentation |
 | AV invocations | 117,579 equal-shape batches | fused into the same 40 attention invocations | fused into the same 40 attention invocations | 2,939x invocation fragmentation |
 | Attention core dispatches | not yet a captured Metal total; at least the QK/AV counts above | one custom packed QK/softmax/AV dispatch per layer | layers 0--1: one raw dispatch each; layers 2--39: sort + indexed attention, total 78 | current primitive counters already exceed both by orders of magnitude |
@@ -71,6 +76,41 @@ The QK/AV ratios compare invocation granularity, not floating-point operation
 counts.  A single comparison-runtime invocation covers all admitted query rows
 and heads, so the ratio is exactly the scheduling problem this audit is meant
 to expose.
+
+### QMM/GEMM shape distribution
+
+The packed-linear count is source-exact for 2,063 prefill rows.  Every call to
+`PackedLinearReference::project_quantized()` loops over its first dimension and
+submits a separate one-row `mx::quantized_matmul`; the existing
+`project_batch_diagnostic()` already demonstrates that this is an execution
+policy, not a checkpoint-layout constraint.
+
+| Current one-row packed operation | Shape `(M,K,N)` | Invocations |
+|---|---:|---:|
+| Attention `wq_a` | `(1,5120,1280)` | 82,520 |
+| Attention `wq_b` | `(1,1280,32768)` | 82,520 |
+| Attention `wkv` | `(1,5120,512)` | 82,520 |
+| Attention `wo_b` | `(1,8192,5120)` | 82,520 |
+| Shared expert `w1` + `w3` | `(1,5120,2304)` | 165,040 |
+| Shared expert `w2` | `(1,2304,5120)` | 82,520 |
+| Eight index-query projections | `(1,1280,4096)` | 16,504 |
+| **Total** | | **594,144** |
+
+The additional routed MXFP4 gather-QMM distribution is 1,280 gate/up calls at
+`(768,5120,2304)`, 640 down calls at `(768,2304,5120)`, 80 tail gate/up calls
+at `(90,5120,2304)`, and 40 tail down calls at `(90,2304,5120)`.  The known FP
+matmul distribution is 82,520 router calls at `(1,5120,384)`, 82,520 grouped
+attention projections at batched `(8,1,4096)x(8,4096,1024)`, and 16,504 index
+weight calls at `(1,5120,32)`.  These counts exclude chunk-wide mHC and index
+score matmuls rather than guessing their Metal expansion.
+
+At the pinned oMLX revision the same official expert bytes are losslessly
+repacked as MXFP4.  One wide layer builds one expert block list, dispatches one
+paired gate/up kernel, one paired SwiGLU/FP8 activation kernel, one down kernel,
+and one combine/unpermute kernel.  Dense attention/shared projections receive
+the admitted multi-row tensor directly.  Thus the decisive difference is not
+QMM arithmetic volume: it is that the current correctness-oriented API fixes
+the reduction at `M=1` 594,144 times.
 
 ## Host work and synchronization
 
@@ -102,13 +142,25 @@ sweep commits position/history.  Neither requires per-token or per-expert host
 publication.
 
 The dominant host loops are therefore current's 17 scheduler chunks, 680
-layer visits, 12,378 token-serial attention calls, 17,910 shape groups, and
-613,439 scalar QK block iterations.  oMLX has one outer chunk and a 40-layer
-Python loop; ds4 has one C layer sweep of 40 visits.  ds4's 32-row index score
+layer visits, 594,144 one-row packed projections, 181,544 token-serial FP
+GEMMs, 12,378 token-serial attention calls, 17,910 shape groups, and 613,439
+scalar QK block iterations.  oMLX has one outer chunk and a 40-layer Python
+loop; ds4 has one C layer sweep of 40 visits.  ds4's 32-row index score
 encoding loop occurs only on index-source layers and never reads the selected
 rows back to the CPU.
 
 ## Per-layer GPU structure
+
+Normalized over the complete 2,063-row prefill, each current non-index-source
+layer creates 14,441 one-row packed QMM calls (`7T`), 4,126 token-serial FP
+GEMMs (`2T`), and 51 routed gather-QMM calls (three projections across 17
+chunks).  Each of the eight index-source layers creates 16,504 packed QMMs
+(`8T`), 6,189 token-serial FP GEMMs (`3T`), and the same 51 routed calls.  This
+is before counting elementwise, sort, gather/scatter, attention, and state
+kernels.  The corresponding oMLX logical projection schedule is seven wide
+dense QMMs plus paired gate/up and one routed down per ordinary layer; an
+index-source layer adds one wide dense QMM.  Its packed attention core is one
+additional dispatch per layer.
 
 Current, for each of 680 layer visits:
 
@@ -244,6 +296,47 @@ implementation order is:
    status and checking it only at the atomic chunk commit;
 5. repeat the existing route/index/publication/continuation/logits/generation
    qualification and same-fixture full-path measurement.
+
+Within step 1, the first no-new-kernel candidate is to replace the optimized
+path's one-row `PackedLinearReference::project_quantized()` schedule with the
+already-existing multi-row QMM path.  Reference retains the one-row reduction
+order as the oracle; optimized qualification is decided at routes, state,
+logits, and generation as required by the Phase 0 contract.
+
+## Batched dense-QMM implementation checkpoint
+
+`DSV41_RUNTIME_BATCHED_DENSE_QMM=1` now selects the existing multi-row MLX QMM
+only from `PackedLinearReference::forward()` when `M > 1`.  It is opt-in and
+adds no Metal kernel; unset/default execution continues to select the original
+one-row oracle.  The short fixed linear fixture passed both selector modes.
+The batched candidate matched the pinned oMLX QMM bit-for-bit in all three
+cases.  Relative to the one-row oracle, expert `w1`/`w2` remained exact and
+attention `wq_a` differed at one of 12,800 BF16 elements by one ULP
+(`1.4901161e-8` absolute), the previously recorded diagnostic difference.
+
+The next promotion gate is reproducible but intentionally not launched by the
+agent because it takes several minutes and about 240 GB Unified Memory:
+
+```sh
+bash tools/benchmark/run_batched_dense_backbone_check.sh
+```
+
+It compares the token-serial one-row oracle with two 128-token, 40-layer
+candidate chunks; route ties, state/publication/hash, logits argmax, and
+invalid-token atomicity remain exact gates, while hidden/pre-mix/logits use the
+existing relative-RMS bound.  Logs are retained under
+`artifacts/prefill-gap/batched-dense-backbone-<timestamp>-<pid>/`; failure has
+no resume and must be rerun from fresh state.  Only after that result is
+reviewed should the 2,063-token wall observation run:
+
+```sh
+bash tools/benchmark/run_batched_dense_prefill_measurement.sh
+```
+
+That second run uses one resident model, up to 340 GB Unified Memory, about
+289 GB one-time checkpoint reads, and writes the canonical context-ladder
+result directory.  It is a performance observation, not a substitute for the
+backbone semantic gate.
 
 CED/deferred decoder prefill remains excluded from the 2K critical path.  It
 is reconsidered only after these measured 2K work amplifications are removed.

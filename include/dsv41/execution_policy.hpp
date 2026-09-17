@@ -81,6 +81,17 @@ inline bool runtime_chunk_attention_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_CHUNK_ATTENTION must be 0 or 1");
 }
 
+// The reference schedule fixes every packed projection at M=1.  Optimized
+// prefill may submit the complete chunk to the same MLX QMM primitive; route,
+// state, logits and generation gates decide promotion rather than intermediate
+// reduction-order identity.
+inline bool runtime_batched_dense_qmm_enabled() {
+ const char* value=std::getenv("DSV41_RUNTIME_BATCHED_DENSE_QMM");
+ if(value==nullptr||std::string_view(value)=="0") return false;
+ if(std::string_view(value)=="1") return true;
+ throw std::runtime_error("DSV41_RUNTIME_BATCHED_DENSE_QMM must be 0 or 1");
+}
+
 inline std::size_t runtime_mlx_cache_limit_bytes() {
  const char* value=std::getenv("DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES");
  if(value==nullptr||std::string_view(value).empty()||std::string_view(value)=="0") return 0;

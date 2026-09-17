@@ -373,10 +373,12 @@ oMLX qualification.
 
 The next action is now governed by the
 [execution-work gap audit](prefill-gap-audit.md).  Its dynamic counters and
-pinned-source comparison identify four simultaneous multipliers: 17 request
-chunks / 680 layer visits, 2,040 routed QMM invocations, 613,439 scalar QK plus
-117,579 AV batch invocations, and 340 blocking eval calls plus 17 explicit
+pinned-source comparison identify simultaneous multipliers: 17 request chunks
+/ 680 layer visits; 594,144 one-row dense packed QMMs plus 181,544
+token-serial FP GEMMs; 2,040 routed gather-QMMs; 613,439 scalar QK plus 117,579
+AV batch invocations; and 340 blocking eval calls plus 17 explicit
 synchronizations in the canonical measured prefill.  The initial 12 GB Metal
 System Trace did not finalize into an exportable document and is explicitly
 rejected in the audit.  No additional local Metal kernel is authorized until
-the replacement focused `Metal Application + GPU` trace is reviewed.
+the replacement focused `Metal Application + GPU` trace and process-local
+dispatch counter are reviewed.

@@ -8,7 +8,13 @@
 
 初回の一括QMMは `layers.0.attn.wq_a` の10入力で、token単位QMMと12,800要素中1要素がBF16 1 ULP異なった。[初回結果](../artifacts/linear/initial-batched-qmm.json)を保持する。同じ量子化済み入力のoMLX / Python一括QMMとは全bit一致しており、nativeのrepack差ではない。
 
-referenceは入力chunk長によらず1 rowずつQMMを呼ぶscheduleへ固定した。`project_batch_diagnostic`は差の診断用に残し、optimized candidateにはしない。この決定は速度目的ではなく、prefill / decodeのlocal比較基準を一貫させるため。1-row scheduleがすべての入力で公式CUDAと一致する保証はない。
+referenceは入力chunk長によらず1 rowずつQMMを呼ぶscheduleへ固定した。
+`project_batch_diagnostic`は同一入力で固定oMLX QMMとbit-exactであり、
+`DSV41_RUNTIME_BATCHED_DENSE_QMM=1` のときだけoptimized prefillの
+`PackedLinearReference::forward`から選択する。default/token-serial pathは
+従来どおり1-row correctness oracleである。optimized candidateはroute / state /
+logits / generationでqualificationし、intermediate reduction順の差だけではreject
+しない。1-row scheduleがすべての入力で公式CUDAと一致する保証も置かない。
 
 ## 確認した結果
 
@@ -48,4 +54,7 @@ build-mlx/dsv41-linear-probe \
 
 Pythonはoffline fixture / 診断のみ。native実行はC++ / MLX / Metal。Releaseの今回の検査は約0.52秒で、長時間jobは起動していない。raw fixtureはgit対象外で再生成可能。元checkpointはread-only。
 
-次はこの共通linearと既存RMSNormを使いmHC / Blockへ接続する。一括QMMへの置換やthroughput最適化を先行しない。既存Engramの独立serial projectionは比較referenceとして残す。
+共通linearはmHC / Blockへ接続済み。execution-work gap auditで一行QMMが
+full-pathの主要増幅と確定したため、optimized pathに限って一括QMMをopt-in
+した。40-layer gate未完了なのでproduction promotionはまだ行わない。既存の
+one-row scheduleとEngramの独立serial projectionは比較referenceとして残す。

@@ -1,5 +1,6 @@
 #include "dsv41/linear.hpp"
 #include "dsv41/checkpoint_atlas.hpp"
+#include "dsv41/execution_policy.hpp"
 #include <algorithm>
 #include <bit>
 #include <cmath>
@@ -83,6 +84,7 @@ int main(int argc,char** argv) {
             check(host<std::uint8_t>(a.scales)==read<std::uint8_t>(fixtures/(tag+"-activation-scale.u8")),"activation scales differ");
             check(bits(a.decoded)==read<std::uint16_t>(fixtures/(tag+"-decoded.bf16")),"activation decoded differs");
             auto projected=layer->project_quantized(a),batched=layer->project_batch_diagnostic(a);
+            auto scheduled=layer->forward(x);
             std::vector<std::uint16_t> incremental;
             for(int token=0;token<t;++token) {
                 auto part=bits(layer->forward(mx::slice(x,{token,0},{token+1,k})));
@@ -91,12 +93,17 @@ int main(int argc,char** argv) {
             layer.reset(); auto actual=bits(projected);
             auto same_backend=compare(bits(batched),read<std::uint16_t>(fixtures/(tag+"-omlx-qmm.bf16")));
             check(same_backend.at("bit_mismatches")==0,"native/Python QMM mismatch with identical inputs");
+            auto scheduled_expected=runtime_batched_dense_qmm_enabled()?bits(batched):actual;
+            auto scheduled_comparison=compare(bits(scheduled),scheduled_expected);
+            check(scheduled_comparison.at("bit_mismatches")==0,"runtime dense QMM policy selected the wrong schedule");
             auto cpu=compare(actual,read<std::uint16_t>(fixtures/(tag+"-cpu-projection.bf16")));
             auto chunk=compare(incremental,actual);
             cpu_exact=cpu_exact&&cpu.at("bit_mismatches")==0; local_exact=local_exact&&chunk.at("bit_mismatches")==0;
             runs.push_back({{"prefix",c.at("prefix")},{"repack_exact",true},{"activation_exact",true},
                 {"same_input_omlx_batched_qmm",same_backend},{"cpu_block_reference",cpu},{"tokenwise_vs_reference_chunk",chunk},
                 {"batched_qmm_vs_reference",compare(bits(batched),actual)},
+                {"runtime_schedule",runtime_batched_dense_qmm_enabled()?"batched":"one_row"},
+                {"runtime_schedule_vs_expected",scheduled_comparison},
                 {"owner_destroyed_before_evaluation",true},{"invalid_inputs_rejected",true}});
         }
         J result={{"status",cpu_exact&&local_exact?"reference_fixtures_exact":"numerical_mismatch"},
