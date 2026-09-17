@@ -792,7 +792,9 @@ dispatchは別のcountであり相互に読み替えない。paired oMLX count�
 clean `2e363b7`のno-Instruments runはprefill限定でcommand buffer 269,115、compute encoder
 237,345、compute dispatch 12,358,908を測定した。paired oMLX countは次をユーザーが実行する。
 同じ2,063 token、公式checkpoint、5--10分、Unified Memory上限340 GB、checkpoint read約289 GB、
-ログは`artifacts/prefill-gap/omlx-metal-日時-PID/`、失敗時保持、resumeなし。
+review済みoMLX設定のEngram SSD offload有効・MTP weights保持、ログは
+`artifacts/prefill-gap/omlx-metal-日時-PID/`、失敗時保持、resumeなし。resident Engramでの初回試行は
+model load中にpeak footprint 408,665,719,208 bytesでMetal OOMとなり、prefill未到達なのでcountには使わない。
 
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx

@@ -33,7 +33,14 @@ def main() -> None:
     counter.dsv41_metal_dispatch_counter_set_enabled.argtypes = [ctypes.c_int]
 
     load_started = time.monotonic()
-    model, _ = load(args.checkpoint, preserve_mtp=False)
+    # Match the reviewed oMLX DeepSeek-V4.1-Flash settings.  Resident Engram
+    # overlaps the full expert placement and exceeds the Metal allocation
+    # budget; the production oMLX profile keeps those read-only tables on SSD.
+    model, _ = load(
+        args.checkpoint,
+        engram_ssd_offload=True,
+        preserve_mtp=True,
+    )
     mx.synchronize()
     load_seconds = time.monotonic() - load_started
     cache = model.language_model.make_cache()
@@ -58,6 +65,8 @@ def main() -> None:
         "status": "measurement_completed_requires_review",
         "scope": "Pinned oMLX official-checkpoint 2063-token single-sweep prefill; selector-hook wall time is not a performance result.",
         "tokens": len(ids),
+        "engram_ssd_offload": True,
+        "preserve_mtp": True,
         "load_seconds": load_seconds,
         "prefill_seconds": prefill_seconds,
         "prefill_tokens_per_second": len(ids) / prefill_seconds,

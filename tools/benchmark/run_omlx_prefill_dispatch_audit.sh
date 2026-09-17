@@ -12,7 +12,7 @@ python="$python_root/cpython-3.11/bin/python3.11"
 mlx_site="$python_root/framework-mlx-base/lib/python3.11/site-packages"
 
 printf '%s\n' \
- 'scope=pinned oMLX b390b31; official checkpoint; exactly 2063 prompt tokens in one model call; process-local prefill dispatch count' \
+ 'scope=pinned oMLX b390b31; reviewed DeepSeek-V4.1 settings (Engram SSD offload, MTP preserved); official checkpoint; exactly 2063 prompt tokens in one model call; process-local prefill dispatch count' \
  'resources=allow 5-10 minutes; Unified Memory budget 340 GB; about 289 GB checkpoint reads; checkpoint read-only; no Instruments trace' \
  "logs=$root/{result.json,metal-dispatch-counts.json,test.log,resource.log,identity.txt,exit-code.txt}" \
  'measurement=counter is enabled only after model load and cache creation, through evaluated prefill completion; hook overhead invalidates wall time' \

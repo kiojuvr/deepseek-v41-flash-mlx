@@ -312,11 +312,18 @@ bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh
 ```
 
 It pins clean oMLX `b390b31`, loads the same read-only official checkpoint,
-uses the same 2,063 token IDs in one model call, and enables counting only
-after model load/cache creation.  Allow 5--10 minutes, up to 340 GB Unified
+uses the reviewed `DeepSeek-V4.1-Flash` settings (`deepseek_v41_engram_ssd_offload=true`,
+MTP weights preserved), uses the same 2,063 token IDs in one model call, and
+enables counting only after model load/cache creation.  Allow 5--10 minutes, up to 340 GB Unified
 Memory, and about 289 GB checkpoint reads.  Logs are written to
 `artifacts/prefill-gap/omlx-metal-<timestamp>-<pid>/`; partial output is not a
 count and there is no resume.
+
+The first oMLX attempt `omlx-metal-20260917-220157-47153` intentionally remains
+as a failed diagnostic.  It used resident Engram rather than the reviewed oMLX
+setting and aborted during model load with Metal OOM (408,665,719,208-byte peak
+footprint, before prefill or counter output).  It contributes no comparison
+count.
 
 ## Architecture decision
 
