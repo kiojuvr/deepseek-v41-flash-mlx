@@ -149,7 +149,7 @@ layer/chunk sweep is never publishable.
 | 1 | Model-owned, transactionally published 40-layer resident expert atlas | 41.772 s bank construction | **Connected and full-path observed:** 40 model-lifetime banks; zero warm-chunk construction/read. A literal second fresh request on the same model remains a narrow qualification item. |
 | 2 | Chunk-wide mHC pre/post and state expansion | 38.743 s post-MoE, plus part of 9.678 s overhead | **Connected and full-backbone qualified:** two 128-token chunks match the token-serial oracle through logits/state/publication. |
 | 3 | Device route to expert-major work lists and grouped gate/up/down/reduce | Resident profile: 53.882 s MoE | **Schedule promoted, grouped tile candidate rejected:** device routes and stable expert-major assignment order are connected. Direct oMLX grouped MXFP4 dispatch was slower for the official 768-assignment shape, so the current gather-QMM schedule remains pending a better full-path candidate. |
-| 4 | Chunk-wide attention/index/publication with atomic frontier commit | Resident profile: 69.652 s attention | **In progress:** device top-k/candidate arrays now remain authoritative through publication and attention gather; host vectors are diagnostic-only. Token-serial attention and chunk-atomic frontier commit remain. |
+| 4 | Chunk-wide attention/index/publication with atomic frontier commit | Shape-bucket profile: 46.708 s attention (from 69.652 s) | **In progress:** device top-k/candidate arrays remain authoritative through publication and attention gather; equal-shape AV work is batched and host vectors are diagnostic-only. Scalar QK, residual token-serial attention, and chunk-atomic frontier commit remain. |
 | 5 | CED/deferred decoder and bounded replay | No 2K saving | Begin only after the 2K structural gates above. |
 
 The prior full-resident experiment proved 40-bank reuse but built those banks
@@ -290,6 +290,17 @@ state, while scalar Steel split-K QK was left unchanged. The next measurement
 uses one resident model with component boundaries and records shape buckets,
 retained scalar QK calls, and AV batches. This AV extension remains a candidate:
 if its component profile warrants retention, it must repeat the 40-layer gate.
+
+The reviewed resident component run
+`context-ladder/32k-run-20260917-120246-41847` was clean at `cbca6c1`, exited
+zero, had an empty tracked patch and matching identities, and used no swap.
+Prefill fell from 126.641 s to 107.299 s (15.27%), while Attention fell from
+69.652 s to 46.708 s (32.94%) under the same component-synchronization
+semantics. It retained 613,439 scalar QK calls but recorded zero scalar AV calls
+and 117,579 AV batches. Model construction remained 40 banks, warm construction
+and route/index readbacks remained zero, and decode still produced token 339.
+The AV extension is therefore retained as a performance candidate and must now
+repeat the unchanged 40-layer correctness gate.
 
 The next loop should be architecture-first and preserve the project's stated
 correctness priority:

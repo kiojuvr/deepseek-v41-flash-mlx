@@ -262,6 +262,14 @@ harnessの227.03秒はperformance判定に使わない。その後、同一shape
 QKはscalar Steel split-Kのまま保持する。次は1 resident modelのcomponent profileでAttention wall、
 shape bucket / scalar QK call / AV batch数を同時に測る。このAV拡張を残す場合は40層gateを再実行する。
 
+AV batch拡張のresident component profile
+`context-ladder/32k-run-20260917-120246-41847`をreview済み。clean `cbca6c1`、exit 0、tracked patch 0、
+identity一致、swap 0。prefillは107.299秒 / 19.227 tok/sで、同条件の126.641秒 / 16.290 tok/sから
+15.27%短縮、throughputは18.03%向上した。Attentionは69.652秒から46.708秒へ32.94%短縮した。
+scalar QK call 613,439を保持し、scalar AV call 0、AV batch 117,579、index readback 0、warm bank
+construction 0、生成token 339だった。MoEは53.882秒から57.206秒、post-MoEは2.390秒から2.656秒へ
+単発run間で増えたが、それを含むfull prefillで改善している。AV拡張は保持し、同じ40層gateを再実行する。
+
 2×128 compact promotionでは実route unionの合計loaded expertが10,543（80 bank constructions、
 individual / compact比較の合計）で、full bankの30,720 expert loadの34.3%だった。
 ただし比較用individual modelのcacheが同一processに残るため、測定の156 GB cacheは

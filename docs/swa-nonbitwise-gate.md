@@ -88,3 +88,8 @@ tracked patch 0、swap 0。これでcorrectness gateを閉じるが、二重mode
 gate通過後の限定拡張として、同じshape bucket内のAVだけをrank-3 matmulへまとめた。公式layer 2→3の
 positions 0--127 / 128--255は再びoutput/state bit-exactで、QKはscalar Steel split-Kを保持する。
 まずresident component profileでAttention wallを測り、候補を残す場合に40層gateを再実行する。
+
+resident component run `context-ladder/32k-run-20260917-120246-41847`はclean `cbca6c1`、exit 0、
+identity一致、tracked patch 0、swap 0。prefillは126.641秒から107.299秒へ15.27%、Attentionは
+69.652秒から46.708秒へ32.94%短縮した。scalar AV call 0、AV batch 117,579、scalar QK call
+613,439を確認したため候補を保持する。このperformance observationは40層correctness gateを代替しない。

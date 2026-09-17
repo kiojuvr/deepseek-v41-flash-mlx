@@ -625,6 +625,13 @@ bash tools/benchmark/run_shape_bucket_attention_profile.sh
 128--255 fixtureはoutput/state bit-exactで、scalar QKは変更していない。この短いfixtureは性能qualificationでも
 40層qualificationでもない。component profileで効果を確認して候補を残す場合、同じ40層gateを再実行する。
 
+component run `context-ladder/32k-run-20260917-120246-41847`をreview済み。exit 0、clean `cbca6c1`、
+tracked patch 0、identity一致、swap 0。prefill 107.299秒 / 19.227 tok/s、Attention 46.708秒、MoE
+57.206秒、post-MoE 2.656秒。比較対象の126.641秒 / 69.652秒 Attentionからprefill 15.27%、
+Attention 32.94%短縮した。bank constructionはmodel-initの40だけ、route/index readback 0、生成token 339。
+scalar QK call 613,439、scalar AV call 0、AV batch 117,579を確認した。このrunは性能候補の保持を決めるが、
+AV拡張の40層correctness gateを代替しない。
+
 そのresident rerun `context-ladder/32k-run-20260916-100044-16544`をreview済み。exit 0、
 全identity一致、bank construction exactly 40。chunk 0は49.217220秒、chunk 1は17.518658秒
 （7.306462 token/s）、256-token prefillは66.739255秒（3.835823 token/s）。attention chunk化前の
