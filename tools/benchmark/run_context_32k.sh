@@ -77,6 +77,7 @@ shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp 
  tools/benchmark/run_context_32k.sh tools/benchmark/run_resident_atlas_prefill_check.sh \
  tools/benchmark/run_resident_atlas_prefill_measurement.sh \
  tools/benchmark/run_layer_sweep_prefill_measurement.sh \
+ tools/benchmark/run_layer_sweep_component_profile.sh \
  tools/benchmark/run_layer_component_profile.sh \
  tools/benchmark/run_resident_layer_component_profile.sh \
  tools/benchmark/run_shape_bucket_attention_profile.sh \

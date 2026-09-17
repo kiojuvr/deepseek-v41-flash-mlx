@@ -407,3 +407,14 @@ path remain the reference schedule.  The next full-path observation is
 `bash tools/benchmark/run_layer_sweep_prefill_measurement.sh`, with resident
 atlas and qualified chunk attention enabled and batched dense QMM explicitly
 disabled so the schedule inversion is measured in isolation.
+
+That full-path observation completed cleanly in
+`context-ladder/32k-run-20260917-223115-48574`.  Prefill fell from 106.233166
+to 65.403335 seconds (38.43%) and throughput rose from 19.41955 to 31.54273
+tok/s.  Token 339, 40 model-lifetime banks, zero warm construction, zero
+route/index readbacks, and no swap were preserved.  The remaining gap to the
+paired oMLX hook run is about 6.0x.  Invocation telemetry is not yet reduced:
+680 device MoE batches, 2,040 expert QMMs, 613,439 scalar QKs, 117,579 AV
+batches, and 12,378 token-serial attention calls remain.  Therefore the next
+decision uses the same-sweep component profile rather than immediately adding
+a local kernel.

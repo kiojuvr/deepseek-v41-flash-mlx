@@ -839,6 +839,24 @@ exit 1、tracked patch 0で、checkpoint load/prefill/state mutationには未到
 含まない。runnerはtrace/direct両分岐で空配列を明示的に分岐し、空の場合は`env` wrapper自体を
 省略するよう修正した。失敗ディレクトリは保持し、修正版をfresh rerunする。
 
+修正版の`context-ladder/32k-run-20260917-223115-48574`をreview済み。clean `3dd18e6`、
+exit 0、tracked patch 0、identity一致、token 339、swap 0。2,063-token sweepは
+65.403334583秒 / 31.542734 tok/sで、clean layer-majorの106.233166秒から40.829831秒
+（38.43%）短縮した。model constructionは40 banks / 15,360 experts、request-local
+constructionは0、route/index readbackも0。peak MLX 304,384,904,163 bytes、peak footprint
+309,932,423,624 bytes。これで2K full-pathへのsweep接続とwall改善を確認するが、単回runなので
+反復performance qualification、32K、256Kは未qualification。
+
+残存する約6.0xのoMLX差について次の変更を選ぶため、同一sweepのcomponent profileを実行する。
+同期境界が通常lazy scheduleを乱すためtotal wallは65.403秒と比較せず、Attention/MoE/post-MoEの
+支配比率とper-layer分布だけに使う。5--10分、Unified Memory上限340 GB、checkpoint read-only、
+ログはcanonical context-ladder directory、失敗時保持、resumeなし。
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_layer_sweep_component_profile.sh
+```
+
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh

@@ -429,6 +429,33 @@ progress, resource, identity, patch, and exit files below
 partial state is not published, and resume is unsupported; rerun from a fresh
 model.  This is a full-path performance observation, not 32K qualification.
 
+The clean full-path result is
+`context-ladder/32k-run-20260917-223115-48574` at `3dd18e6`: exit zero,
+empty tracked patch, matching identities, token 339, and no swap.  The single
+2,063-token sweep took 65.403334583 seconds (31.542734 tok/s), down
+40.829831 seconds or 38.43% from the clean 106.233166-second layer-major run.
+Model construction built exactly 40 resident banks and loaded 15,360 experts;
+the request built no bank.  Route and index diagnostic readbacks were zero.
+Peak MLX bytes were 304,384,904,163 and peak process footprint was
+309,932,423,624 bytes.  The oMLX selector-hook prefill remains about 6.0x
+shorter, so the architecture gap is reduced but not closed.
+
+The sweep still records 680 device MoE batches, 2,040 expert QMM dispatches,
+613,439 scalar QK calls, 117,579 AV batches, and 12,378 residual token-serial
+attention calls.  Before selecting batched dense QMM, scalar QK, or another
+execution change, the same sweep is profiled at existing component boundaries:
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_layer_sweep_component_profile.sh
+```
+
+Allow 5--10 minutes and 340 GB Unified Memory.  It performs the same read-only
+one-time checkpoint load and writes the canonical context-ladder logs.  The
+extra component synchronizations perturb lazy execution, so its total wall is
+diagnostic rather than comparable to 65.403 seconds.  Failure is retained and
+resume is unsupported.
+
 Within step 1, the first no-new-kernel candidate is to replace the optimized
 path's one-row `PackedLinearReference::project_quantized()` schedule with the
 already-existing multi-row QMM path.  Reference retains the one-row reduction
