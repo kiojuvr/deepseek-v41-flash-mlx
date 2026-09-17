@@ -131,7 +131,18 @@ if [[ -n "${DSV41_XCTRACE_OUTPUT:-}" ]]; then
    --target-stdout - --launch -- "${cmd[@]}") \
    > >(tee "$run_dir/test.log") 2> >(tee "$run_dir/resource.log" >&2)
 else
- (/usr/bin/time -l "${cmd[@]}") > >(tee "$run_dir/test.log") 2> >(tee "$run_dir/resource.log" >&2)
+ direct_target_env=()
+ if [[ -n "${DSV41_DIRECT_TARGET_DYLD:-}" ]]; then
+  direct_target_env+=("DYLD_INSERT_LIBRARIES=$DSV41_DIRECT_TARGET_DYLD")
+ fi
+ if [[ -n "${DSV41_METAL_DISPATCH_COUNTER_OUTPUT:-}" ]]; then
+  direct_target_env+=("DSV41_METAL_DISPATCH_COUNTER_OUTPUT=$DSV41_METAL_DISPATCH_COUNTER_OUTPUT")
+ fi
+ if [[ -n "${DSV41_METAL_DISPATCH_COUNTER_SCOPED:-}" ]]; then
+  direct_target_env+=("DSV41_METAL_DISPATCH_COUNTER_SCOPED=$DSV41_METAL_DISPATCH_COUNTER_SCOPED")
+ fi
+ (/usr/bin/time -l env "${direct_target_env[@]}" "${cmd[@]}") \
+   > >(tee "$run_dir/test.log") 2> >(tee "$run_dir/resource.log" >&2)
 fi
 /usr/bin/vm_stat > "$run_dir/system-after.txt"
 echo "Completed; repo canonical result/resource logs require review. This single run does not qualify 32K, performance, API, or 256K."

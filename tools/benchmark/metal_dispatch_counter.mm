@@ -30,12 +30,19 @@ struct Shape {
 struct State {
   std::atomic<bool> enabled{true};
   std::atomic<bool> scoped{false};
+  std::atomic<unsigned long long> command_buffers{0};
+  std::atomic<unsigned long long> compute_encoders{0};
   std::atomic<unsigned long long> thread_dispatches{0};
   std::atomic<unsigned long long> threadgroup_dispatches{0};
   std::mutex mutex;
   std::map<Shape, unsigned long long> shapes;
   IMP original_threads{nullptr};
   IMP original_threadgroups{nullptr};
+  IMP original_command_buffer{nullptr};
+  IMP original_command_buffer_unretained{nullptr};
+  IMP original_compute_encoder{nullptr};
+  IMP original_compute_encoder_dispatch_type{nullptr};
+  IMP original_compute_encoder_descriptor{nullptr};
 };
 
 State& state() {
@@ -62,10 +69,55 @@ void record(bool threads, MTLSize grid, MTLSize group) {
 extern "C" __attribute__((visibility("default")))
 void dsv41_metal_dispatch_counter_reset() {
   auto& s = state();
+  s.command_buffers.store(0, std::memory_order_relaxed);
+  s.compute_encoders.store(0, std::memory_order_relaxed);
   s.thread_dispatches.store(0, std::memory_order_relaxed);
   s.threadgroup_dispatches.store(0, std::memory_order_relaxed);
   std::lock_guard<std::mutex> lock(s.mutex);
   s.shapes.clear();
+}
+
+id replacement_command_buffer(id self, SEL command) {
+  auto& s = state();
+  if (s.enabled.load(std::memory_order_relaxed)) {
+    s.command_buffers.fetch_add(1, std::memory_order_relaxed);
+  }
+  return reinterpret_cast<id (*)(id, SEL)>(s.original_command_buffer)(self, command);
+}
+
+id replacement_command_buffer_unretained(id self, SEL command) {
+  auto& s = state();
+  if (s.enabled.load(std::memory_order_relaxed)) {
+    s.command_buffers.fetch_add(1, std::memory_order_relaxed);
+  }
+  return reinterpret_cast<id (*)(id, SEL)>(s.original_command_buffer_unretained)(self, command);
+}
+
+id replacement_compute_encoder(id self, SEL command) {
+  auto& s = state();
+  if (s.enabled.load(std::memory_order_relaxed)) {
+    s.compute_encoders.fetch_add(1, std::memory_order_relaxed);
+  }
+  return reinterpret_cast<id (*)(id, SEL)>(s.original_compute_encoder)(self, command);
+}
+
+id replacement_compute_encoder_dispatch_type(id self, SEL command, MTLDispatchType type) {
+  auto& s = state();
+  if (s.enabled.load(std::memory_order_relaxed)) {
+    s.compute_encoders.fetch_add(1, std::memory_order_relaxed);
+  }
+  return reinterpret_cast<id (*)(id, SEL, MTLDispatchType)>(
+      s.original_compute_encoder_dispatch_type)(self, command, type);
+}
+
+id replacement_compute_encoder_descriptor(
+    id self, SEL command, MTLComputePassDescriptor* descriptor) {
+  auto& s = state();
+  if (s.enabled.load(std::memory_order_relaxed)) {
+    s.compute_encoders.fetch_add(1, std::memory_order_relaxed);
+  }
+  return reinterpret_cast<id (*)(id, SEL, MTLComputePassDescriptor*)>(
+      s.original_compute_encoder_descriptor)(self, command, descriptor);
 }
 
 extern "C" __attribute__((visibility("default")))
@@ -115,10 +167,25 @@ __attribute__((constructor)) void install_hooks() {
     }
     id<MTLDevice> device = MTLCreateSystemDefaultDevice();
     id<MTLCommandQueue> queue = [device newCommandQueue];
+    auto& s = state();
+    hook(object_getClass(queue), @selector(commandBuffer),
+         reinterpret_cast<IMP>(replacement_command_buffer),
+         s.original_command_buffer);
+    hook(object_getClass(queue), @selector(commandBufferWithUnretainedReferences),
+         reinterpret_cast<IMP>(replacement_command_buffer_unretained),
+         s.original_command_buffer_unretained);
     id<MTLCommandBuffer> buffer = [queue commandBuffer];
+    hook(object_getClass(buffer), @selector(computeCommandEncoder),
+         reinterpret_cast<IMP>(replacement_compute_encoder),
+         s.original_compute_encoder);
+    hook(object_getClass(buffer), @selector(computeCommandEncoderWithDispatchType:),
+         reinterpret_cast<IMP>(replacement_compute_encoder_dispatch_type),
+         s.original_compute_encoder_dispatch_type);
+    hook(object_getClass(buffer), @selector(computeCommandEncoderWithDescriptor:),
+         reinterpret_cast<IMP>(replacement_compute_encoder_descriptor),
+         s.original_compute_encoder_descriptor);
     id<MTLComputeCommandEncoder> encoder =
         [buffer computeCommandEncoderWithDispatchType:MTLDispatchTypeConcurrent];
-    auto& s = state();
     hook(object_getClass(encoder),
          @selector(dispatchThreads:threadsPerThreadgroup:),
          reinterpret_cast<IMP>(replacement_threads), s.original_threads);
@@ -143,6 +210,10 @@ __attribute__((destructor)) void write_json() {
   output << "{\n  \"scope\": \"audit-only "
          << (s.scoped.load(std::memory_order_relaxed) ? "prefill-scoped" : "target-process")
          << " Metal compute dispatches\",\n"
+         << "  \"command_buffers\": "
+         << s.command_buffers.load(std::memory_order_relaxed) << ",\n"
+         << "  \"compute_encoders\": "
+         << s.compute_encoders.load(std::memory_order_relaxed) << ",\n"
          << "  \"dispatch_threads\": " << threads << ",\n"
          << "  \"dispatch_threadgroups\": " << groups << ",\n"
          << "  \"dispatch_total\": " << (threads + groups) << ",\n"

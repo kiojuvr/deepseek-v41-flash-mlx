@@ -245,26 +245,17 @@ bash tools/benchmark/run_prefill_gap_metal_capture.sh
 ```
 
 It runs one official-checkpoint resident model, 2,063-token prefill and one
-decode under the target-scoped `Metal Application` instrument.  Allow
-10--20 minutes, up to 340 GB Unified Memory, and about 289 GB of one-time
-checkpoint reads.  The system-wide `GPU` instrument is deliberately excluded:
-it produced a 12 GB package that continued finalizing after target exit.  The
-target-scoped trace is expected to remain small.  Trace overhead
-invalidates wall time.  Logs are retained under
+decode with a process-local Metal selector hook.  Instruments is not launched.
+Allow 5--10 minutes, up to 340 GB Unified Memory, and about 289 GB of one-time
+checkpoint reads.  Selector-hook overhead invalidates wall time.  Logs are retained under
 `artifacts/prefill-gap/metal-<timestamp>-<pid>/`; failure preserves partial
 files, but partial traces are not counts.  There is no safe resume; rerun with
 fresh model/request state.
 
-After a successful run, the runner itself exports and summarizes the trace.
-It enables the process-local selector hook only across the three prefill
-phases and writes exact prefill compute totals and shape frequencies to
-`metal-dispatch-counts.json`, then exports command-buffer, encoder,
-application interval, and resource-allocation tables into
-`metal-work-summary.json`.  `Metal Application` rows are target-scoped.
-Instruments itself does not expose dispatch events in this focused template,
-so its summary reports `kernel_dispatch_rows: null`; the selector hook is the
-dispatch authority and encoder count is never substituted for it.  The hook
-adds a mutex-protected shape counter, so capture wall time remains invalid.
+The hook is enabled only across the three prefill phases and writes exact
+prefill command-buffer, compute-encoder, compute-dispatch, and dispatch-shape
+counts to `metal-dispatch-counts.json`.  It adds a mutex-protected shape
+counter, so capture wall time remains invalid.
 The same hook can be applied to an equivalently configured oMLX target.  ds4's
 released Q4 run is useful for schedule counts but is not an official-precision
 performance pair.
@@ -289,6 +280,16 @@ result and 12,358,933 whole-process dispatch count are retained only as a
 diagnostic and are not a prefill-scoped count.  The runner now uses only
 `Metal Application`, and the counter starts disabled until the context runner
 enters prefill.
+
+A third capture at `artifacts/prefill-gap/metal-20260917-213606-46543` proved
+that `Metal Application` alone is also unsuitable: it generated an 11 GB
+package and remained in finalization after target exit.  The process-local
+counter nevertheless completed and measured **12,358,907 prefill compute
+dispatches** (10,468,136 `dispatchThreads`, 1,890,771
+`dispatchThreadgroups`, 7,066 distinct shapes) for 2,063 tokens.  That is
+5,990.7 dispatches/token and 18,174.9 dispatches per 128-token layer visit.
+The invalid trace was deleted.  The runner now launches the target directly
+with the hook and creates no Instruments package.
 
 ## Architecture decision
 

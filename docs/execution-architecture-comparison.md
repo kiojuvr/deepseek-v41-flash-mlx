@@ -379,8 +379,9 @@ token-serial FP GEMMs; 2,040 routed gather-QMMs; 613,439 scalar QK plus 117,579
 AV batch invocations; and 340 blocking eval calls plus 17 explicit
 synchronizations in the canonical measured prefill.  The initial 12 GB Metal
 System Trace did not finalize into an exportable document and is explicitly
-rejected in the audit.  A subsequent `Metal Application + GPU` attempt showed
-the same failure mode after target exit; the replacement runner therefore uses
-target-scoped `Metal Application` alone and gates its process-local dispatch
-counter to prefill.  No additional local Metal kernel is authorized until that
-replacement capture is reviewed.
+rejected in the audit.  Both `Metal Application + GPU` and `Metal Application`
+alone showed the same failure mode after target exit.  The retained
+process-local counter measured 12,358,907 prefill compute dispatches, or
+5,990.7/token and 18,174.9 per 128-token layer visit.  The replacement runner
+therefore launches no Instruments trace and gates command-buffer, encoder, and
+dispatch selector counters to prefill.

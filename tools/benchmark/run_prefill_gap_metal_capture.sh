@@ -9,11 +9,11 @@ xcrun clang++ -std=c++17 -O2 -fobjc-arc -dynamiclib \
   tools/benchmark/metal_dispatch_counter.mm -framework Foundation \
   -framework Metal -o "$counter"
 printf '%s\n' \
-  'scope=1 model; current official-precision resident path; 2063-token prefill + 1 decode under the target-scoped Metal Application instrument' \
-  'resources=allow 10-20 minutes; Unified Memory budget 340 GB; about 289 GB one-time checkpoint reads; target-scoped trace should remain small; checkpoint read-only' \
-  "logs=$root/{metal.trace,metal-dispatch-counts.json,metal-work-summary.json,runtime/{result.json,result.json.progress.jsonl,resource.log,identity.txt},capture-exit-code.txt}" \
-  'measurement=trace overhead invalidates wall-time comparison; command-buffer/encoder rows are target-scoped and Metal compute dispatch total/shape distribution are exact for prefill only' \
-  'failure=retain the entire directory; inspect capture-exit-code.txt and runtime/exit-code.txt; a partial trace is not a count' \
+  'scope=1 model; current official-precision resident path; 2063-token prefill + 1 decode with a process-local Metal selector counter; Instruments is not launched' \
+  'resources=allow 5-10 minutes; Unified Memory budget 340 GB; about 289 GB one-time checkpoint reads; no trace package; checkpoint read-only' \
+  "logs=$root/{metal-dispatch-counts.json,runtime/{result.json,result.json.progress.jsonl,resource.log,identity.txt},capture-exit-code.txt}" \
+  'measurement=command buffers, compute encoders, compute dispatch total, and shape distribution are exact for prefill only; selector-hook overhead invalidates wall-time comparison' \
+  'failure=retain the directory; inspect capture-exit-code.txt and runtime/exit-code.txt; a partial run is not a count' \
   'resume=unsupported; rerun this script with fresh model/request state because publication is transactional'
 
 finish() {
@@ -26,10 +26,9 @@ finish() {
 trap finish EXIT
 
 export DSV41_CONTEXT_RUN_DIR="$root/runtime"
-export DSV41_XCTRACE_OUTPUT="$root/metal.trace"
 export DSV41_METAL_DISPATCH_COUNTER_OUTPUT="$root/metal-dispatch-counts.json"
 export DSV41_METAL_DISPATCH_COUNTER_SCOPED=1
-export DSV41_XCTRACE_TARGET_DYLD="$counter"
+export DSV41_DIRECT_TARGET_DYLD="$counter"
 export CONTEXT_TOKENS=2064 TEACHER_TOKENS=0 TAIL_TEACHER_TOKENS=0 DECODE_TOKENS=1
 export DSV41_RUNTIME_PACKED_EXPERT_BANK=1 DSV41_RUNTIME_COMPACT_EXPERT_BANK=0
 export DSV41_RUNTIME_GROUP_SELECTED_EXPERTS=0 DSV41_RUNTIME_LAYER_FINITE_CHECKS=0
@@ -45,6 +44,6 @@ bash tools/benchmark/run_context_32k.sh
 test -s "$root/metal-dispatch-counts.json"
 python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["dispatch_total"] > 0' \
   "$root/metal-dispatch-counts.json"
-python3 tools/benchmark/summarize_prefill_metal_trace.py \
-  "$root/metal.trace" --output "$root/metal-work-summary.json"
-echo "Completed; review runtime/result.json, metal-dispatch-counts.json, and metal-work-summary.json together."
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["command_buffers"] > 0 and d["compute_encoders"] > 0' \
+  "$root/metal-dispatch-counts.json"
+echo "Completed; review runtime/result.json and metal-dispatch-counts.json together."

@@ -775,9 +775,10 @@ warm bank constructionとroute/index readbackは0、swapも0だった。このru
 比較結果は[gap audit](prefill-gap-audit.md)に固定した。
 
 Metal command / dispatch総数を閉じる長時間captureは以下。1 model、公式checkpoint、2,063 prefill +
-1 decode、10--20分、Unified Memory 340 GB、one-time checkpoint read約289 GB。system-wide `GPU`
-instrumentはtarget終了後も12 GB traceのfinalizeが終わらなかったため除外し、target-scoped
-`Metal Application`だけを使う。dispatch hookはprefill区間だけ有効化する。trace overheadがあるためwall性能値に使わない。ログは`artifacts/prefill-gap/metal-日時-PID/`、
+1 decode、5--10分、Unified Memory 340 GB、one-time checkpoint read約289 GB。`GPU`だけでなく
+`Metal Application`単体も11 GB traceのfinalizeがtarget終了後に止まったため、Instrumentsは起動しない。
+process-local hookをprefill区間だけ有効化し、command buffer / compute encoder / dispatchを数える。
+hook overheadがあるためwall性能値に使わない。ログは`artifacts/prefill-gap/metal-日時-PID/`、
 失敗時も全保持、resumeなし。partial traceのcountは採用しない。
 
 ```sh
