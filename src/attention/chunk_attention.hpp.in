@@ -1,0 +1,2 @@
+#pragma once
+inline constexpr char dsv41_chunk_attention_source[] = R"metal(@DSV41_CHUNK_ATTENTION@)metal";

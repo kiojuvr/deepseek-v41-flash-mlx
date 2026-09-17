@@ -105,6 +105,22 @@ int main(int argc,char** argv){try{
   auto out=dsv41::swa_attention_masked_reference(mx::zeros({64,512},mx::bfloat16),mx::ones({128,512},mx::bfloat16),mx::zeros({64}),mask);
   equal(out,mx::full({64,512},float(live)/float(live+1),mx::bfloat16),"masked sink mismatch");
  }
+ {
+  auto q=varied;
+  auto kv=mx::reshape(mx::concatenate({varied,varied},0),{2,128,512});
+  auto sink=mx::zeros({64},mx::float32);
+  auto valid=mx::greater_equal(mx::reshape(mx::arange(128,mx::int32),{1,128}),
+                               mx::reshape(mx::array({127,126},mx::int32),{2,1}));
+  auto candidate=dsv41::swa_attention_masked_chunk(q,kv,sink,valid);
+  auto first=dsv41::swa_attention_masked_reference(mx::reshape(mx::slice(q,{0,0,0},{1,64,512}),{64,512}),
+   mx::reshape(mx::slice(kv,{0,0,0},{1,128,512}),{128,512}),sink,
+   mx::greater_equal(mx::arange(128,mx::int32),mx::array(127)));
+  auto second=dsv41::swa_attention_masked_reference(mx::reshape(mx::slice(q,{1,0,0},{2,64,512}),{64,512}),
+   mx::reshape(mx::slice(kv,{1,0,0},{2,128,512}),{128,512}),sink,
+   mx::greater_equal(mx::arange(128,mx::int32),mx::array(126)));
+  auto expected=mx::concatenate({mx::expand_dims(first,0),mx::expand_dims(second,0)},0);
+  rms_close(candidate,expected,"chunk attention kernel tolerance");
+ }
  if(argc!=1&&argc!=3)throw std::runtime_error("usage: dsv41-swa-attention-test [checkpoint m1-summary]");
  if(argc==3){
   dsv41::WeightCatalog catalog(argv[1],argv[2]);

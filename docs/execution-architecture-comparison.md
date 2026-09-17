@@ -246,6 +246,31 @@ read about 578 GB logically while constructing 80 comparison banks, uses a
 240 GB Unified Memory budget, retains failed logs under `artifacts/attention/`,
 and has no resume. It is not passed until reviewed.
 
+The first run of that gate,
+`attention/chunk-backbone-20260917-085608-37522`, was reviewed and **rejected**.
+It was a clean `62517e2` run (empty tracked patch and matching identities),
+but the first 128-token chunk already produced hidden relative RMS
+`0.00554266`, max absolute error `2048`, mean absolute error `1.02469`, and
+2,595,308 BF16 mismatches.  That exceeds the pre-fixed `0.002` bound, so the
+run stopped before state/route qualification.  It used no swap and cannot be
+used for a performance conclusion.  The padded rank-3 MLX matmul candidate
+therefore remains disabled and is not a production path.  A follow-up attempt
+to apply MLX `vmap` to the scalar operator failed in the short fixture because
+the operator graph is not vectorizable in MLX 0.32.2; the gate is not relaxed.
+
+The next candidate must retain the scalar path as oracle and use the now
+profile-justified attention kernel boundary: DwarfStar stages one KV row for a
+group of heads, keeps selection on device, writes all token/head rows, and
+publishes the ring frontier only after the batch succeeds.  This is a kernel
+and commit-boundary adaptation, not promotion of the rejected rank-3 GEMM.
+The bounded implementation now assigns one Metal threadgroup to one token and
+eight heads, stages each KV row once for those heads, preserves the reference
+64-row online-softmax blocks and BF16 probability rounding, and emits BF16
+rows without host materialization.  Its masked synthetic fixture (including
+an entirely padded first 64-row block) and the official-checkpoint 3-token
+reuse output/state/continuation fixture pass.  It remains opt-in and must pass
+the same 40-layer runner before production promotion.
+
 The next loop should be architecture-first and preserve the project's stated
 correctness priority:
 

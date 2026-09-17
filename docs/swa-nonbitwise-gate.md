@@ -67,3 +67,13 @@ resident component profile `context-ladder/32k-run-20260917-005021-32331`では�
 69.652秒、layer wallの55.22%で最大項となったため、進行条件を満たした。最初の候補は専用Metal kernel
 ではなく、DwarfStarと同様にreuse attention rowsを一つのbatch graphへまとめる。短いfixtureだけでは
 promoteせず、`run_chunk_attention_backbone_check.sh`の2×128 / 40層gateをreviewしてからfull-pathへ進む。
+
+最初のgate `attention/chunk-backbone-20260917-085608-37522`はchunk 0 hidden relative RMS
+`0.00554266`で固定上限`0.002`を超えたためrejectした（max abs `2048`、mean abs `1.02469`、
+BF16 mismatch 2,595,308）。clean revision / identity一致、swap 0を確認した。state/route gateより前の
+停止なのでperformance結果ではない。padded rank-3 MLX matmul候補はproductionへ昇格せず、閾値も緩めない。
+次はDwarfStar型batch attention kernelでtoken/head dispatchとatomic frontier publicationを同時に扱う。
+
+その最小kernel候補は1 threadgroup=1 token×8 headでKV rowを共有し、64-row online-softmaxとBF16
+probability丸めを維持する。完全padding blockを含むsynthetic maskと公式checkpoint 3-token reuse
+output/state/continuation fixtureはpassした。既定offのまま、同じ2×128 / 40層gateへ進む。

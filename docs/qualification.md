@@ -589,6 +589,19 @@ cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_chunk_attention_backbone_check.sh
 ```
 
+run `attention/chunk-backbone-20260917-085608-37522`をreview済み。revision `62517e2`、tracked patch 0、
+identity一致、swap 0だったが、最初の128-token chunk hiddenはrelative RMS `0.00554266`、max abs
+`2048`、mean abs `1.02469`、BF16 mismatch 2,595,308で固定gate `<0.002`をfailした。そこで実行は
+state/publication/route qualification前に停止した。rank-3 MLX chunk attentionはrejectし、既定offを維持する。
+この失敗runからperformanceやPhase 4完了を主張しない。閾値は変更せず、次候補はDwarfStar型の
+token/head batch attention kernelとfull-sweep後のatomic frontier commitを一体で評価する。
+
+そのtoken/head Metal候補の最小fixtureはpassした。1 threadgroupが1 token×8 headを処理し、KV rowを
+共有する。reference同様に64-row block、BF16 probability丸め、sinkを用いる。完全padding blockを含む
+masked synthetic parityと、公式checkpoint 3-tokenのreuse output RMS、state、continuation、fork/reset/
+rejectionを確認済み。これは40層、route/index離散判断、wall timeのqualificationではない。長時間gateは
+上記と同じcommandで、runner identityへMetal sourceを追加済み。
+
 そのresident rerun `context-ladder/32k-run-20260916-100044-16544`をreview済み。exit 0、
 全identity一致、bank construction exactly 40。chunk 0は49.217220秒、chunk 1は17.518658秒
 （7.306462 token/s）、256-token prefillは66.739255秒（3.835823 token/s）。attention chunk化前の

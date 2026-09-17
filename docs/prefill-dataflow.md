@@ -236,6 +236,19 @@ relative RMS `<0.002`で判定する。この境界を採用し、reuse layerの
 fixtureではdevice publication併用時もoutput RMS gateとstate/continuation/fork/resetを通過した。40層へ
 昇格する前に2×128でroute/index/state/publication exactとhidden/pre-mix/logits RMS/argmaxを確認する。
 
+最初の40層gate `attention/chunk-backbone-20260917-085608-37522`はclean commit `62517e2`、identity一致、
+tracked patch 0だったが、chunk 0 hiddenのrelative RMS `0.00554266`（max abs `2048`、mean abs
+`1.02469`、BF16 mismatch 2,595,308）で事前固定した`0.002`を超えたためrejectした。state/route判定より
+前に停止しておりperformance測定には使わない。rank-3 padded MLX matmul候補は既定offのままproductionへ
+昇格しない。scalar operatorのMLX `vmap`も短時間fixtureでvectorization未対応となったため、次はprofileで
+正当化済みのattention専用kernel境界とchunk末尾atomic frontier commitをDwarfStarから適応する。
+
+新候補は1 threadgroupで1 token×8 headを担当し、KV rowを8 head間で共有する。referenceの64-row
+online-softmax block、BF16 probability丸め、sink順を保持する。完全paddingの先頭64-row blockで
+`-inf - -inf`がNaNになる初期実装は、referenceと同じmaximum `-1e30`へ直した。masked synthetic fixtureと
+公式checkpointの3-token reuse output/state/continuation fixtureはpass。既定offのまま、同じ2×128 / 40層
+runnerで昇格判定する。
+
 2×128 compact promotionでは実route unionの合計loaded expertが10,543（80 bank constructions、
 individual / compact比較の合計）で、full bankの30,720 expert loadの34.3%だった。
 ただし比較用individual modelのcacheが同一processに残るため、測定の156 GB cacheは
