@@ -1,0 +1,2 @@
+#pragma once
+inline constexpr const char* dsv41_fused_chunk_attention_source=R"fusedattn(@DSV41_FUSED_CHUNK_ATTENTION@)fusedattn";

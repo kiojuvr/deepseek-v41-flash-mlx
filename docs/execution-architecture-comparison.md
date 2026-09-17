@@ -418,3 +418,15 @@ paired oMLX hook run is about 6.0x.  Invocation telemetry is not yet reduced:
 batches, and 12,378 token-serial attention calls remain.  Therefore the next
 decision uses the same-sweep component profile rather than immediately adding
 a local kernel.
+
+That synchronized profile (`32k-run-20260917-224750-48769`) attributes 41.180
+of 60.379 component seconds (68.2%) to attention, versus 17.838 seconds (29.5%)
+to MoE and 1.130 seconds (1.9%) to post-MoE. This closes the component gate
+required before a kernel change. The first candidate follows the oMLX and
+DwarfStar wide-attention schedule while retaining the current BF16 persistent
+cache ABI: one dispatch performs QK, official 64-key online reduction, BF16
+probability rounding, AV, and sink normalization for an equal-shape reused-
+attention group. Its minimal 2-token x 128-row fixture is bit-exact; the
+default remains off until
+`tools/benchmark/run_fused_chunk_attention_backbone_check.sh` passes and is
+reviewed.

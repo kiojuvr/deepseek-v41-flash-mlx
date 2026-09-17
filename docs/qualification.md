@@ -857,6 +857,26 @@ cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_layer_sweep_component_profile.sh
 ```
 
+`context-ladder/32k-run-20260917-224750-48769`をreview済み。clean `be602bd`、
+exit 0、identity一致、token 339、swap 0。40層のGPU-completion component合計
+60.378607秒のうちAttention 41.179713秒（68.2%）、MoE 17.837538秒（29.5%）、
+post-MoE 1.129525秒（1.9%）だった。同期を含むprefill 62.822960秒は通常scheduleとの
+performance比較には使わない。この結果により次の支配項をAttentionと確定した。
+
+oMLXのwide packed attentionとDwarfStarのbatch attentionを踏まえ、既存BF16 cache ABIを
+変えず、QK、公式64-key online reduction、BF16 probability境界、AV、sink normalizationを
+equal-shape reuse groupごとに1 Metal dispatchへまとめる候補を追加した。token-serial oracleと
+persistent publication形式は変更しない。2 token x 128 rowの最小fixtureはbit-exactで通過した。
+公式checkpointの40層gateは約5分、Unified Memory上限240 GB、checkpoint read-only、失敗ログ保持、
+resumeなしで、次をfresh stateから実行する。
+
+```sh
+bash tools/benchmark/run_fused_chunk_attention_backbone_check.sh
+```
+
+結果review前は`DSV41_RUNTIME_FUSED_CHUNK_ATTENTION`のdefaultを0のまま維持し、full-pathへは
+昇格しない。このgateはsemantic/state qualificationでありperformance qualificationではない。
+
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh

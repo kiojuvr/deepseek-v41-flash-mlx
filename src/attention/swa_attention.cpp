@@ -1,5 +1,7 @@
 #include "dsv41/swa_attention.hpp"
 #include "dsv41/attention_telemetry.hpp"
+#include "dsv41/execution_policy.hpp"
+#include "fused_chunk_attention.hpp"
 #include <cmath>
 #include <algorithm>
 #include <stdexcept>
@@ -42,6 +44,17 @@ mx::array swa_attention_masked_chunk(const mx::array& q,const mx::array& kv,
     sink.dtype()!=mx::float32||sink.shape()!=mx::Shape({64})||valid.dtype()!=mx::bool_||
     valid.shape()!=mx::Shape({q.shape(0),kv.shape(1)}))throw std::runtime_error("invalid chunk attention geometry");
  const int tokens=q.shape(0),rows=kv.shape(1);auto qf=mx::astype(q,mx::float32);
+ if(runtime_fused_chunk_attention_enabled()){
+  static auto kernel=mx::fast::metal_kernel("dsv41_fused_chunk_attention",
+   {"queries","keys","sinks","valid","meta","scale"},{"output"},
+   dsv41_fused_chunk_attention_source);
+  auto out=kernel({q,kv,sink,valid,mx::array({std::int32_t(rows)},mx::int32),
+                   mx::array({float(std::pow(512.0,-0.5))},mx::float32)},
+   {{tokens,64,512}},{mx::bfloat16},{64*32,tokens,1},{32,1,1},{{"T",mx::bfloat16}},std::nullopt,false,
+   mx::Device::gpu);
+  { std::lock_guard l(attention_telemetry_mutex());++attention_telemetry().chunk_fused_attention_calls; }
+  return out[0];
+ }
  auto maximum=mx::full({tokens,64,1},-1e30f,mx::float32);
  auto denominator=mx::zeros({tokens,64,1},mx::float32);
  auto accumulated=mx::zeros({tokens,64,512},mx::float32);

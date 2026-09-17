@@ -456,6 +456,37 @@ extra component synchronizations perturb lazy execution, so its total wall is
 diagnostic rather than comparable to 65.403 seconds.  Failure is retained and
 resume is unsupported.
 
+The reviewed component run is
+`context-ladder/32k-run-20260917-224750-48769` at clean `be602bd`, exit zero,
+with matching identities, token 339, and no swap. Across 40 layers, measured
+GPU-completion wall was 60.378607 seconds: attention 41.179713 seconds (68.2%),
+MoE 17.837538 seconds (29.5%), and post-MoE 1.129525 seconds (1.9%). This
+establishes attention, rather than dense QMM, as the next full-path target.
+The synchronized 62.822960-second prefill is not compared with the normal
+65.403-second lazy schedule.
+
+Pinned oMLX uses a wide native packed-attention call with the official 64-key
+online maximum and BF16 probability boundary; DwarfStar likewise executes
+batch attention inside its layer sweep. The current runtime instead retains
+613,439 token-scalar QK invocations and 117,579 decomposed AV batches. The
+first adaptation keeps the existing BF16 cache ABI and fuses QK, the 64-key
+online reduction, BF16 probability rounding, AV, and sink normalization into
+one Metal dispatch per equal-shape reused-attention group. It does not alter
+persistent cache format, source-layer publication, or the token-serial oracle.
+The 2-token x 128-row fixture is bit-exact. The candidate remains opt-in with
+`DSV41_RUNTIME_FUSED_CHUNK_ATTENTION=1` pending this official-checkpoint gate:
+
+```sh
+bash tools/benchmark/run_fused_chunk_attention_backbone_check.sh
+```
+
+Allow about 5 minutes and 240 GB Unified Memory. It compares two 128-token,
+40-layer candidate chunks against the token-serial oracle, retains logs below
+`artifacts/attention/fused-chunk-backbone-<timestamp>-<pid>/`, leaves the
+checkpoint read-only, and has no resume; a failed run is retained and rerun
+from fresh model/request state. This is a semantic/state promotion gate, not
+a full-path performance qualification.
+
 Within step 1, the first no-new-kernel candidate is to replace the optimized
 path's one-row `PackedLinearReference::project_quantized()` schedule with the
 already-existing multi-row QMM path.  Reference retains the one-row reduction

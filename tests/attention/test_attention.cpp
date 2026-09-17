@@ -1,4 +1,5 @@
 #include "dsv41/swa_attention.hpp"
+#include "dsv41/attention_telemetry.hpp"
 #include "dsv41/swa_projection.hpp"
 #include "dsv41/swa_layer.hpp"
 #include "dsv41/moe.hpp"
@@ -120,6 +121,7 @@ int main(int argc,char** argv){try{
   equal(out,mx::full({64,512},float(live)/float(live+1),mx::bfloat16),"masked sink mismatch");
  }
  {
+  dsv41::reset_attention_telemetry();
   auto q=varied;
   auto kv=mx::reshape(mx::concatenate({varied,varied},0),{2,128,512});
   auto sink=mx::zeros({64},mx::float32);
@@ -134,6 +136,10 @@ int main(int argc,char** argv){try{
    mx::greater_equal(mx::arange(128,mx::int32),mx::array(126)));
   auto expected=mx::concatenate({mx::expand_dims(first,0),mx::expand_dims(second,0)},0);
   rms_report(candidate,expected,"chunk attention core");
+  const auto telemetry=dsv41::attention_telemetry();
+  if(dsv41::runtime_fused_chunk_attention_enabled()&&
+     (telemetry.chunk_fused_attention_calls!=1||telemetry.chunk_scalar_qk_calls!=0||telemetry.chunk_av_batches!=0))
+   throw std::runtime_error("fused chunk attention dispatch telemetry mismatch");
  }
  if(argc!=1&&argc!=3)throw std::runtime_error("usage: dsv41-swa-attention-test [checkpoint m1-summary]");
  if(argc==3){
