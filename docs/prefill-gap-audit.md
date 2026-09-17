@@ -147,9 +147,10 @@ ordered rows, validity masks, projected rows, and publication objects.  The
 reviewed telemetry counts 102 state concatenations but does not count every
 MLX `take`, temporary `concatenate`, or allocator event inside the reuse path;
 those values must not be invented.  The focused Metal capture below records
-target resource-allocation, command-buffer, and encoder tables.  Those close
-submission counts, but they do not by themselves expose individual kernel
-dispatches.
+target resource-allocation, command-buffer, and encoder tables.  An audit-only
+process-local hook also counts the two `MTLComputeCommandEncoder` dispatch
+selectors and their grid/threadgroup shapes.  The hook is DYLD-inserted only
+into the captured target and is never linked into the production runtime.
 
 oMLX uses one device route permutation and inverse permutation per layer, then
 one custom combine/unpermute.  ds4 builds one token-to-expert map and compact
@@ -201,21 +202,17 @@ invalidates wall time.  Logs are retained under
 files, but partial traces are not counts.  There is no safe resume; rerun with
 fresh model/request state.
 
-After a successful run:
-
-```sh
-python3 tools/benchmark/summarize_prefill_metal_trace.py \
-  artifacts/prefill-gap/metal-<timestamp>-<pid>/metal.trace
-```
-
-The summarizer exports command-buffer, encoder, application/GPU interval, and
-resource-allocation tables.  `Metal Application` rows are target-scoped;
-`GPU` intervals may include other processes and are descriptive only.  If
-Instruments does not expose kernel dispatch events, the summary reports
-`kernel_dispatch_rows: null`; encoder count is never mislabelled as kernel
-dispatch count.  A captured current submission total can then be paired with
-an equivalently configured oMLX trace.  Exact individual dispatch totals
-require Shader Timeline or MLX command-encoder instrumentation.  ds4's
+After a successful run, the runner itself exports and summarizes the trace.
+It writes exact target compute totals and shape frequencies to
+`metal-dispatch-counts.json`, then exports command-buffer, encoder,
+application/GPU interval, and resource-allocation tables into
+`metal-work-summary.json`.  `Metal Application` rows are target-scoped;
+`GPU` intervals may include other processes and are descriptive only.
+Instruments itself does not expose dispatch events in this focused template,
+so its summary reports `kernel_dispatch_rows: null`; the selector hook is the
+dispatch authority and encoder count is never substituted for it.  The hook
+adds a mutex-protected shape counter, so capture wall time remains invalid.
+The same hook can be applied to an equivalently configured oMLX target.  ds4's
 released Q4 run is useful for schedule counts but is not an official-precision
 performance pair.
 

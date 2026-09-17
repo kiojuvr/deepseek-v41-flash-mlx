@@ -112,13 +112,21 @@ fi
 /usr/bin/vm_stat >> "$run_dir/system-before.txt"
 if [[ -n "${DSV41_XCTRACE_OUTPUT:-}" ]]; then
  mkdir -p "$(dirname "$DSV41_XCTRACE_OUTPUT")"
+ trace_target_env=()
+ if [[ -n "${DSV41_XCTRACE_TARGET_DYLD:-}" ]]; then
+  trace_target_env+=(--env "DYLD_INSERT_LIBRARIES=$DSV41_XCTRACE_TARGET_DYLD")
+ fi
+ if [[ -n "${DSV41_METAL_DISPATCH_COUNTER_OUTPUT:-}" ]]; then
+  trace_target_env+=(--env "DSV41_METAL_DISPATCH_COUNTER_OUTPUT=$DSV41_METAL_DISPATCH_COUNTER_OUTPUT")
+ fi
  # Metal System Trace records system-wide kdebug data and produced a 12 GB
  # package that could not be finalized/exported for this workload.  These two
  # focused instruments retain target command-buffer/encoder records without
  # turning a workload audit into a system trace.
  (/usr/bin/time -l xcrun xctrace record \
    --instrument 'Metal Application' --instrument 'GPU' \
-   --output "$DSV41_XCTRACE_OUTPUT" --target-stdout - --launch -- "${cmd[@]}") \
+   --output "$DSV41_XCTRACE_OUTPUT" "${trace_target_env[@]}" \
+   --target-stdout - --launch -- "${cmd[@]}") \
    > >(tee "$run_dir/test.log") 2> >(tee "$run_dir/resource.log" >&2)
 else
  (/usr/bin/time -l "${cmd[@]}") > >(tee "$run_dir/test.log") 2> >(tee "$run_dir/resource.log" >&2)

@@ -4,11 +4,15 @@ cd "$(dirname "$0")/../.."
 
 root="artifacts/prefill-gap/metal-$(date +%Y%m%d-%H%M%S)-$$"
 mkdir -p "$root"
+counter="$root/metal-dispatch-counter.dylib"
+xcrun clang++ -std=c++17 -O2 -fobjc-arc -dynamiclib \
+  tools/benchmark/metal_dispatch_counter.mm -framework Foundation \
+  -framework Metal -o "$counter"
 printf '%s\n' \
   'scope=1 model; current official-precision resident path; 2063-token prefill + 1 decode under focused Metal Application + GPU instruments' \
   'resources=allow 10-20 minutes; Unified Memory budget 340 GB; about 289 GB one-time checkpoint reads; focused trace is expected to remain far below a full System Trace; checkpoint read-only' \
-  "logs=$root/{metal.trace,runtime/{result.json,result.json.progress.jsonl,resource.log,identity.txt},capture-exit-code.txt}" \
-  'measurement=trace overhead invalidates wall-time comparison; command-buffer and encoder counts are exact; kernel dispatch remains unresolved unless an explicit dispatch table is present' \
+  "logs=$root/{metal.trace,metal-dispatch-counts.json,metal-work-summary.json,runtime/{result.json,result.json.progress.jsonl,resource.log,identity.txt},capture-exit-code.txt}" \
+  'measurement=trace overhead invalidates wall-time comparison; command-buffer/encoder counts and Metal compute dispatch total/shape distribution are exact for the target process' \
   'failure=retain the entire directory; inspect capture-exit-code.txt and runtime/exit-code.txt; a partial trace is not a count' \
   'resume=unsupported; rerun this script with fresh model/request state because publication is transactional'
 
@@ -23,6 +27,8 @@ trap finish EXIT
 
 export DSV41_CONTEXT_RUN_DIR="$root/runtime"
 export DSV41_XCTRACE_OUTPUT="$root/metal.trace"
+export DSV41_METAL_DISPATCH_COUNTER_OUTPUT="$root/metal-dispatch-counts.json"
+export DSV41_XCTRACE_TARGET_DYLD="$counter"
 export CONTEXT_TOKENS=2064 TEACHER_TOKENS=0 TAIL_TEACHER_TOKENS=0 DECODE_TOKENS=1
 export DSV41_RUNTIME_PACKED_EXPERT_BANK=1 DSV41_RUNTIME_COMPACT_EXPERT_BANK=0
 export DSV41_RUNTIME_GROUP_SELECTED_EXPERTS=0 DSV41_RUNTIME_LAYER_FINITE_CHECKS=0
@@ -35,4 +41,9 @@ export DSV41_CONTEXT_PROJECTED_WALL_LIMIT_SECONDS=0 CACHE_CONDITION=unknown
 export RUN_CONDITIONS=prefill-gap-focused-metal-trace
 
 bash tools/benchmark/run_context_32k.sh
-echo "Completed; review the runtime result and summarize the trace. Never substitute encoder count for kernel dispatch count."
+test -s "$root/metal-dispatch-counts.json"
+python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["dispatch_total"] > 0' \
+  "$root/metal-dispatch-counts.json"
+python3 tools/benchmark/summarize_prefill_metal_trace.py \
+  "$root/metal.trace" --output "$root/metal-work-summary.json"
+echo "Completed; review runtime/result.json, metal-dispatch-counts.json, and metal-work-summary.json together."
