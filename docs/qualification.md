@@ -958,6 +958,24 @@ exactだった。telemetryはpacked attention chunk 76、batched split-K QK 23,8
 9,594。これによりexact-shape packed materializationだけを2K full-path測定へ昇格する。
 performanceおよび17,910 shape group削減は未qualifiedのままとする。
 
+一度だけ実行した2K packed-materialization測定
+`context-ladder/32k-run-20260918-140056-62434`をreview済み。clean `ea27464`、
+tracked patch 0 bytes、exit 0、swap 0。prefillは48.749250秒 / 42.3186 token/sで、
+比較対象62.619395秒から13.870145秒（22.15%）短縮した。この結果でmaterialization単体の
+探索は終了し、局所QK/AV/tail最適化へは進まない。
+
+Phase 4の次candidateは`DSV41_RUNTIME_WIDE_ATTENTION=1`。DwarfStar MIT heads8
+indexed-attentionのwork ownershipを公式BF16 Q/local-KVとFP4/E4M3 packed pooled cacheへ
+適応し、1 compressed layer x chunkを1 dispatchとしてQK/mask/online softmax/BF16 PV/AVまで
+所有する。index-sourceが固定`[tokens,512]` device row planをpublicationへ載せ、後続reuse layerは
+同じplanを再利用する。standalone local/packed fixtureのRMSは0.000195373 / 0.000256431。
+component結果に過ぎず、full-backbone昇格は次の約5分、240 GB、checkpoint read-only、
+失敗ログ保持、resumeなしのgateで行う。
+
+```sh
+bash tools/benchmark/run_wide_attention_backbone_check.sh
+```
+
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh

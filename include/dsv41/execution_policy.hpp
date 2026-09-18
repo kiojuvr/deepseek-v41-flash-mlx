@@ -101,15 +101,23 @@ inline bool runtime_batched_splitk_qk_diagnostics_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_BATCHED_SPLITK_QK_DIAGNOSTICS must be 0 or 1");
 }
 
-// Submit one packed, device-resident KV work list per layer chunk. The first
-// oMLX one-dispatch reduction exceeded the fixed semantic gate; production
-// candidate execution therefore retains the qualified Steel split-K/AV
-// reductions while removing host shape grouping and pooled gather/decode.
+// Decode packed pooled rows on device while preserving the oracle's exact
+// selected-count groups and qualified Steel split-K/AV reductions.
 inline bool runtime_packed_chunk_attention_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_PACKED_CHUNK_ATTENTION");
  if(value==nullptr||std::string_view(value)=="0") return false;
  if(std::string_view(value)=="1") return true;
  throw std::runtime_error("DSV41_RUNTIME_PACKED_CHUNK_ATTENTION must be 0 or 1");
+}
+
+// Phase-4 architecture candidate: one DwarfStar-style fused attention
+// operation owns a complete layer chunk. It is separate from the qualified
+// exact-shape materializer until the fixed full-backbone gate passes.
+inline bool runtime_wide_attention_enabled() {
+ const char* value=std::getenv("DSV41_RUNTIME_WIDE_ATTENTION");
+ if(value==nullptr||std::string_view(value)=="0") return false;
+ if(std::string_view(value)=="1") return true;
+ throw std::runtime_error("DSV41_RUNTIME_WIDE_ATTENTION must be 0 or 1");
 }
 
 // Own prefill at the request boundary and execute it as a transactional

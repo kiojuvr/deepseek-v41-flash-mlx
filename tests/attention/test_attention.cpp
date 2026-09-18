@@ -135,6 +135,9 @@ int main(int argc,char** argv){try{
    mx::reshape(mx::slice(q,{token,0,0},{token+1,64,512}),{64,512}),
    mx::slice(local,{0,0},{token+1,512}),sink,mx::ones({token+1},mx::bool_)),0));
   rms_report(candidate,mx::concatenate(reference,0),"packed fused attention local fixture");
+  auto wide=dsv41::swa_wide_attention_chunk(q,local,mx::zeros({1,256},mx::uint8),
+   mx::ones({1,32},mx::uint8),topk,sink,0,4);
+  rms_report(wide,mx::concatenate(reference,0),"wide fused attention local fixture");
   auto pooled_source=mx::astype(mx::reshape(mx::sin(mx::arange(512,mx::float32)),{1,512}),mx::bfloat16);
   auto pooled=dsv41::kv_quant_reference(pooled_source,dsv41::KVQuantFormat::MainE4M3);
   auto selected=mx::zeros({2,1},mx::int32);
@@ -147,6 +150,8 @@ int main(int argc,char** argv){try{
     mx::ones({ordered.shape(0)},mx::bool_)),0));
   }
   rms_report(candidate,mx::concatenate(reference,0),"packed fused attention pooled fixture");
+  wide=dsv41::swa_wide_attention_chunk(q,local,pooled.packed,pooled.scales,selected,sink,8,4);
+  rms_report(wide,mx::concatenate(reference,0),"wide fused attention pooled fixture");
  }
  {
   dsv41::reset_attention_telemetry();
@@ -225,7 +230,8 @@ int main(int argc,char** argv){try{
     auto intact=mx::all(mx::equal(snapshot,publications.back().cache().main_bytes()));mx::eval(intact);if(!intact.item<bool>())throw std::runtime_error("consumer changed producer bytes");}
    dsv41::ReusedLayerState chunk_target;auto chunk_publications=publications;
    auto chunk_output=consumer.forward_chunk(inputs,chunk_target,chunk_publications,0);
-   if(dsv41::runtime_chunk_attention_enabled()||dsv41::runtime_packed_chunk_attention_enabled())
+   if(dsv41::runtime_chunk_attention_enabled()||dsv41::runtime_packed_chunk_attention_enabled()||
+      dsv41::runtime_wide_attention_enabled())
     rms_close(chunk_output,mx::concatenate(outputs,0),"consumer chunk output tolerance");
    else equal(chunk_output,mx::concatenate(outputs,0),"consumer chunk output bits");
    equal(chunk_target.window(),target.window(),"consumer chunk window bits");

@@ -630,3 +630,15 @@ reported 76 packed-attention chunk calls, 23,810 batched split-K QK calls, and
 9,594 scalar QK calls. This promotes only the exact-shape packed
 materialization boundary to the 2K measurement; it is not evidence of reduced
 attention-group topology.
+
+The one permitted 2K follow-up
+`context-ladder/32k-run-20260918-140056-62434` completed at 48.749250 seconds /
+42.3186 token/s from clean `ea27464` with exit 0 and swap 0. It improved the
+62.619395-second comparison by 13.870145 seconds (22.15%), then closed the
+materialization experiment. The remaining topology still expands 646 logical
+layer-chunk operations into 17,910 groups, approximately 252,738 QK dispatches
+(`2 x 112,248` split-K stages plus 28,242 scalar tails), and 131,418 AV
+batches. Phase 4 now treats metadata, index reuse, QK/mask/online-softmax/AV,
+publication, and frontier commit as one execution plan. See the integrated
+plan in `execution-architecture-comparison.md`; no further local QK, AV, or
+materializer candidate is authorized by this result.

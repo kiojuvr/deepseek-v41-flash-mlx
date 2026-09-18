@@ -68,6 +68,17 @@ mx::array main_rows(const GlobalKVState& state,const mx::array& selected){
  return mx::astype(mx::reshape(mx::multiply(mx::reshape(v,{int(selected.size()),32,16}),
   mx::expand_dims(scale,-1)),{int(selected.size()),512}),mx::bfloat16);
 }
+mx::array wide_topk(const std::vector<mx::array>& selected){
+ std::vector<mx::array> rows;rows.reserve(selected.size());
+ for(const auto& row:selected){
+  if(row.dtype()!=mx::int32||row.ndim()!=1||row.size()>512)
+   throw std::runtime_error("invalid wide attention selected rows");
+  auto padded=row.size()==512?row:mx::concatenate(
+   {row,mx::broadcast_to(mx::array(-1,mx::int32),{512-int(row.size())})},0);
+  rows.push_back(mx::expand_dims(padded,0));
+ }
+ return mx::concatenate(rows,0);
+}
 }
 CompressedLayerReference::CompressedLayerReference(WeightCatalog& c,int layer):layer_(checked_producer_layer(layer)),ratio_(layer_compress_ratio(layer)),
  qa_(c,("layers."+std::to_string(layer_))+".attn.wq_a"),qb_(c,("layers."+std::to_string(layer_))+".attn.wq_b"),kv_(c,("layers."+std::to_string(layer_))+".attn.wkv"),output_(c,("layers."+std::to_string(layer_))+".attn.wo_b"),
@@ -88,7 +99,8 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
  auto kv=linear_activation_reference(compressed_rope_reference(
   rms_norm_reference(kv_.forward(h),kvnorm_,1e-20f),positions)).decoded;
  auto next=state;std::vector<mx::array> projected_rows;projected_rows.reserve(h.shape(0));
- const bool packed_chunk=runtime_packed_chunk_attention_enabled()&&publications&&h.shape(0)>1;
+ const bool wide_chunk=runtime_wide_attention_enabled()&&publications&&h.shape(0)>1;
+ const bool packed_chunk=(runtime_packed_chunk_attention_enabled()||wide_chunk)&&publications&&h.shape(0)>1;
  std::vector<mx::array> packed_rows;if(packed_chunk)packed_rows.reserve(h.shape(0));
  auto all_window=mx::concatenate({state.window_,kv},0);
  { std::lock_guard l(attention_telemetry_mutex()); auto& t=attention_telemetry(); ++t.concat_calls; t.concat_input_bytes+=(state.window_.size()+kv.size())*2; t.concat_output_bytes+=all_window.size()*2; t.cumulative_bytes_copied+=all_window.size()*2; }
@@ -127,6 +139,14 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
  }
  if(packed_chunk){
   std::vector<mx::array> attention_groups;
+  if(wide_chunk){
+   auto plan=wide_topk(packed_rows);
+   for(auto& publication:pending_publications)
+    publication.publish_chunk_plan(layer_,plan,start,h.shape(0));
+   auto o=swa_wide_attention_chunk(q,all_window,cache_prefixes.back().main_bytes(),
+    cache_prefixes.back().main_scales(),plan,sink_,start,ratio_);
+   attention_groups.push_back(o);
+  }else{
   auto run_group=[&](int first,int end,int selected_count){
    auto local=mx::slice(all_window,{0,0},{state.window_.shape(0)+end,512});
    mx::array rows=mx::broadcast_to(mx::array(-1,mx::int32),{end-first,1});
@@ -147,6 +167,7 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
          int(packed_rows[end].size())==selected_count)++end;
    run_group(first,end,selected_count);first=end;
   }
+  }
   auto o=attention_groups.size()==1?attention_groups.front():mx::concatenate(attention_groups,0);
   o=compressed_rope_reference(o,positions,true);
   auto grouped=mx::transpose(grouped_,{0,2,1});
@@ -155,7 +176,8 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
    projected_rows.push_back(mx::reshape(mx::matmul(token_o,grouped),{1,8192}));
   }
   { std::lock_guard l(attention_telemetry_mutex());
-    ++attention_telemetry().packed_chunk_attention_calls; }
+    if(wide_chunk)++attention_telemetry().wide_attention_calls;
+    else ++attention_telemetry().packed_chunk_attention_calls; }
  }
  auto projected=projected_rows.size()==1?projected_rows.front():mx::concatenate(projected_rows,0);
  next.window_=mx::slice(all_window,{std::max(0,all_window.shape(0)-128),0},{all_window.shape(0),512});
@@ -252,9 +274,20 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
  }
  { std::lock_guard l(attention_telemetry_mutex());auto& t=attention_telemetry();
    t.logical_tokens+=x.shape(0);t.attention_rows+=x.shape(0); }
- if(runtime_packed_chunk_attention_enabled()&&x.shape(0)>1){
+ if((runtime_packed_chunk_attention_enabled()||runtime_wide_attention_enabled())&&x.shape(0)>1){
+  const bool wide_chunk=runtime_wide_attention_enabled();
   const auto& pooled=publications.back().cache();
   std::vector<mx::array> attention_groups;
+  if(wide_chunk){
+   mx::array plan=mx::array(0);
+   if(is_index_source_){
+    plan=wide_topk(selected_rows);
+    for(auto& publication:publications)
+     publication.publish_chunk_plan(layer_,plan,start,x.shape(0));
+   }else plan=publications.front().device_chunk_indices(layer_,start,x.shape(0));
+   attention_groups.push_back(swa_wide_attention_chunk(q,all_window,pooled.main_bytes(),
+    pooled.main_scales(),plan,sink_,start,ratio_));
+  }else{
   auto run_group=[&](int first,int end,int selected_count){
    auto local=mx::slice(all_window,{0,0},{state.window_.shape(0)+end,512});
    mx::array rows=mx::broadcast_to(mx::array(-1,mx::int32),{end-first,1});
@@ -275,6 +308,7 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
          int(selected_rows[end].size())==selected_count)++end;
    run_group(first,end,selected_count);first=end;
   }
+  }
   auto o=attention_groups.size()==1?attention_groups.front():mx::concatenate(attention_groups,0);
   o=compressed_rope_reference(o,positions,true);
   auto grouped=mx::transpose(grouped_,{0,2,1});
@@ -283,7 +317,8 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
    projected_rows.push_back(mx::reshape(mx::matmul(token_o,grouped),{1,8192}));
   }
   { std::lock_guard l(attention_telemetry_mutex());
-    ++attention_telemetry().packed_chunk_attention_calls; }
+    if(wide_chunk)++attention_telemetry().wide_attention_calls;
+    else ++attention_telemetry().packed_chunk_attention_calls; }
  }else if(runtime_chunk_attention_enabled()&&x.shape(0)>1){
   auto grouped=mx::transpose(grouped_,{0,2,1});
   for(int first=0;first<x.shape(0);){

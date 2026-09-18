@@ -1,0 +1,2 @@
+#pragma once
+inline constexpr const char* dsv41_wide_chunk_attention_source=R"wideattention(@DSV41_WIDE_CHUNK_ATTENTION@)wideattention";

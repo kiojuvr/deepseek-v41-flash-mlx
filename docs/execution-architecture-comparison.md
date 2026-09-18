@@ -565,3 +565,79 @@ commit `3878755`, with an empty tracked patch, exit 0, and zero swap. The run
 reported 76 packed-attention chunk calls, 23,810 batched split-K QK calls, and
 9,594 scalar QK calls. This qualifies the packed materializer semantically; it
 does not qualify performance or claim that the shape groups were removed.
+
+## Phase 4 integrated execution plan
+
+The one permitted packed-materialization measurement
+`context-ladder/32k-run-20260918-140056-62434` was clean revision `ea27464`,
+empty tracked patch, exit 0, and zero swap. Prefill was 48.749250 seconds /
+42.3186 token/s, down 13.870145 seconds (22.15%) from the reviewed
+62.619395-second batched-QK sweep. This confirms that decoded pooled-row graph
+construction was material, but the remaining 4.47x gap to pinned oMLX's
+10.901336 seconds is still architectural. This result closes the local
+packed-materialization experiment; it is not a new optimization series.
+
+For the 2,063-token sweep there are 646 compressed layer-chunk attention
+operations (`38 layers x 17 chunks`). The measured current topology is:
+
+| Work inside one compressed layer x 128-token chunk | Current mean | DwarfStar prefill | Phase-4 target |
+|---|---:|---:|---:|
+| Host selected-count shape groups | 27.72 (`17,910 / 646`) | 0 | 0 |
+| Packed KV materialization dispatches | 27.72 | 0; cache read in attention | 0; cache read in attention |
+| QK Metal dispatch equivalents | 391.24 (`2 x 112,248 + 28,242`, divided by 646) | inside attention | inside attention |
+| AV batches/dispatch candidates | 203.43 (`131,418 / 646`) | inside attention | inside attention |
+| Mask/softmax graph stages | at least max, two exp paths, sum and state update per AV block | online in registers | online in registers |
+| Source-level attention temporaries | two work-list tensors/group plus keys, scores, max/rescale, exponent, rounded PV and accumulated state/block | no score/probability matrix | no score/probability matrix |
+| Explicit runtime synchronization | none inside attention; one request-boundary evaluation | command-buffer graph boundary | one chunk transaction boundary |
+| Actual command-buffer submissions | not captured in this one permitted run; MLX owns them below the lazy graph | one sort plus one attention encode for indexed prefill | one index/work-list encode plus one attention encode, with no host boundary |
+
+The temporary count above is a graph-topology inventory, not a claim about
+physical allocations after MLX fusion. The current code creates at least
+1,199,412 named per-group/per-block attention intermediates over 2K when the
+112,248 split-K partials are included. That number explains why a single outer
+`mx::eval` is insufficient: the lazy graph still expands into fine-grained
+device work.
+
+DwarfStar commit `8db1d1d` uses a dense token-major top-k buffer, sorts once,
+then dispatches `kernel_dsv4_indexed_mixed_attention_heads16_dual` over the
+whole token/head grid. Each threadgroup owns multiple heads, stages raw or
+selected KV rows, and performs QK, validity, online softmax, and AV without a
+score matrix. Its FP16 Q/K/V cast is incompatible with the hard precision
+contract, but its work ownership and metadata ABI are directly adaptable.
+Pinned oMLX similarly dispatches one packed attention operation over all
+tokens and reads the same 256-byte value plus 32-byte E4M3-scale row layout.
+
+Implementation proceeds as one architecture change:
+
+1. `WideAttentionPlan`: fixed `[tokens,512]` device row metadata, per-token
+   causal visibility, raw-window frontier, packed cache handles, and layer
+   sink. Shape differences become negative metadata entries, never padded KV
+   rows or host groups.
+2. One DwarfStar-style `8 heads x token` Metal grid consumes that plan and
+   fuses QK, causal/SWA/candidate validity, online softmax, official BF16 PV,
+   AV, and sink normalization. Q and local KV remain BF16; pooled KV remains
+   official FP4/E4M3 and is decoded in place.
+3. Index sources publish the dense row plan and candidate mask as device
+   arrays for all reuse layers. The current vector of token publications is
+   retained only as the reference/diagnostic API while the optimized path
+   moves to a chunk publication object.
+4. Window, compressor, index cache, selected-row publication, and hash state
+   are staged in a request-local transaction. Only the completed chunk
+   frontier is committed; failure exposes none of the partial sweep.
+5. The 40-layer semantic/state gate precedes any 2K wall measurement. Only a
+   passing integrated topology may replace the exact-shape candidate.
+
+The first implementation slice adds the fused layer-chunk operation behind
+`DSV41_RUNTIME_WIDE_ATTENTION=1`. It is adapted from DwarfStar's MIT-licensed
+heads8 work ownership, but replaces its FP16 boundary with official BF16 and
+direct FP4/E4M3 decode. The standalone local and packed fixtures measure RMS
+0.000195373 and 0.000256431 respectively. These are component observations,
+not promotion. A compatibility adapter currently forms the dense plan from
+the existing per-token device arrays once at each index source; all following
+reuse layers share that published plan. Replacing the adapter with a native
+chunk result is the next metadata/publication step after the arithmetic gate.
+The prepared full-backbone gate is:
+
+```sh
+bash tools/benchmark/run_wide_attention_backbone_check.sh
+```

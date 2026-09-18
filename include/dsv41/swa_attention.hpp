@@ -18,6 +18,12 @@ mlx::core::array swa_packed_attention_chunk(const mlx::core::array& queries,
  const mlx::core::array& local_kv,const mlx::core::array& pooled_values,
  const mlx::core::array& pooled_scales,const mlx::core::array& topk,
  const mlx::core::array& sink,std::uint64_t start,int compress_ratio);
+// DwarfStar-style one layer-chunk dispatch. The fixed-width top-k matrix stays
+// device resident; negative entries are inactive metadata, not padded KV rows.
+mlx::core::array swa_wide_attention_chunk(const mlx::core::array& queries,
+ const mlx::core::array& local_kv,const mlx::core::array& pooled_values,
+ const mlx::core::array& pooled_scales,const mlx::core::array& topk,
+ const mlx::core::array& sink,std::uint64_t start,int compress_ratio);
 // Materialize an exact-shape work list. selected_count separates the logical
 // pooled width from the one-column dummy storage used for empty lists.
 PackedAttentionWorkList swa_packed_attention_work_list(

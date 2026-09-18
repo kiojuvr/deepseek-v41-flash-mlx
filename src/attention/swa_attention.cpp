@@ -3,6 +3,7 @@
 #include "dsv41/execution_policy.hpp"
 #include "batched_splitk_qk.hpp"
 #include "packed_chunk_attention.hpp"
+#include "wide_chunk_attention.hpp"
 #include "packed_attention_worklist.hpp"
 #include <cmath>
 #include <algorithm>
@@ -60,6 +61,33 @@ mx::array swa_packed_attention_chunk(const mx::array& q,const mx::array& local,
                 cl,cp,cs,ct,sink,metadata,
                 mx::array(float(std::pow(512.0,-0.5)))},
                {{tokens,64,512}},{mx::bfloat16},{tokens*32,8,1},{32,8,1},{},
+               std::nullopt,false,mx::Device::gpu).front();
+}
+mx::array swa_wide_attention_chunk(const mx::array& q,const mx::array& local,
+ const mx::array& pooled_values,const mx::array& pooled_scales,const mx::array& topk,
+ const mx::array& sink,std::uint64_t start,int ratio){
+ if(q.dtype()!=mx::bfloat16||q.ndim()!=3||q.shape(0)<1||q.shape(0)>128||
+    q.shape(1)!=64||q.shape(2)!=512||local.dtype()!=mx::bfloat16||local.ndim()!=2||
+    local.shape(0)<q.shape(0)||local.shape(0)>256||local.shape(1)!=512||
+    pooled_values.dtype()!=mx::uint8||pooled_values.ndim()!=2||pooled_values.shape(1)!=256||
+    pooled_scales.dtype()!=mx::uint8||pooled_scales.shape()!=mx::Shape({pooled_values.shape(0),32})||
+    topk.dtype()!=mx::int32||topk.ndim()!=2||topk.shape(0)!=q.shape(0)||
+    topk.shape(1)<1||topk.shape(1)>512||sink.dtype()!=mx::float32||
+    sink.shape()!=mx::Shape({64})||start>=1048576||
+    std::uint64_t(q.shape(0))>1048576-start||ratio<1)
+  throw std::runtime_error("invalid wide chunk attention geometry");
+ static auto kernel=mx::fast::metal_kernel("dsv41_wide_chunk_attention",
+  {"queries","local_kv","pooled_values","pooled_scales","topk","sinks","meta","scale"},
+  {"output"},dsv41_wide_chunk_attention_source,dsv41_packed_chunk_attention_header);
+ const int tokens=q.shape(0);
+ return kernel({mx::contiguous(q,false,mx::Device::gpu),
+                mx::contiguous(local,false,mx::Device::gpu),
+                mx::contiguous(pooled_values,false,mx::Device::gpu),
+                mx::contiguous(pooled_scales,false,mx::Device::gpu),
+                mx::contiguous(topk,false,mx::Device::gpu),sink,
+                mx::array({tokens,local.shape(0),pooled_values.shape(0),int(start),ratio,topk.shape(1)},mx::int32),
+                mx::array(float(std::pow(512.0,-0.5)))},
+               {{tokens,64,512}},{mx::bfloat16},{tokens*32,64,1},{32,8,1},{},
                std::nullopt,false,mx::Device::gpu).front();
 }
 PackedAttentionWorkList swa_packed_attention_work_list(const mx::array& local,

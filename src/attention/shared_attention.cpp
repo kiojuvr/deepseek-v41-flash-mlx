@@ -58,6 +58,23 @@ const mx::array& SharedAttentionReference::device_indices(int layer,std::uint64_
     offset!=(pos==0?1:128))throw std::runtime_error("shared attention device source/position mismatch");
  return device_rows_;
 }
+void SharedAttentionReference::publish_chunk_plan(int layer,mx::array rows,
+ std::uint64_t start,int tokens){
+ if(layer!=index_source_layer_||tokens<1||tokens>128||start>=1048576||
+    std::uint64_t(tokens)>1048576-start||position_<start||position_>=start+std::uint64_t(tokens)||
+    rows.dtype()!=mx::int32||rows.shape()!=mx::Shape({tokens,512}))
+  throw std::runtime_error("invalid shared attention chunk plan");
+ device_chunk_rows_=std::move(rows);chunk_start_=start;chunk_tokens_=tokens;
+ chunk_index_source_layer_=layer;
+}
+const mx::array& SharedAttentionReference::device_chunk_indices(int layer,
+ std::uint64_t start,int tokens) const{
+ if(layer<3||layer>=kBackboneLayers||kv_source_for_layer(layer)!=source_layer_||
+    index_source_layer_!=chunk_index_source_layer_||start!=chunk_start_||tokens!=chunk_tokens_||
+    device_chunk_rows_.shape()!=mx::Shape({tokens,512}))
+  throw std::runtime_error("shared attention chunk plan mismatch");
+ return device_chunk_rows_;
+}
 void SharedAttentionReference::republish(int index_source_layer,std::vector<std::int32_t> selected,
  std::vector<std::uint8_t> candidates){
  if(!is_index_source_layer(index_source_layer)||kv_source_for_layer(index_source_layer)!=source_layer_)
@@ -73,6 +90,7 @@ void SharedAttentionReference::republish(int index_source_layer,std::vector<std:
   device_candidates_=mx::array(candidates_.begin(),{int(candidates_.size())},mx::uint8);
  }
  index_source_layer_=index_source_layer;
+ device_chunk_rows_=mx::array(0);chunk_tokens_=0;chunk_index_source_layer_=-1;
 }
 void SharedAttentionReference::republish(int index_source_layer,mx::array relative_selected,
  mx::array device_candidates,std::vector<std::int32_t> diagnostic_selected,
@@ -91,5 +109,6 @@ void SharedAttentionReference::republish(int index_source_layer,mx::array relati
   candidates_=std::move(diagnostic_candidates);
  }
  index_source_layer_=index_source_layer;
+ device_chunk_rows_=mx::array(0);chunk_tokens_=0;chunk_index_source_layer_=-1;
 }
 }
