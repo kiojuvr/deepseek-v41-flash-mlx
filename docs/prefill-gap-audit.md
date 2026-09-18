@@ -727,6 +727,15 @@ executes the three native Steel short-N width classes as a fixed indirect
 work-list. It adds no selected-count host loop or readback and leaves the
 existing full-block QK, online softmax, and AV schedule intact.
 
+The later all-block AV hypothesis was explicitly rejected by
+`attention/fixed-tile-layer-localization-20260919-024736-78210`. Replacing all
+64-row AV blocks with the oracle-sized Steel tile produced the same two
+layer-3 core differences and the same layer-4 RMS `0.00895643` as the
+tail-only path. The experiment is rolled back rather than retained as another
+local optimization. The next run only attributes those two values to token
+rows and selected widths; Phase 4 remains blocked from performance promotion,
+not from further architecture work.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```

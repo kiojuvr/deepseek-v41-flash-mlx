@@ -398,10 +398,16 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
     for(auto& publication:publications)
      publication.publish_chunk_plan(layer_,plan,start,x.shape(0));
    }else plan=publications.front().device_chunk_indices(layer_,start,x.shape(0));
-   attention_groups.push_back(wide_chunk?swa_wide_attention_chunk(q,all_window,pooled.main_bytes(),
-    pooled.main_scales(),plan,sink_,start,ratio_):
-    swa_fixed_tile_attention_chunk(q,all_window,pooled.main_bytes(),pooled.main_scales(),
-     plan,sink_,start,ratio_));
+   if(wide_chunk)attention_groups.push_back(swa_wide_attention_chunk(q,all_window,pooled.main_bytes(),
+    pooled.main_scales(),plan,sink_,start,ratio_));
+   else{
+    auto work=swa_packed_attention_work_list(all_window,pooled.main_bytes(),pooled.main_scales(),
+                                             plan,start,ratio_,512,true);
+    if(trace_arithmetic)trace_record(trace_prefix+"attn_widths",work.widths);
+    attention_groups.push_back(runtime_ragged_tail_qk_enabled()?swa_attention_fixed_tile_core(
+     q,work,sink_,runtime_ragged_tail_av_enabled()):
+     swa_attention_masked_chunk(q,work.ordered,sink_,work.valid));
+   }
   }else{
   auto run_group=[&](int first,int end,int selected_count){
    auto local=mx::slice(all_window,{0,0},{state.window_.shape(0)+end,512});

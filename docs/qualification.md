@@ -1095,6 +1095,15 @@ all-block AV修正版の公式isolation
 両chunkのdense reduction、producer、first reuse、およびpublication/window/position stateは
 bit-exact。2-layer境界のみqualifiedとし、40-layer backboneとperformanceは未qualified。
 
+続く必須40-layer rerun
+`attention/fixed-tile-layer-localization-20260919-024736-78210`は、この原因仮説をrejectした。
+layer 3 coreの2 BF16差（RMS `8.99269e-07`）、grouped projectionの71差、output linearの
+1,189差、layer 4 attn-out RMS `0.00895643`はtail-only runと同一だった。したがってfull-block
+AVのbatch-size依存tileは残差を説明しない。all-block custom AVはrollbackし、qualified済みの
+ragged-tail operationだけをopt-inで残す。次の同一runnerはarithmeticを変更せず、layer 3 coreの
+first/last mismatch tokenとdevice selected widthを出力し、ragged tailとfull-block scheduleを
+切り分ける。この診断が通っても40-layer/full-path promotionにはならない。
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \

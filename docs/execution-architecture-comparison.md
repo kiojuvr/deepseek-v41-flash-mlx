@@ -851,6 +851,19 @@ zero swap. Both chunks' dense reductions, producer outputs, first-reuse
 outputs, and publication/window/position state were bit exact. This qualifies
 the two-layer boundary, not the 40-layer backbone or performance.
 
+The required 40-layer rerun
+`attention/fixed-tile-layer-localization-20260919-024736-78210` rejected that
+attribution. Its layer-3 and layer-4 values were identical to the preceding
+tail-only run: the first difference was still two BF16 attention-core values
+(RMS `8.99269e-07`), followed by 71 grouped-projection and 1,189 output-linear
+differences, and layer 4 attention still crossed the gate at RMS
+`0.00895643`. Therefore the batch-size-dependent full-block AV tile does not
+explain the residual. The speculative all-block custom AV path is removed;
+the qualified ragged-tail operation remains opt-in. The next bounded
+diagnostic changes no arithmetic and reports the first/last mismatching token
+and its device selected-width metadata. That separates a ragged-tail defect
+from the full-block QK/softmax/AV schedule before any further kernel work.
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \
