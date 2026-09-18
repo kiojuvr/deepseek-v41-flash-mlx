@@ -30,7 +30,8 @@ shasum -a 256 build-mlx/dsv41-text-backbone-test tests/attention/test_text_backb
  src/model/compressed_block.cpp src/model/reused_block.cpp src/attention/compressed_layer.cpp \
  include/dsv41/execution_policy.hpp src/attention/swa_attention.cpp \
  src/attention/ragged_tail_qk.hpp.in metal/attention/ragged_tail_qk.metal \
- metal/attention/ragged_tail_accum.metal metal/attention/packed_attention_worklist.metal \
+ metal/attention/ragged_tail_accum.metal src/attention/ragged_tail_av.hpp.in \
+ metal/attention/ragged_tail_av.metal metal/attention/packed_attention_worklist.metal \
  artifacts/checkpoint/summary.json \
  artifacts/engram/metadata.json > "$run_dir/identity.txt"
 cmd=(env DSV41_RUNTIME_LAYER_FINITE_CHECKS=0 DSV41_RUNTIME_PACKED_EXPERT_BANK=0 \
@@ -39,6 +40,7 @@ cmd=(env DSV41_RUNTIME_LAYER_FINITE_CHECKS=0 DSV41_RUNTIME_PACKED_EXPERT_BANK=0 
  DSV41_RUNTIME_PACKED_CHUNK_ATTENTION=0 DSV41_RUNTIME_WIDE_ATTENTION=0 \
  DSV41_RUNTIME_FIXED_TILE_ATTENTION=1 \
  DSV41_RUNTIME_RAGGED_TAIL_QK=${DSV41_RUNTIME_RAGGED_TAIL_QK:-0} \
+ DSV41_RUNTIME_RAGGED_TAIL_AV=${DSV41_RUNTIME_RAGGED_TAIL_AV:-0} \
  DSV41_CHECK_LAYER_MAJOR_BACKBONE=1 \
  DSV41_CHECK_FIXED_TILE_LAYER_LOCALIZATION=1 \
  build-mlx/dsv41-text-backbone-test "$checkpoint" artifacts/checkpoint/summary.json \

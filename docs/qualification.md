@@ -1054,6 +1054,13 @@ last 122で、token 0固有ではなかった。chunk 1は引き続きAV bit-exa
 増幅を確認し、必要な場合だけgeneral ragged AVを実装する。localization runnerは
 `DSV41_RUNTIME_RAGGED_TAIL_QK`を引き継ぐ。
 
+ragged-QK trace `attention/fixed-tile-layer-localization-20260919-020702-74845`ではlayer 0–2が
+全段bit-exact。layer 3 reuse attn-outでRMS `0.000158488`が生じ、layer 4 attn-outで
+`0.00972281`へ増幅した。first gate failureはlayer 4 attentionへ移ったが未解消のため、general
+ragged AVが必要。MLX Steel regular GEMMと同じtail-first K reductionをdevice work-listへ適応し、
+width 1/33/40/63 synthetic fixtureはBF16 exact。`DSV41_RUNTIME_RAGGED_TAIL_AV=1`は公式
+2-layer/40-layer gate通過までopt-in。
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```

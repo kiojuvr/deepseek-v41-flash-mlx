@@ -30,6 +30,7 @@ shasum -a 256 build-mlx/dsv41-swa-attention-test tests/attention/test_attention.
  src/attention/swa_attention.cpp src/attention/compressed_layer.cpp \
  src/attention/ragged_tail_qk.hpp.in metal/attention/ragged_tail_qk.metal \
  metal/attention/ragged_tail_accum.metal \
+ src/attention/ragged_tail_av.hpp.in metal/attention/ragged_tail_av.metal \
  src/attention/packed_attention_worklist.hpp.in metal/attention/packed_attention_worklist.metal \
  src/attention/batched_splitk_qk.hpp.in metal/attention/batched_splitk_qk.metal \
  metal/attention/batched_splitk_accum.metal metal/attention/steel_gemm_header.metal \
@@ -40,6 +41,7 @@ cmd=(env DSV41_RUNTIME_LAYER_FINITE_CHECKS=0 DSV41_RUNTIME_INDEX_DIAGNOSTICS=0 \
  DSV41_RUNTIME_PACKED_CHUNK_ATTENTION=0 DSV41_RUNTIME_WIDE_ATTENTION=0 \
  DSV41_RUNTIME_FIXED_TILE_ATTENTION=1 DSV41_RUNTIME_FIXED_TILE_ATTENTION_DIAGNOSTICS=1 \
  DSV41_RUNTIME_RAGGED_TAIL_QK=${DSV41_RUNTIME_RAGGED_TAIL_QK:-0} \
+ DSV41_RUNTIME_RAGGED_TAIL_AV=${DSV41_RUNTIME_RAGGED_TAIL_AV:-0} \
  DSV41_CHECK_FIXED_TILE_ISOLATION=1 \
  build-mlx/dsv41-swa-attention-test "$checkpoint" artifacts/checkpoint/summary.json)
 printf '%q ' "${cmd[@]}" > "$run_dir/command.txt"; printf '\n' >> "$run_dir/command.txt"

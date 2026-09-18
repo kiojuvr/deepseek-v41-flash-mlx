@@ -149,6 +149,13 @@ inline bool runtime_ragged_tail_qk_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_RAGGED_TAIL_QK must be 0 or 1");
 }
 
+inline bool runtime_ragged_tail_av_enabled() {
+ const char* value=std::getenv("DSV41_RUNTIME_RAGGED_TAIL_AV");
+ if(value==nullptr||std::string_view(value)=="0") return false;
+ if(std::string_view(value)=="1") return true;
+ throw std::runtime_error("DSV41_RUNTIME_RAGGED_TAIL_AV must be 0 or 1");
+}
+
 // Own prefill at the request boundary and execute it as a transactional
 // layer-major sweep.  Decode remains on the one-token reference schedule.
 // This is independently opt-in until the 2K full-path result is reviewed.

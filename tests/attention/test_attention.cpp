@@ -171,6 +171,8 @@ int main(int argc,char** argv){try{
    auto padded=dsv41::swa_attention_masked_chunk(q,work.ordered,sink,work.valid);
    auto exact_tail=dsv41::swa_attention_fixed_tile_core(q,work,sink);
    rms_report(exact_tail,padded,"ragged-tail QK width-class fixture");
+   auto exact_qk_av=dsv41::swa_attention_fixed_tile_core(q,work,sink,true);
+   rms_report(exact_qk_av,padded,"ragged-tail QK/AV width-class fixture");
   }
  }
  {

@@ -3,6 +3,7 @@
 #include "dsv41/execution_policy.hpp"
 #include "batched_splitk_qk.hpp"
 #include "ragged_tail_qk.hpp"
+#include "ragged_tail_av.hpp"
 #include "packed_chunk_attention.hpp"
 #include "wide_chunk_attention.hpp"
 #include "packed_attention_worklist.hpp"
@@ -59,6 +60,16 @@ mx::array ragged_tail_qk(const mx::array& queries,const mx::array& keys,
  auto small_mask=mx::reshape(mx::less_equal(remainder,mx::array(32,mx::int32)),{tokens,1,1});
  auto middle_mask=mx::reshape(mx::less_equal(remainder,mx::array(39,mx::int32)),{tokens,1,1});
  return mx::where(small_mask,small,mx::where(middle_mask,middle,large));
+}
+mx::array ragged_tail_av(const mx::array& probabilities,const mx::array& keys,
+ const mx::array& widths,int block){
+ const int tokens=probabilities.shape(0),rows=keys.shape(1);
+ static auto kernel=mx::fast::metal_kernel("dsv41_ragged_tail_av",
+  {"probabilities","keys","widths","meta"},{"output"},dsv41_ragged_tail_av_source,
+  dsv41_batched_splitk_header);
+ return kernel({probabilities,keys,widths,mx::array({tokens,rows,block},mx::int32)},
+  {{tokens,64,512}},{mx::float32},{16*32,2*2,tokens*2},{32,2,2},{},
+  std::nullopt,false,mx::Device::gpu).front();
 }
 }
 mx::array swa_packed_attention_chunk(const mx::array& q,const mx::array& local,
@@ -152,7 +163,8 @@ mx::array swa_fixed_tile_attention_chunk(const mx::array& q,const mx::array& loc
  auto work=swa_packed_attention_work_list(local,pooled_values,pooled_scales,topk,start,ratio,512,true);
  if(work.ordered.shape(1)!=640)
   throw std::runtime_error("fixed-tile attention must materialize ten 64-row tiles");
- return runtime_ragged_tail_qk_enabled()?swa_attention_fixed_tile_core(q,work,sink):
+ return runtime_ragged_tail_qk_enabled()?swa_attention_fixed_tile_core(
+  q,work,sink,runtime_ragged_tail_av_enabled()):
   swa_attention_masked_chunk(q,work.ordered,sink,work.valid);
 }
 mx::array swa_attention_reference(const mx::array& q,const mx::array& kv,const mx::array& sink){
@@ -186,7 +198,7 @@ mx::array swa_attention_masked_reference(const mx::array& q,const mx::array& kv,
 }
 namespace {
 mx::array swa_attention_masked_chunk_impl(const mx::array& q,const mx::array& kv,
- const mx::array& sink,const mx::array& valid,const mx::array* tail_widths){
+ const mx::array& sink,const mx::array& valid,const mx::array* tail_widths,bool ragged_av){
  if(q.dtype()!=mx::bfloat16||q.ndim()!=3||q.shape(0)<1||q.shape(0)>128||q.shape(1)!=64||q.shape(2)!=512||
     kv.dtype()!=mx::bfloat16||kv.ndim()!=3||kv.shape(0)!=q.shape(0)||kv.shape(1)<1||kv.shape(1)>640||kv.shape(2)!=512||
     sink.dtype()!=mx::float32||sink.shape()!=mx::Shape({64})||valid.dtype()!=mx::bool_||
@@ -262,7 +274,15 @@ mx::array swa_attention_masked_chunk_impl(const mx::array& q,const mx::array& kv
   auto exponent=mx::exp(mx::subtract(scores,next_max));
   denominator=mx::add(mx::multiply(denominator,rescale),mx::sum(exponent,-1,true));
   auto rounded=mx::astype(mx::astype(exponent,mx::bfloat16),mx::float32);
-  accumulated=mx::add(mx::multiply(accumulated,rescale),mx::matmul(rounded,keys));maximum=next_max;
+  auto av=mx::matmul(rounded,keys);
+  if(tail_widths&&ragged_av&&first>=128){
+   const int pooled_block=(first-128)/64;
+   auto use_tail=mx::logical_and(mx::equal(tail_blocks,mx::array(pooled_block,mx::int32)),
+                                 mx::greater(tail_remainder,mx::array(0,mx::int32)));
+   auto exact_tail=ragged_tail_av(rounded,mx::astype(kv,mx::float32),*tail_widths,pooled_block);
+   av=mx::where(mx::reshape(use_tail,{tokens,1,1}),exact_tail,av);
+  }
+  accumulated=mx::add(mx::multiply(accumulated,rescale),av);maximum=next_max;
   { std::lock_guard l(attention_telemetry_mutex());++attention_telemetry().chunk_av_batches; }
  }
  denominator=mx::add(denominator,mx::exp(mx::subtract(mx::reshape(sink,{1,64,1}),maximum)));
@@ -271,11 +291,11 @@ mx::array swa_attention_masked_chunk_impl(const mx::array& q,const mx::array& kv
 }
 mx::array swa_attention_masked_chunk(const mx::array& q,const mx::array& kv,
  const mx::array& sink,const mx::array& valid){
- return swa_attention_masked_chunk_impl(q,kv,sink,valid,nullptr);
+ return swa_attention_masked_chunk_impl(q,kv,sink,valid,nullptr,false);
 }
 mx::array swa_attention_fixed_tile_core(const mx::array& q,
- const PackedAttentionWorkList& work,const mx::array& sink){
- return swa_attention_masked_chunk_impl(q,work.ordered,sink,work.valid,&work.widths);
+ const PackedAttentionWorkList& work,const mx::array& sink,bool ragged_av){
+ return swa_attention_masked_chunk_impl(q,work.ordered,sink,work.valid,&work.widths,ragged_av);
 }
 AttentionTailDiagnostics swa_attention_tail_diagnostics(const mx::array& q,
  const mx::array& kv,const mx::array& sink,const mx::array& valid){

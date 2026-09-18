@@ -790,6 +790,18 @@ next with the opt-in flag to determine whether that residual actually crosses
 the hard hidden/pre-mix/logits contract after MoE amplification. A general
 ragged AV operation is authorized only if that trace shows it is necessary.
 
+The ragged-QK layer trace
+`attention/fixed-tile-layer-localization-20260919-020702-74845` established
+that necessity. Layers 0–2 were bit exact. Layer 3 reuse attention introduced
+RMS 0.000158488, then layer 4 attention amplified it to 0.00972281; the first
+hard-gate crossing moved from layer 2 MoE to layer 4 attention but was not
+eliminated. The candidate therefore adds an indirect AV work-list for the
+single ragged pooled block per token. It uses the MLX Steel regular-GEMM
+tail-first K reduction (BM32/BN32/BK16, WM2/WN2) rather than padding K to 64.
+Synthetic selected widths 1, 33, 40, and 63 are BF16 exact. The operation is
+separately opt-in with `DSV41_RUNTIME_RAGGED_TAIL_AV=1` until official
+two-layer and 40-layer gates pass.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```
