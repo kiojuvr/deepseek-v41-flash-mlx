@@ -431,6 +431,10 @@ independent token matrices into two dispatches per block. Short tails remain
 on native scalar Steel because the separately compiled tail reduction was not
 float32-exact. Existing softmax and qualified batched AV remain
 unchanged. Synthetic boundary cases and official layer-3 128-token fixtures
-are bit-exact; the default remains off until
-`tools/benchmark/run_batched_splitk_qk_backbone_check.sh` passes and is
-reviewed.
+are bit-exact. Clean full-backbone run
+`attention/batched-splitk-qk-backbone-20260918-122034-57470` then passed both
+128-token chunks with hidden, pre-mix, and logits bit-exact; route ties,
+persistent state, publication, hashes, continuation, and invalid-request
+atomicity were exact. It replaced 21,937 full-width token loops with batched
+calls while retaining 8,583 scalar tail calls. The default remains off until
+the isolated full-path wall result is reviewed.

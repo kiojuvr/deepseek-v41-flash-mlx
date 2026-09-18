@@ -885,8 +885,20 @@ checkpoint read-only、失敗ログ保持、resumeなしで、次をfresh state�
 bash tools/benchmark/run_batched_splitk_qk_backbone_check.sh
 ```
 
-結果review前は`DSV41_RUNTIME_BATCHED_SPLITK_QK`のdefaultを0のまま維持し、full-pathへは昇格
-しない。このgateはsemantic/state qualificationでありperformance qualificationではない。
+clean gate `attention/batched-splitk-qk-backbone-20260918-122034-57470`（`c5321ca`）は2つの
+128-token/40層chunkでhidden、pre-mix、logitsがbit-exact、route tie、persistent state、publication、
+hash、continuation、invalid-request atomicityもexactで通過した。batched full-width callは21,937、
+scalar tail callは8,583。peak footprint 165,259,752,192 bytes、最大RSS 160,569,196,544 bytes、swap 0。
+180.44秒はoracleとcandidateを両方実行するためperformance値ではない。
+
+次はqualified candidateだけを65.403秒のlayer-sweep baselineへ重ねる。約5〜10分、Unified Memory
+上限340 GB、checkpoint read-only、失敗ログ保持、resumeなしで実行する。
+
+```sh
+bash tools/benchmark/run_batched_splitk_qk_prefill_measurement.sh
+```
+
+このfull-path result review前は`DSV41_RUNTIME_BATCHED_SPLITK_QK`のdefaultを0のまま維持する。
 
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx

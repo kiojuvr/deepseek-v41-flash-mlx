@@ -488,8 +488,7 @@ differed by up to 0.000046 across 71 values, even though the final BF16 fixture
 hid it. Short tails therefore remain on native scalar Steel. Existing qualified softmax
 and batched AV remain unchanged. Synthetic 63/64/65/128-live-row cases and
 official-checkpoint layer 3 at positions 0 and 128 are now bit-exact. The
-candidate remains opt-in with `DSV41_RUNTIME_BATCHED_SPLITK_QK=1` pending this
-official-checkpoint gate:
+candidate remains opt-in with `DSV41_RUNTIME_BATCHED_SPLITK_QK=1`.
 
 This narrowing follows rejected run
 `attention/batched-splitk-qk-backbone-20260918-015331-53102` at `1b802f2`:
@@ -497,16 +496,20 @@ hidden RMS was 0.000640952 but pre-mix RMS was 0.00811268. Peak footprint was
 142,208,691,760 bytes with zero swap; its 107.69-second failed-gate wall is not
 a performance result.
 
-```sh
-bash tools/benchmark/run_batched_splitk_qk_backbone_check.sh
-```
+Clean gate `attention/batched-splitk-qk-backbone-20260918-122034-57470` at
+`c5321ca` passed two 128-token/40-layer chunks with hidden, pre-mix, and logits
+bit-exact. Route ties, persistent state, publication, hashes, continuation,
+and invalid-request atomicity were exact. Telemetry recorded 21,937 batched
+full-width calls and 8,583 scalar tail calls. Peak footprint was
+165,259,752,192 bytes, maximum RSS 160,569,196,544 bytes, and swap remained
+zero. Its 180.44-second oracle-plus-candidate wall is not a performance result.
 
-Allow about 5 minutes and 240 GB Unified Memory. It compares two 128-token,
-40-layer candidate chunks against the token-serial oracle, retains logs below
-`artifacts/attention/batched-splitk-qk-backbone-<timestamp>-<pid>/`, leaves the
-checkpoint read-only, and has no resume; a failed run is retained and rerun
-from fresh model/request state. This is a semantic/state promotion gate, not
-a full-path performance qualification.
+The next isolated full-path measurement adds only this qualified candidate to
+the reviewed 65.403-second layer-sweep baseline:
+
+```sh
+bash tools/benchmark/run_batched_splitk_qk_prefill_measurement.sh
+```
 
 Within step 1, the first no-new-kernel candidate is to replace the optimized
 path's one-row `PackedLinearReference::project_quantized()` schedule with the

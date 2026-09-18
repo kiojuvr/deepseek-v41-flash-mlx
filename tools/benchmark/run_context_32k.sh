@@ -28,6 +28,7 @@ export DSV41_RUNTIME_COMPACT_EXPERT_BANK=${DSV41_RUNTIME_COMPACT_EXPERT_BANK:-0}
 export DSV41_RUNTIME_ROUTE_DIAGNOSTICS=${DSV41_RUNTIME_ROUTE_DIAGNOSTICS:-0}
 export DSV41_RUNTIME_INDEX_DIAGNOSTICS=${DSV41_RUNTIME_INDEX_DIAGNOSTICS:-1}
 export DSV41_RUNTIME_CHUNK_ATTENTION=${DSV41_RUNTIME_CHUNK_ATTENTION:-0}
+export DSV41_RUNTIME_BATCHED_SPLITK_QK=${DSV41_RUNTIME_BATCHED_SPLITK_QK:-0}
 export DSV41_RUNTIME_LAYER_SWEEP=${DSV41_RUNTIME_LAYER_SWEEP:-0}
 export DSV41_RUNTIME_BATCHED_DENSE_QMM=${DSV41_RUNTIME_BATCHED_DENSE_QMM:-0}
 export DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES=${DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES:-0}
@@ -63,6 +64,7 @@ printf '%s\n' "checkpoint=$checkpoint" "context=$context" "base_prefill=$((prefi
  "route_diagnostics=$DSV41_RUNTIME_ROUTE_DIAGNOSTICS" \
  "index_diagnostics=$DSV41_RUNTIME_INDEX_DIAGNOSTICS" \
  "chunk_attention=$DSV41_RUNTIME_CHUNK_ATTENTION" \
+ "batched_splitk_qk=$DSV41_RUNTIME_BATCHED_SPLITK_QK" \
  "layer_sweep=$DSV41_RUNTIME_LAYER_SWEEP" \
  "batched_dense_qmm=$DSV41_RUNTIME_BATCHED_DENSE_QMM" \
  "mlx_cache_limit_bytes=$DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES" \
@@ -77,6 +79,7 @@ shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp 
  tools/benchmark/run_context_32k.sh tools/benchmark/run_resident_atlas_prefill_check.sh \
  tools/benchmark/run_resident_atlas_prefill_measurement.sh \
  tools/benchmark/run_layer_sweep_prefill_measurement.sh \
+ tools/benchmark/run_batched_splitk_qk_prefill_measurement.sh \
  tools/benchmark/run_layer_sweep_component_profile.sh \
  tools/benchmark/run_layer_component_profile.sh \
  tools/benchmark/run_resident_layer_component_profile.sh \
@@ -89,6 +92,8 @@ shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp 
  src/model/text_backbone.cpp src/model/text_encoder.cpp src/model/text_decoder.cpp \
  src/model/block.cpp src/model/compressed_block.cpp src/model/reused_block.cpp \
  src/attention/swa_layer.cpp src/attention/swa_attention.cpp src/attention/compressed_layer.cpp src/attention/compressor.cpp \
+ src/attention/batched_splitk_qk.hpp.in metal/attention/batched_splitk_qk.metal \
+ metal/attention/batched_splitk_accum.metal metal/attention/steel_gemm_header.metal \
  src/attention/index_key.cpp src/attention/index_query.cpp src/attention/shared_attention.cpp src/cache/global_kv.cpp \
  include/dsv41/moe.hpp src/moe/reference.cpp src/moe/expert_bank.cpp \
  metal/moe/route_select.metal metal/moe/route_reduce.metal \
