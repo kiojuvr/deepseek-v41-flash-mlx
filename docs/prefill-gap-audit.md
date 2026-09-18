@@ -705,6 +705,18 @@ candidate causes later-layer amplification or diverges at a later index-source
 publication. A one-chunk layer/stage trace now locates the first 0.002 crossing
 without changing execution or adding a kernel:
 
+Artifact `attention/fixed-tile-layer-localization-20260918-235113-71445`
+resolved that ambiguity. Layers 0 and 1 were bit exact. Layer 2 attention
+output remained below the gate at RMS 0.000478654, but the corresponding MoE
+output crossed it at 0.00642699; layer 3 then amplified the propagated change.
+The terminal producer-window mismatch came from an invalid diagnostic-only
+final-state assertion after semantic divergence, not from the recorded stage
+comparisons. Fixed padding therefore cannot be promoted on its local RMS. A
+bounded exact-work-list diagnostic now attributes the last ragged block by
+padding only QK or only AV. That result will define which reductions a single
+device-wide ragged-tail operation must preserve before another architecture
+candidate is connected.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```

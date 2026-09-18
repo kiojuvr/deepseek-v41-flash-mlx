@@ -184,6 +184,9 @@ int main(int argc,char** argv){try{
   auto exact_valid=mx::ones({1,129},mx::bool_);
   auto exact_q=mx::slice(q,{0,0,0},{1,64,512});
   auto exact_out=dsv41::swa_attention_masked_chunk(exact_q,exact_kv,sink,exact_valid);
+  auto tail=dsv41::swa_attention_tail_diagnostics(exact_q,exact_kv,sink,exact_valid);
+  rms_report(tail.padded_qk,exact_out,"padded-tail QK attribution fixture");
+  rms_report(tail.padded_av,exact_out,"padded-tail AV attribution fixture");
   auto padded_kv=mx::concatenate({exact_kv,mx::zeros({1,511,512},mx::bfloat16)},1);
   auto padded_valid=mx::concatenate({exact_valid,mx::zeros({1,511},mx::bool_)},1);
   rms_report(dsv41::swa_attention_masked_chunk(exact_q,padded_kv,sink,padded_valid),

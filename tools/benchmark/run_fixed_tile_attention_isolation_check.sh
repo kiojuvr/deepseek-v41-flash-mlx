@@ -15,7 +15,7 @@ checkpoint=${CHECKPOINT:-/Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-
 printf '%s\n' \
  'scope=official layer 2 producer and layer 3 first reuse; token-serial oracle vs fixed-tile 2x128 chunks; no mHC, MoE, or later-layer amplification' \
  'resources=allow 1-2 minutes; Unified Memory target under 40 GB; checkpoint read-only; only two attention layers loaded' \
- 'gate=dense-content/exact-shape and dense-reduction/exact-shape diagnostics; relative RMS <0.002 producer/reuse output; publication rows, window state, and positions exact; zero scalar QK' \
+ 'gate=dense-content and separate padded-tail QK/AV attribution against exact shape; relative RMS <0.002 producer/reuse output; publication rows, window state, and positions exact; zero production scalar QK' \
  'logs=artifacts/attention/fixed-tile-isolation-<timestamp>-<pid>/{test.log,resource.log,identity.txt,tracked.patch,exit-code.txt}' \
  'failure=retain the failed directory and localize producer versus reuse before changing arithmetic' \
  'resume=unsupported; rerun this script for fresh layer/request state' > "$run_dir/config.txt"

@@ -172,7 +172,7 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
    attention_groups.push_back(fixed_output);
    if(runtime_fixed_tile_attention_diagnostics_enabled()){
     const auto production_telemetry=read_attention_telemetry();
-    std::vector<mx::array> exact_outputs,content_outputs;
+    std::vector<mx::array> exact_outputs,content_outputs,qk_padded_outputs,av_padded_outputs;
     auto run_group=[&](int first,int end,int selected_count){
      auto local=mx::slice(all_window,{0,0},{state.window_.shape(0)+end,512});
      mx::array rows=mx::broadcast_to(mx::array(-1,mx::int32),{end-first,1});
@@ -186,6 +186,14 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
      auto group_q=mx::slice(q,{first,0,0},{end,64,512});
      exact_outputs.push_back(swa_attention_masked_chunk(
       group_q,exact_work.ordered,sink_,exact_work.valid));
+     AttentionTailDiagnostics tails{mx::array(0.0f),mx::array(0.0f)};
+     try{tails=swa_attention_tail_diagnostics(
+      group_q,exact_work.ordered,sink_,exact_work.valid);}
+     catch(const std::exception& e){throw std::runtime_error("tail attribution group first="+
+      std::to_string(first)+" end="+std::to_string(end)+" selected="+
+      std::to_string(selected_count)+": "+e.what());}
+     qk_padded_outputs.push_back(tails.padded_qk);
+     av_padded_outputs.push_back(tails.padded_av);
      const int raw_width=start+std::uint64_t(first)==0?1:128;
      const int dense_first=raw_width==1?127:0;
      auto dense_local=mx::slice(fixed_work.ordered,{first,dense_first,0},
@@ -209,7 +217,11 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
     }
     auto exact=exact_outputs.size()==1?exact_outputs.front():mx::concatenate(exact_outputs,0);
     auto content=content_outputs.size()==1?content_outputs.front():mx::concatenate(content_outputs,0);
+    auto qk_padded=qk_padded_outputs.size()==1?qk_padded_outputs.front():mx::concatenate(qk_padded_outputs,0);
+    auto av_padded=av_padded_outputs.size()==1?av_padded_outputs.front():mx::concatenate(av_padded_outputs,0);
     report_fixed_tile_rms(content,exact,"fixed-tile producer dense-content/exact-shape");
+    report_fixed_tile_rms(qk_padded,exact,"fixed-tile producer padded-tail-QK/exact-shape");
+    report_fixed_tile_rms(av_padded,exact,"fixed-tile producer padded-tail-AV/exact-shape");
     report_fixed_tile_rms(fixed_output,exact,"fixed-tile producer dense-reduction/exact-shape");
     // Qualification-only exact/content graphs must not appear in production
     // dispatch telemetry.

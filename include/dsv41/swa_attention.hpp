@@ -5,11 +5,20 @@ namespace dsv41 {
 struct PackedAttentionWorkList {
  mlx::core::array ordered,valid;
 };
+struct AttentionTailDiagnostics {
+ mlx::core::array padded_qk,padded_av;
+};
 // Up to 640 ordered slots (128 window + 512 global); false entries receive -inf.
 mlx::core::array swa_attention_masked_reference(const mlx::core::array& query,
  const mlx::core::array& ordered_kv,const mlx::core::array& sink,const mlx::core::array& valid);
 mlx::core::array swa_attention_masked_chunk(const mlx::core::array& queries,
  const mlx::core::array& ordered_kv,const mlx::core::array& sink,const mlx::core::array& valid);
+// Qualification-only attribution for the final ragged block. Each result
+// changes only one GEMM shape to 64 columns/rows while retaining the exact
+// work-list content and online-softmax schedule.
+AttentionTailDiagnostics swa_attention_tail_diagnostics(
+ const mlx::core::array& queries,const mlx::core::array& ordered_kv,
+ const mlx::core::array& sink,const mlx::core::array& valid);
 // oMLX-style one-threadgroup-per-token fused prefill attention. Local KV is
 // the existing official quantization round-trip in BF16; pooled KV stays in
 // its persistent packed 4-bit/E4M3-scale representation. Top-k is one

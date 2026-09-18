@@ -1025,6 +1025,15 @@ layer 2/3 isolationはpassしているため、後続layerの増幅または後�
 次のrunnerは1 chunkについて各layerのattn-in/out、post-attn、ffn-in、MoE-out、hidden、pre-mixを比較し、
 最初に0.002を超えるstageを報告する。diagnosticのみでperformance/qualificationではない。
 
+`attention/fixed-tile-layer-localization-20260918-235113-71445`をreview済み。layer 0/1は全境界で
+bit-exact。layer 2はattn-out `0.000478654`、post-attn `0.0000561539`、ffn-in `0.00041744`だが、
+MoE-outで`0.00642699`へ増幅し、layer 3以降へ伝播した。末尾の`producer window: bit mismatch`は
+semantic divergence後にもexact final stateを要求したdiagnostic harness defectであり、stage trace自体は
+有効だがrunをPASSとはしない。harnessからその不正な最終assertionを除去した。fixed paddingの局所RMSを
+理由にpromotionしない。次はexact work-list上でragged tailのQKだけ、AVだけを64 shapeへ変更して寄与を
+分離し、device-wide ragged-tail operationが保存すべきreduction contractを決める。この診断は
+production kernel/performance qualificationではない。
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```

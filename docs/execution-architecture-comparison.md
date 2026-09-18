@@ -731,6 +731,24 @@ post-attention, FFN input, MoE output, hidden, and pre-mix—and reports the
 first stage crossing 0.002. It executes one 128-token chunk and is not a
 qualification or timing run:
 
+The resulting trace
+`attention/fixed-tile-layer-localization-20260918-235113-71445` localized the
+first gate crossing. Layers 0 and 1 were bit exact at every recorded boundary.
+At layer 2, attention output RMS was 0.000478654, post-attention RMS was
+0.0000561539, and FFN input RMS was 0.00041744; MoE output then amplified the
+difference to 0.00642699. Layer 3 received the propagated difference and the
+error continued to grow. The runner's final `producer window: bit mismatch`
+was a diagnostic-harness error: it asserted exact final state after observing
+semantic divergence. The trace is valid, but the run is not a PASS or a
+qualification. The runner now omits that invalid final assertion.
+
+This rules out accepting fixed padding merely because its isolated attention
+RMS is below 0.002. The next bounded attribution keeps the exact work-list and
+online-softmax schedule, changing only the last ragged QK shape or only the
+last ragged AV shape to 64. Its purpose is to define the arithmetic contract
+for one device-wide ragged-tail operation; it is not a new production kernel
+or a tail speed optimization.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```
