@@ -15,6 +15,12 @@ const int window_slots = meta[6] ? 128 : (q_offset == 0 ? metal::min(128, tokens
 const int rows = window_slots + topkN;
 if (d >= 512 || slot >= rows || token >= tokens) return;
 
+if (d == 0 && slot == 0) {
+  int selected = 0;
+  for (int i = 0; i < topkN; ++i) selected += topk[token * topkN + i] >= 0;
+  widths[token] = selected;
+}
+
 const int local_offset = localL - tokens;
 const int local_end = metal::min(localL, local_offset + token + 1);
 const int local_start = metal::max(0, local_end - 128);

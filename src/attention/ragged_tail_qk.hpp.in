@@ -1,0 +1,3 @@
+#pragma once
+inline constexpr const char* dsv41_ragged_tail_qk_source=R"raggedqk(@DSV41_RAGGED_TAIL_QK@)raggedqk";
+inline constexpr const char* dsv41_ragged_tail_accum_source=R"raggedaccum(@DSV41_RAGGED_TAIL_ACCUM@)raggedaccum";

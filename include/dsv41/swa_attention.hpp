@@ -3,7 +3,7 @@
 #include <cstdint>
 namespace dsv41 {
 struct PackedAttentionWorkList {
- mlx::core::array ordered,valid;
+ mlx::core::array ordered,valid,widths;
 };
 struct AttentionTailDiagnostics {
  mlx::core::array padded_qk,padded_av;
@@ -13,6 +13,8 @@ mlx::core::array swa_attention_masked_reference(const mlx::core::array& query,
  const mlx::core::array& ordered_kv,const mlx::core::array& sink,const mlx::core::array& valid);
 mlx::core::array swa_attention_masked_chunk(const mlx::core::array& queries,
  const mlx::core::array& ordered_kv,const mlx::core::array& sink,const mlx::core::array& valid);
+mlx::core::array swa_attention_fixed_tile_core(const mlx::core::array& queries,
+ const PackedAttentionWorkList& work,const mlx::core::array& sink);
 // Qualification-only attribution for the final ragged block. Each result
 // changes only one GEMM shape to 64 columns/rows while retaining the exact
 // work-list content and online-softmax schedule.

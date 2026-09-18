@@ -168,7 +168,8 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
     publication.publish_chunk_plan(layer_,plan,start,h.shape(0));
    auto fixed_work=swa_packed_attention_work_list(all_window,cache_prefixes.back().main_bytes(),
     cache_prefixes.back().main_scales(),plan,start,ratio_,512,true);
-   auto fixed_output=swa_attention_masked_chunk(q,fixed_work.ordered,sink_,fixed_work.valid);
+   auto fixed_output=runtime_ragged_tail_qk_enabled()?swa_attention_fixed_tile_core(q,fixed_work,sink_):
+    swa_attention_masked_chunk(q,fixed_work.ordered,sink_,fixed_work.valid);
    attention_groups.push_back(fixed_output);
    if(runtime_fixed_tile_attention_diagnostics_enabled()){
     const auto production_telemetry=read_attention_telemetry();

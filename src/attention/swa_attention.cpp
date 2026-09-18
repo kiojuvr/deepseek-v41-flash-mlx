@@ -2,6 +2,7 @@
 #include "dsv41/attention_telemetry.hpp"
 #include "dsv41/execution_policy.hpp"
 #include "batched_splitk_qk.hpp"
+#include "ragged_tail_qk.hpp"
 #include "packed_chunk_attention.hpp"
 #include "wide_chunk_attention.hpp"
 #include "packed_attention_worklist.hpp"
@@ -32,6 +33,32 @@ mx::array batched_splitk_qk(const mx::array& queries,const mx::array& keys){
  return accumulate({partial,mx::array({64*columns,partitions,tokens},mx::int32)},
   {{tokens,64,columns}},{mx::float32},{64*columns,tokens,1},{256,1,1},{},
   std::nullopt,false,mx::Device::gpu).front();
+}
+mx::array ragged_tail_qk(const mx::array& queries,const mx::array& keys,
+ const mx::array& widths){
+ const int tokens=queries.shape(0),rows=keys.shape(1);
+ static auto splitk=mx::fast::metal_kernel("dsv41_ragged_tail_qk",
+  {"queries","keys","widths","meta"},{"partial"},dsv41_ragged_tail_qk_source,
+  dsv41_batched_splitk_header);
+ static auto accumulate=mx::fast::metal_kernel("dsv41_ragged_tail_accum",
+  {"partial","widths","meta"},{"scores"},dsv41_ragged_tail_accum_source);
+ auto run=[&](int bn,int partitions,int minimum,int maximum){
+  const int tiles=(maximum+bn-1)/bn;
+  auto partial=splitk({queries,keys,widths,mx::array({tokens,rows},mx::int32)},
+   {{tokens,partitions,64,64}},{mx::float32},
+   {tiles*32,2*2,tokens*partitions*2},{32,2,2},
+   {{"BN",bn},{"PARTITIONS",partitions},{"MIN_WIDTH",minimum},{"MAX_WIDTH",maximum}},
+   std::nullopt,false,mx::Device::gpu).front();
+  return accumulate({partial,widths,mx::array({tokens},mx::int32)},
+   {{tokens,64,64}},{mx::float32},{64*64,tokens,1},{256,1,1},
+   {{"PARTITIONS",partitions},{"MIN_WIDTH",minimum},{"MAX_WIDTH",maximum}},
+   std::nullopt,false,mx::Device::gpu).front();
+ };
+ auto small=run(16,16,1,32),middle=run(16,8,33,39),large=run(32,8,40,63);
+ auto remainder=mx::remainder(widths,mx::array(64,mx::int32));
+ auto small_mask=mx::reshape(mx::less_equal(remainder,mx::array(32,mx::int32)),{tokens,1,1});
+ auto middle_mask=mx::reshape(mx::less_equal(remainder,mx::array(39,mx::int32)),{tokens,1,1});
+ return mx::where(small_mask,small,mx::where(middle_mask,middle,large));
 }
 }
 mx::array swa_packed_attention_chunk(const mx::array& q,const mx::array& local,
@@ -105,7 +132,7 @@ PackedAttentionWorkList swa_packed_attention_work_list(const mx::array& local,
  const int tokens=topk.shape(0),window=fixed_window?128:(start==0?std::min(128,tokens):128);
  const int rows=window+selected_count;
  static auto kernel=mx::fast::metal_kernel("dsv41_packed_attention_worklist",
-  {"local_kv","pooled_values","pooled_scales","topk","meta"},{"ordered","valid"},
+  {"local_kv","pooled_values","pooled_scales","topk","meta"},{"ordered","valid","widths"},
   dsv41_packed_attention_worklist_source);
  auto result=kernel({mx::contiguous(local,false,mx::Device::gpu),
                      mx::contiguous(pooled_values,false,mx::Device::gpu),
@@ -113,9 +140,9 @@ PackedAttentionWorkList swa_packed_attention_work_list(const mx::array& local,
                      mx::contiguous(topk,false,mx::Device::gpu),
                      mx::array({tokens,local.shape(0),pooled_values.shape(0),int(start),ratio,selected_count,
                                 fixed_window?1:0},mx::int32)},
-                    {{tokens,rows,512},{tokens,rows}},{mx::bfloat16,mx::bool_},
+                    {{tokens,rows,512},{tokens,rows},{tokens}},{mx::bfloat16,mx::bool_,mx::int32},
                     {512,rows,tokens},{32,1,1},{},std::nullopt,false,mx::Device::gpu);
- return {result[0],result[1]};
+ return {result[0],result[1],result[2]};
 }
 mx::array swa_fixed_tile_attention_chunk(const mx::array& q,const mx::array& local,
  const mx::array& pooled_values,const mx::array& pooled_scales,const mx::array& topk,
@@ -125,7 +152,8 @@ mx::array swa_fixed_tile_attention_chunk(const mx::array& q,const mx::array& loc
  auto work=swa_packed_attention_work_list(local,pooled_values,pooled_scales,topk,start,ratio,512,true);
  if(work.ordered.shape(1)!=640)
   throw std::runtime_error("fixed-tile attention must materialize ten 64-row tiles");
- return swa_attention_masked_chunk(q,work.ordered,sink,work.valid);
+ return runtime_ragged_tail_qk_enabled()?swa_attention_fixed_tile_core(q,work,sink):
+  swa_attention_masked_chunk(q,work.ordered,sink,work.valid);
 }
 mx::array swa_attention_reference(const mx::array& q,const mx::array& kv,const mx::array& sink){
  if(kv.ndim()!=2||kv.shape(0)>128)throw std::runtime_error("invalid SWA KV rank/window");
@@ -156,14 +184,23 @@ mx::array swa_attention_masked_reference(const mx::array& q,const mx::array& kv,
  denominator=mx::add(denominator,mx::exp(mx::subtract(mx::expand_dims(sink,-1),maximum)));
  return mx::astype(mx::divide(accumulated,denominator),mx::bfloat16);
 }
-mx::array swa_attention_masked_chunk(const mx::array& q,const mx::array& kv,
- const mx::array& sink,const mx::array& valid){
+namespace {
+mx::array swa_attention_masked_chunk_impl(const mx::array& q,const mx::array& kv,
+ const mx::array& sink,const mx::array& valid,const mx::array* tail_widths){
  if(q.dtype()!=mx::bfloat16||q.ndim()!=3||q.shape(0)<1||q.shape(0)>128||q.shape(1)!=64||q.shape(2)!=512||
     kv.dtype()!=mx::bfloat16||kv.ndim()!=3||kv.shape(0)!=q.shape(0)||kv.shape(1)<1||kv.shape(1)>640||kv.shape(2)!=512||
     sink.dtype()!=mx::float32||sink.shape()!=mx::Shape({64})||valid.dtype()!=mx::bool_||
     valid.shape()!=mx::Shape({q.shape(0),kv.shape(1)}))throw std::runtime_error("invalid chunk attention geometry");
  const int tokens=q.shape(0),rows=kv.shape(1);auto qf=mx::astype(q,mx::float32);
  const bool batched_splitk=runtime_batched_splitk_qk_enabled();
+ mx::array tail_scores=mx::array(0.0f),tail_blocks=mx::array(0,mx::int32),tail_remainder=mx::array(0,mx::int32);
+ if(tail_widths){
+  if(tail_widths->dtype()!=mx::int32||tail_widths->shape()!=mx::Shape({tokens})||rows!=640)
+   throw std::runtime_error("invalid ragged tail QK metadata");
+  tail_scores=ragged_tail_qk(qf,mx::astype(kv,mx::float32),*tail_widths);
+  tail_blocks=mx::floor_divide(*tail_widths,mx::array(64,mx::int32));
+  tail_remainder=mx::remainder(*tail_widths,mx::array(64,mx::int32));
+ }
  auto maximum=mx::full({tokens,64,1},-1e30f,mx::float32);
  auto denominator=mx::zeros({tokens,64,1},mx::float32);
  auto accumulated=mx::zeros({tokens,64,512},mx::float32);
@@ -213,6 +250,12 @@ mx::array swa_attention_masked_chunk(const mx::array& q,const mx::array& kv,
    { std::lock_guard l(attention_telemetry_mutex());attention_telemetry().chunk_scalar_qk_calls+=tokens; }
    scores=mx::concatenate(score_rows,0);
   }
+  if(tail_widths&&first>=128){
+   const int pooled_block=(first-128)/64;
+   auto use_tail=mx::logical_and(mx::equal(tail_blocks,mx::array(pooled_block,mx::int32)),
+                                 mx::greater(tail_remainder,mx::array(0,mx::int32)));
+   scores=mx::where(mx::reshape(use_tail,{tokens,1,1}),tail_scores,scores);
+  }
   scores=mx::multiply(scores,mx::array(float(std::pow(512.0,-0.5))));
   scores=mx::where(mx::expand_dims(mask,1),scores,mx::array(-std::numeric_limits<float>::infinity()));
   auto next_max=mx::maximum(maximum,mx::max(scores,-1,true));auto rescale=mx::exp(mx::subtract(maximum,next_max));
@@ -224,6 +267,15 @@ mx::array swa_attention_masked_chunk(const mx::array& q,const mx::array& kv,
  }
  denominator=mx::add(denominator,mx::exp(mx::subtract(mx::reshape(sink,{1,64,1}),maximum)));
  return mx::astype(mx::divide(accumulated,denominator),mx::bfloat16);
+}
+}
+mx::array swa_attention_masked_chunk(const mx::array& q,const mx::array& kv,
+ const mx::array& sink,const mx::array& valid){
+ return swa_attention_masked_chunk_impl(q,kv,sink,valid,nullptr);
+}
+mx::array swa_attention_fixed_tile_core(const mx::array& q,
+ const PackedAttentionWorkList& work,const mx::array& sink){
+ return swa_attention_masked_chunk_impl(q,work.ordered,sink,work.valid,&work.widths);
 }
 AttentionTailDiagnostics swa_attention_tail_diagnostics(const mx::array& q,
  const mx::array& kv,const mx::array& sink,const mx::array& valid){

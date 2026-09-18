@@ -749,6 +749,26 @@ last ragged AV shape to 64. Its purpose is to define the arithmetic contract
 for one device-wide ragged-tail operation; it is not a new production kernel
 or a tail speed optimization.
 
+The reviewed attribution run
+`attention/fixed-tile-isolation-20260919-015117-73330` passed at revision
+`eae832d`. For chunk zero, padded-tail QK accounted for 106 of the dense
+reduction's 115 differing BF16 values (RMS 0.0000155003); padded-tail AV
+accounted for only 9 (RMS 0.00000670324). For chunk one, QK accounted for all
+112 differing values and the complete RMS 0.0000410141, while AV was bit
+exact. Publication, window, and position checks remained exact with zero swap.
+
+The resulting architecture candidate does not recreate selected-count host
+groups. The fixed work-list materializer now emits each token's selected width
+as device metadata. One indirect ragged-tail QK operation uses the three exact
+MLX Steel short-N configurations—BN16/P16 for widths 1–32, BN16/P8 for 33–39,
+and BN32/P8 for 40–63—and writes a padded score tile for the existing online
+softmax. Thus request-dependent shapes become three fixed device classes per
+layer chunk instead of 17,910 host groups. Full 64-row blocks retain the
+qualified batched split-K path. The candidate is opt-in through
+`DSV41_RUNTIME_RAGGED_TAIL_QK=1`; padded AV remains unchanged until the
+official isolation establishes whether its nine-value chunk-zero residual is
+material after projection.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```

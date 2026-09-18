@@ -717,6 +717,16 @@ padding only QK or only AV. That result will define which reductions a single
 device-wide ragged-tail operation must preserve before another architecture
 candidate is connected.
 
+The passing attribution run
+`attention/fixed-tile-isolation-20260919-015117-73330` showed QK is the
+structural requirement. In chunk zero it caused 106/115 differing BF16 values;
+in chunk one it caused all 112 and the full RMS 0.0000410141. AV caused only
+nine chunk-zero differences and was bit-exact in chunk one. The next opt-in
+candidate therefore emits selected widths from the device materializer and
+executes the three native Steel short-N width classes as a fixed indirect
+work-list. It adds no selected-count host loop or readback and leaves the
+existing full-block QK, online softmax, and AV schedule intact.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```

@@ -142,6 +142,10 @@ int main(int argc,char** argv){try{
   auto fixed=dsv41::swa_fixed_tile_attention_chunk(q,local,mx::zeros({1,256},mx::uint8),
    mx::ones({1,32},mx::uint8),dense_topk,sink,0,4);
   rms_report(fixed,mx::concatenate(reference,0),"fixed-tile attention local fixture");
+  auto fixed_work=dsv41::swa_packed_attention_work_list(local,mx::zeros({1,256},mx::uint8),
+   mx::ones({1,32},mx::uint8),dense_topk,0,4,512,true);
+  auto ragged=dsv41::swa_attention_fixed_tile_core(q,fixed_work,sink);
+  rms_report(ragged,mx::concatenate(reference,0),"ragged-tail QK local fixture");
   auto pooled_source=mx::astype(mx::reshape(mx::sin(mx::arange(512,mx::float32)),{1,512}),mx::bfloat16);
   auto pooled=dsv41::kv_quant_reference(pooled_source,dsv41::KVQuantFormat::MainE4M3);
   auto selected=mx::zeros({2,1},mx::int32);
@@ -156,6 +160,18 @@ int main(int argc,char** argv){try{
   rms_report(candidate,mx::concatenate(reference,0),"packed fused attention pooled fixture");
   wide=dsv41::swa_wide_attention_chunk(q,local,pooled.packed,pooled.scales,selected,sink,8,4);
   rms_report(wide,mx::concatenate(reference,0),"wide fused attention pooled fixture");
+  auto class_source=mx::astype(mx::reshape(mx::sin(mx::arange(63*512,mx::float32)),{63,512}),mx::bfloat16);
+  auto class_pooled=dsv41::kv_quant_reference(class_source,dsv41::KVQuantFormat::MainE4M3);
+  auto class_local=mx::astype(mx::reshape(mx::cos(mx::arange(128*512,mx::float32)),{128,512}),mx::bfloat16);
+  for(int width:{1,33,40,63}){
+   auto ids=mx::broadcast_to(mx::expand_dims(mx::arange(width,mx::int32),0),{2,width});
+   auto dense=mx::concatenate({ids,mx::broadcast_to(mx::array(-1,mx::int32),{2,512-width})},1);
+   auto work=dsv41::swa_packed_attention_work_list(class_local,class_pooled.packed,
+    class_pooled.scales,dense,512,4,512,true);
+   auto padded=dsv41::swa_attention_masked_chunk(q,work.ordered,sink,work.valid);
+   auto exact_tail=dsv41::swa_attention_fixed_tile_core(q,work,sink);
+   rms_report(exact_tail,padded,"ragged-tail QK width-class fixture");
+  }
  }
  {
   dsv41::reset_attention_telemetry();

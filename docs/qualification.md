@@ -1034,6 +1034,14 @@ semantic divergence後にもexact final stateを要求したdiagnostic harness d
 分離し、device-wide ragged-tail operationが保存すべきreduction contractを決める。この診断は
 production kernel/performance qualificationではない。
 
+attribution rerun `attention/fixed-tile-isolation-20260919-015117-73330`はexit 0、swap 0。
+chunk 0のdense reduction 115 mismatches中QK tailが106（RMS `1.55003e-05`）、AV tailが9
+（`6.70324e-06`）。chunk 1はQK tailが112 mismatchesとRMS `4.10141e-05`の全量を占め、
+AV tailはbit-exactだった。publication/window/positionもexact。次candidateはselected widthを
+materializerからdevice metadataとして出し、native Steelと同じ3 width class（1–32: BN16/P16、
+33–39: BN16/P8、40–63: BN32/P8）を固定dispatchする。host selected-count grouping/readbackは
+導入しない。`DSV41_RUNTIME_RAGGED_TAIL_QK=1`は公式2-layer isolation通過までopt-inである。
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```
