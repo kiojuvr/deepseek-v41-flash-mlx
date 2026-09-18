@@ -698,6 +698,17 @@ production-topology checks. This qualifies only the two-layer isolation and
 authorizes the existing 40-layer backbone gate; no full-path timing is yet
 authorized.
 
+The subsequent full-backbone run
+`attention/fixed-tile-backbone-20260918-234534-71087` nevertheless failed at
+final hidden RMS 0.0111282. Since layer 2/3 isolation passed, the remaining
+candidate causes later-layer amplification or diverges at a later index-source
+publication. A one-chunk layer/stage trace now locates the first 0.002 crossing
+without changing execution or adding a kernel:
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
+```
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
 ```

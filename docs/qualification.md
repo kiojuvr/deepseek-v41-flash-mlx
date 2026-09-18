@@ -1019,6 +1019,16 @@ clean revision `77ca6c4`、tracked patch 0 bytes、exit 0、swap 0。同じseman
 publication/window/positionとproduction topologyもpassした。これにより2-layer isolationだけを
 40-layer backbone gateへ昇格する。production/performance/2Kは未qualified。
 
+40-layer rerun `attention/fixed-tile-backbone-20260918-234534-71087`はright-aligned候補でも
+final hidden RMS `0.0111282`（max 2048、mean 1.45624、2,597,265 values）でreject。
+layer 2/3 isolationはpassしているため、後続layerの増幅または後続index-source publicationを切り分ける。
+次のrunnerは1 chunkについて各layerのattn-in/out、post-attn、ffn-in、MoE-out、hidden、pre-mixを比較し、
+最初に0.002を超えるstageを報告する。diagnosticのみでperformance/qualificationではない。
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
+```
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
 ```

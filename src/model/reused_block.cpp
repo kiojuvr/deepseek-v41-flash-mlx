@@ -62,15 +62,22 @@ BlockResult ReusedBlockReference::forward_packed_chunk(const mx::array& h,const 
   if(!finite.item<bool>())throw std::runtime_error("nonfinite packed reused Block chunk input");
  }
  auto next=state;auto pending_publications=publications;
+ const std::string prefix=layer_<20?"encoder.layer":"decoder.layer";
+ auto name=[&](const char* suffix){return prefix+std::to_string(layer_)+"."+suffix;};
  auto attn_mixes=attn_mix_.mixes(h);
  auto batched_attn_input=rms_norm_reference(hc_pre_reference(h,pre),attn_norm_,1e-20f);
+ trace_record(name("attn_in"),batched_attn_input);
  auto attention_started=runtime_profile_start();
  auto batched_attn_output=attention_.forward_chunk(batched_attn_input,next,pending_publications,start);
+ trace_record(name("attn_out"),batched_attn_output);
  finish_runtime_component(layer_,ProfileComponent::AttentionPath,attention_started,batched_attn_output);
  auto post_attention=hc_post_reference(batched_attn_output,h,attn_mixes);
+ trace_record(name("post_attn"),post_attention);
  auto ffn_mixes=ffn_mix_.mixes(post_attention);
  auto batched_input=rms_norm_reference(hc_pre_reference(post_attention,attn_mixes.pre),ffn_norm_,1e-20f);
+ trace_record(name("ffn_in"),batched_input);
  auto moe_started=runtime_profile_start();auto moe=moe_.forward_batch_components(batched_input,start);
+ trace_record(name("moe_out"),moe.total);
  finish_runtime_component(layer_,ProfileComponent::MoEPath,moe_started,moe.total);
  BlockResult result{hc_post_reference(moe.total,post_attention,ffn_mixes),ffn_mixes.pre};
  auto post_started=runtime_profile_start();
@@ -79,6 +86,7 @@ BlockResult ReusedBlockReference::forward_packed_chunk(const mx::array& h,const 
   mx::eval(result.hidden,result.pre_mix,ok);if(!ok.item<bool>())throw std::runtime_error("nonfinite packed reused Block chunk output");
  }
  finish_runtime_component(layer_,ProfileComponent::PostMoE,post_started,result.hidden);
+ trace_record(name("hidden"),result.hidden);trace_record(name("pre_mix"),result.pre_mix);
  publications=std::move(pending_publications);
  state=std::move(next);return result;
 }

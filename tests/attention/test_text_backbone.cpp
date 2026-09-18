@@ -11,7 +11,21 @@
 #include <vector>
 #include <algorithm>
 #include <tuple>
+#include <map>
 namespace mx=mlx::core;
+class MemoryTraceSink final:public dsv41::TraceSink {
+public:
+ void record(const std::string& name,const mx::array& value) override {
+  auto [it,inserted]=values.emplace(name,value);
+  if(!inserted)it->second=mx::concatenate({it->second,value},0);
+ }
+ const mx::array& at(const std::string& name) const {
+  auto it=values.find(name);if(it==values.end())throw std::runtime_error("missing layer trace: "+name);
+  return it->second;
+ }
+private:
+ std::map<std::string,mx::array> values;
+};
 void same(const mx::array& a,const mx::array& b,const char* what){
  if(a.shape()!=b.shape()||a.dtype()!=b.dtype())throw std::runtime_error(std::string(what)+": shape/dtype mismatch");
  auto dtype=a.dtype()==mx::bfloat16?mx::uint16:mx::uint32;
@@ -111,6 +125,39 @@ int main(int argc,char** argv){try{
    for(int i=0;i<3;++i)publication_same(a.encoder.producer[i],b.encoder.producer[i],3+6*i);
    publication_same(a.decoder.producer,b.decoder.producer,39);
   };
+  if(std::getenv("DSV41_CHECK_FIXED_TILE_LAYER_LOCALIZATION")){
+   std::vector<std::uint32_t> input(128);for(int i=0;i<128;++i)input[i]=std::uint32_t((i*7919)%129263);
+   MemoryTraceSink expected_trace,actual_trace;
+   model.forward(input,expected_state,0,&expected_trace);
+   dsv41::set_active_trace_sink(&actual_trace);
+   packed.forward_packed_chunk(input,actual_state,0);
+   dsv41::set_active_trace_sink(nullptr);
+   int first_layer=-1;std::string first_stage;float first_rms=0.0f;
+   for(int layer=0;layer<40;++layer){
+    const std::string prefix=(layer<20?"encoder.layer":"decoder.layer")+std::to_string(layer)+".";
+    for(const char* stage:{"attn_in","attn_out","post_attn","ffn_in","moe_out","hidden","pre_mix"}){
+     const auto& candidate=actual_trace.at(prefix+stage);const auto& reference=expected_trace.at(prefix+stage);
+     if(candidate.shape()!=reference.shape()||candidate.dtype()!=reference.dtype())
+      throw std::runtime_error("layer trace shape mismatch: "+prefix+stage);
+     auto c=mx::astype(candidate,mx::float32),r=mx::astype(reference,mx::float32),d=mx::subtract(c,r);
+     auto relative=mx::sqrt(mx::divide(mx::sum(mx::multiply(d,d)),
+      mx::maximum(mx::sum(mx::multiply(r,r)),mx::array(1e-30f))));
+     auto maximum=mx::max(mx::abs(d));
+     auto mismatches=mx::sum(mx::astype(mx::not_equal(candidate,reference),mx::uint32));
+     mx::eval(relative,maximum,mismatches);const float rms=relative.item<float>();
+     std::cout<<"fixed-tile layer="<<layer<<" stage="<<stage<<" relative_rms="<<rms
+              <<" max_abs="<<maximum.item<float>()
+              <<" bit_mismatches="<<mismatches.item<std::uint32_t>()<<std::endl;
+     if(first_layer<0&&rms>=0.002f){first_layer=layer;first_stage=stage;first_rms=rms;}
+    }
+   }
+   full_state_same(actual_state,expected_state);
+   std::cout<<"PASS: fixed-tile layer localization completed; first_gate_failure_layer="
+            <<first_layer<<" first_gate_failure_stage="<<(first_layer<0?"none":first_stage)
+            <<" first_gate_failure_rms="<<first_rms
+            <<"; state/publication/hash exact; diagnostic only"<<std::endl;
+   return 0;
+  }
   if(std::getenv("DSV41_CHECK_LAYER_SWEEP_BACKBONE")){
    std::vector<std::uint32_t> input(256);for(int i=0;i<256;++i)input[i]=std::uint32_t((i*7919)%129263);
    if(setenv("DSV41_RUNTIME_CHUNK_ATTENTION","0",1)!=0)throw std::runtime_error("cannot select sweep oracle attention");

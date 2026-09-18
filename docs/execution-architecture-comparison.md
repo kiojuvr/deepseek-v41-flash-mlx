@@ -722,6 +722,19 @@ topology checks all passed. The right-aligned fixed schedule is therefore
 promoted to the unchanged 40-layer gate; it is not yet a production or
 performance qualification.
 
+The promoted 40-layer rerun
+`attention/fixed-tile-backbone-20260918-234534-71087` still failed at final
+hidden RMS 0.0111282 (maximum absolute 2048, mean absolute 1.45624,
+2,597,265 differing elements). The next diagnostic records the existing
+reference and candidate boundaries after every layer—attention input/output,
+post-attention, FFN input, MoE output, hidden, and pre-mix—and reports the
+first stage crossing 0.002. It executes one 128-token chunk and is not a
+qualification or timing run:
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
+```
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
 ```
