@@ -691,6 +691,13 @@ the shared scalar-QK counter. The harness now restores production telemetry
 after diagnostics; the semantic result is retained but an exit-0 rerun is
 required for promotion.
 
+The exit-0 rerun `attention/fixed-tile-isolation-20260918-234431-70930` was
+clean revision `77ca6c4`, tracked patch 0 bytes, and swap 0. It reproduced the
+same semantic measurements and passed publication/window/position plus
+production-topology checks. This qualifies only the two-layer isolation and
+authorizes the existing 40-layer backbone gate; no full-path timing is yet
+authorized.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
 ```

@@ -1014,6 +1014,11 @@ publication/window/position checkにも到達した。exit 1はdiagnostic exact 
 counterへ混入したharness defectによる。diagnostic後にtelemetry snapshotを復元するよう修正したが、
 promotionにはexit 0の再実行を要求する。
 
+exit-0 rerun `attention/fixed-tile-isolation-20260918-234431-70930`をreview済み。
+clean revision `77ca6c4`、tracked patch 0 bytes、exit 0、swap 0。同じsemantic値を再現し、
+publication/window/positionとproduction topologyもpassした。これにより2-layer isolationだけを
+40-layer backbone gateへ昇格する。production/performance/2Kは未qualified。
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
 ```

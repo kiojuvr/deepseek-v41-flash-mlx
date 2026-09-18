@@ -714,6 +714,14 @@ reached their exact checks. The process exited only because diagnostic exact
 graphs polluted the production scalar-QK counter; telemetry is now restored
 after diagnostics. A clean rerun is required before the full-backbone gate.
 
+The clean rerun `attention/fixed-tile-isolation-20260918-234431-70930` passed
+from revision `77ca6c4`, with an empty tracked patch, exit 0, and zero swap.
+It reproduced bit-exact dense content and the same bounded reduction/producer/
+reuse RMS values, while publication rows, windows, positions, and production
+topology checks all passed. The right-aligned fixed schedule is therefore
+promoted to the unchanged 40-layer gate; it is not yet a production or
+performance qualification.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
 ```
