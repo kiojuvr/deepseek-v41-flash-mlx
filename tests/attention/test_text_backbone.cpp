@@ -133,6 +133,22 @@ int main(int argc,char** argv){try{
    packed.forward_packed_chunk(input,actual_state,0);
    dsv41::set_active_trace_sink(nullptr);
    int first_layer=-1;std::string first_stage;float first_rms=0.0f;
+   auto report_stage=[&](int layer,const std::string& stage){
+    const std::string prefix="encoder.layer"+std::to_string(layer)+".";
+    const auto& candidate=actual_trace.at(prefix+stage);const auto& reference=expected_trace.at(prefix+stage);
+    if(candidate.shape()!=reference.shape()||candidate.dtype()!=reference.dtype())
+     throw std::runtime_error("layer trace shape mismatch: "+prefix+stage);
+    auto c=mx::astype(candidate,mx::float32),r=mx::astype(reference,mx::float32),d=mx::subtract(c,r);
+    auto relative=mx::sqrt(mx::divide(mx::sum(mx::multiply(d,d)),
+     mx::maximum(mx::sum(mx::multiply(r,r)),mx::array(1e-30f))));
+    auto maximum=mx::max(mx::abs(d));
+    auto mismatches=mx::sum(mx::astype(mx::not_equal(candidate,reference),mx::uint32));
+    mx::eval(relative,maximum,mismatches);const float rms=relative.item<float>();
+    std::cout<<"fixed-tile layer="<<layer<<" stage="<<stage<<" relative_rms="<<rms
+             <<" max_abs="<<maximum.item<float>()
+             <<" bit_mismatches="<<mismatches.item<std::uint32_t>()<<std::endl;
+    if(first_layer<0&&rms>=0.002f){first_layer=layer;first_stage=stage;first_rms=rms;}
+   };
    for(int layer=0;layer<40;++layer){
     const std::string prefix=(layer<20?"encoder.layer":"decoder.layer")+std::to_string(layer)+".";
     for(const char* stage:{"attn_in","attn_out","post_attn","ffn_in","moe_out","hidden","pre_mix"}){
@@ -150,6 +166,9 @@ int main(int argc,char** argv){try{
               <<" bit_mismatches="<<mismatches.item<std::uint32_t>()<<std::endl;
      if(first_layer<0&&rms>=0.002f){first_layer=layer;first_stage=stage;first_rms=rms;}
     }
+    if(layer==3||layer==4)for(const char* stage:{"attn_qr","attn_q","attn_kv","attn_core",
+                                                "attn_inverse_rope","attn_grouped","attn_linear"})
+     report_stage(layer,stage);
    }
    std::cout<<"PASS: fixed-tile layer localization completed; first_gate_failure_layer="
             <<first_layer<<" first_gate_failure_stage="<<(first_layer<0?"none":first_stage)

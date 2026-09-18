@@ -15,7 +15,7 @@ checkpoint=${CHECKPOINT:-/Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-
 printf '%s\n' \
  'scope=one 128-token official 40-layer oracle/candidate chunk; compare attn-in/out, post-attn, ffn-in, MoE-out, hidden, and pre-mix after every layer' \
  'resources=allow 3 minutes; budget 240 GB Unified Memory; substantial read-only checkpoint expert reads; no swap expected' \
- 'result=reports first layer/stage crossing RMS 0.002; final state equality is intentionally not asserted after semantic divergence; diagnostic only, not qualification or performance' \
+ 'result=reports first layer/stage crossing RMS 0.002 plus layer 3/4 qr, q/kv, attention-core, inverse-RoPE, grouped-projection and output-linear attribution; final state equality is intentionally not asserted after semantic divergence; diagnostic only, not qualification or performance' \
  'logs=artifacts/attention/fixed-tile-layer-localization-<timestamp>-<pid>/{test.log,resource.log,identity.txt,tracked.patch,exit-code.txt}' \
  'failure=retain the failed directory; do not promote or run 2K' \
  'resume=unsupported; rerun this script for fresh model/request state' > "$run_dir/config.txt"

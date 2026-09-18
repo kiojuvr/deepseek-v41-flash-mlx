@@ -1074,6 +1074,13 @@ promotion対象外であり、修正版も公式2-layer gateを再通過する�
 producer、first reuseがすべてbit-exact、publication/window/positionもexactだった。これは2-layer
 境界だけを閉じる結果であり、promotion前に40-layer stage-localizationを通す。
 
+40-layer localization `attention/fixed-tile-layer-localization-20260919-023624-77030`は
+promotion gateを閉じなかった。layer 0–2はbit-exactだが、layer 3 attn-out RMS
+`0.000155028`からlayer 4 attn-out `0.00895643`へ増幅し、固定上限`0.002`を超えた。
+layer 3 attn-inはbit-exactなので、次の同一runnerはlayer 3/4のqr、q/kv、attention core、
+inverse RoPE、grouped projection、output linearも記録する。projection起因かwork-list/core起因かを
+一回で確定する診断であり、新kernel実装またはthreshold緩和ではない。
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \

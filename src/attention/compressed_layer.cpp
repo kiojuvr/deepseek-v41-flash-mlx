@@ -5,6 +5,7 @@
 #include "dsv41/model_entry.hpp"
 #include "dsv41/engram.hpp"
 #include "dsv41/execution_policy.hpp"
+#include "dsv41/trace.hpp"
 #include <iostream>
 #include <stdexcept>
 #include "dsv41/layer_owner.hpp"
@@ -298,6 +299,9 @@ mx::array ReusedLayerReference::forward(const mx::array& x,ReusedLayerState& sta
   auto finite=mx::all(mx::isfinite(x));mx::eval(finite);if(!finite.item<bool>())throw std::runtime_error("nonfinite reuse layer input");
  }
  auto qr=rms_norm_reference(qa_.forward(x),qnorm_,1e-20f);
+ const bool trace_arithmetic=active_trace_sink()&&(layer_==3||layer_==4);
+ const std::string trace_prefix="encoder.layer"+std::to_string(layer_)+".";
+ if(trace_arithmetic)trace_record(trace_prefix+"attn_qr",qr);
  std::vector<std::int32_t> selected;
  if(is_index_source_){
   auto selection=index_->forward(x,qr,publication.cache(),pos,offset,uses_candidates_?&publication.candidates():nullptr);
@@ -308,6 +312,7 @@ mx::array ReusedLayerReference::forward(const mx::array& x,ReusedLayerState& sta
  }
  auto q=compressed_rope_reference(mx::reshape(qb_.forward(qr),{1,64,512}),std::span(&pos,1));
  auto kv=linear_activation_reference(compressed_rope_reference(rms_norm_reference(kv_.forward(x),kvnorm_,1e-20f),std::span(&pos,1))).decoded;
+ if(trace_arithmetic){trace_record(trace_prefix+"attn_q",q);trace_record(trace_prefix+"attn_kv",kv);}
  auto window=mx::concatenate({state.window_,kv},0); { std::lock_guard l(attention_telemetry_mutex()); auto& t=attention_telemetry(); ++t.concat_calls; t.concat_input_bytes+=(state.window_.size()+kv.size())*2; t.concat_output_bytes+=window.size()*2; t.cumulative_bytes_copied+=window.size()*2; }
  if(window.shape(0)>128)window=mx::slice(window,{window.shape(0)-128,0},{window.shape(0),512});
  int padding=offset-window.shape(0);
@@ -315,9 +320,13 @@ mx::array ReusedLayerReference::forward(const mx::array& x,ReusedLayerState& sta
  if(!selected.empty())ordered=mx::concatenate({ordered,main_rows(publication.cache(),selected,offset)},0);
  auto valid=mx::greater_equal(mx::arange(ordered.shape(0),mx::int32),mx::array(padding));
  auto o=swa_attention_masked_reference(mx::reshape(q,{64,512}),ordered,sink_,valid);
+ if(trace_arithmetic)trace_record(trace_prefix+"attn_core",mx::reshape(o,{1,64,512}));
  o=compressed_rope_reference(mx::reshape(o,{1,64,512}),std::span(&pos,1),true);
+ if(trace_arithmetic)trace_record(trace_prefix+"attn_inverse_rope",o);
  auto projected=mx::matmul(mx::reshape(o,{8,1,4096}),mx::transpose(grouped_,{0,2,1}));
+ if(trace_arithmetic)trace_record(trace_prefix+"attn_grouped",mx::reshape(projected,{1,8192}));
  auto y=output_.forward(mx::reshape(projected,{1,8192}));
+ if(trace_arithmetic)trace_record(trace_prefix+"attn_linear",y);
  if(runtime_layer_finite_checks_enabled()){
   auto ok=mx::logical_and(mx::all(mx::isfinite(y)),mx::all(mx::isfinite(window)));mx::eval(y,window,ok);
   if(!ok.item<bool>())throw std::runtime_error("nonfinite reuse layer output/state");
@@ -340,6 +349,10 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
  auto q=compressed_rope_reference(mx::reshape(qb_.forward(qr),{x.shape(0),64,512}),positions);
  auto kv=linear_activation_reference(compressed_rope_reference(
   rms_norm_reference(kv_.forward(x),kvnorm_,1e-20f),positions)).decoded;
+ const bool trace_arithmetic=active_trace_sink()&&(layer_==3||layer_==4);
+ const std::string trace_prefix="encoder.layer"+std::to_string(layer_)+".";
+ if(trace_arithmetic){trace_record(trace_prefix+"attn_qr",qr);trace_record(trace_prefix+"attn_q",q);
+  trace_record(trace_prefix+"attn_kv",kv);}
  auto next=state;std::vector<mx::array> projected_rows;projected_rows.reserve(x.shape(0));
  auto all_window=mx::concatenate({state.window_,kv},0);
  std::vector<IndexSelection> selections;
@@ -412,7 +425,9 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
   }
   }
   auto o=attention_groups.size()==1?attention_groups.front():mx::concatenate(attention_groups,0);
+  if(trace_arithmetic)trace_record(trace_prefix+"attn_core",o);
   o=compressed_rope_reference(o,positions,true);
+  if(trace_arithmetic)trace_record(trace_prefix+"attn_inverse_rope",o);
   auto grouped=mx::transpose(grouped_,{0,2,1});
   for(int i=0;i<x.shape(0);++i){
    auto token_o=mx::reshape(mx::slice(o,{i,0,0},{i+1,64,512}),{8,1,4096});
@@ -467,9 +482,11 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
   { std::lock_guard l(attention_telemetry_mutex());++attention_telemetry().token_serial_attention_calls; }
  }
  auto projected=projected_rows.size()==1?projected_rows.front():mx::concatenate(projected_rows,0);
+ if(trace_arithmetic)trace_record(trace_prefix+"attn_grouped",projected);
  next.window_=mx::slice(all_window,{std::max(0,all_window.shape(0)-128),0},{all_window.shape(0),512});
  next.position_=start+x.shape(0);
  auto result=output_.forward(projected);
+ if(trace_arithmetic)trace_record(trace_prefix+"attn_linear",result);
  if(runtime_layer_finite_checks_enabled()){
   auto ok=mx::logical_and(mx::all(mx::isfinite(result)),mx::all(mx::isfinite(next.window_)));
   mx::eval(result,next.window_,ok);if(!ok.item<bool>())throw std::runtime_error("nonfinite reuse layer chunk output/state");

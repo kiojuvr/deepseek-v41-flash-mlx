@@ -818,6 +818,18 @@ and position state were exact. Exit status was zero and swap remained zero.
 This closes the two-layer boundary only. The 40-layer stage-localization gate
 is next and remains diagnostic rather than performance qualification.
 
+That localization run
+`attention/fixed-tile-layer-localization-20260919-023624-77030` did not close
+the full-layer gate. Layer 3 attention output still differed at RMS
+`0.000155028`, and layer 4 attention amplified it to `0.00895643`; layers 0–2
+were bit exact. The result is slightly better than ragged-QK alone but proves
+that exact isolated producer/reuse outputs are insufficient for the real
+backbone input distribution. Because layer 3 `attn_in` is bit exact, the next
+bounded trace records layer 3/4 qr, q/kv, attention-core, inverse-RoPE,
+grouped-projection, and output-linear boundaries. This distinguishes batched
+projection arithmetic from work-list/attention arithmetic without adding a
+new kernel or weakening the gate.
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \
