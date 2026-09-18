@@ -62,12 +62,12 @@ mx::array ragged_tail_qk(const mx::array& queries,const mx::array& keys,
  return mx::where(small_mask,small,mx::where(middle_mask,middle,large));
 }
 mx::array ragged_tail_av(const mx::array& probabilities,const mx::array& keys,
- const mx::array& widths,int block){
+ const mx::array& widths,int block,bool direct=false){
  const int tokens=probabilities.shape(0),rows=keys.shape(1);
  static auto kernel=mx::fast::metal_kernel("dsv41_ragged_tail_av",
   {"probabilities","keys","widths","meta"},{"output"},dsv41_ragged_tail_av_source,
   dsv41_batched_splitk_header);
- return kernel({probabilities,keys,widths,mx::array({tokens,rows,block},mx::int32)},
+ return kernel({probabilities,keys,widths,mx::array({tokens,rows,block,direct?1:0},mx::int32)},
   {{tokens,64,512}},{mx::float32},{16*32,1*2,tokens*2},{32,2,2},{},
   std::nullopt,false,mx::Device::gpu).front();
 }
@@ -274,7 +274,11 @@ mx::array swa_attention_masked_chunk_impl(const mx::array& q,const mx::array& kv
   auto exponent=mx::exp(mx::subtract(scores,next_max));
   denominator=mx::add(mx::multiply(denominator,rescale),mx::sum(exponent,-1,true));
   auto rounded=mx::astype(mx::astype(exponent,mx::bfloat16),mx::float32);
-  auto av=mx::matmul(rounded,keys);
+  // A fixed tile is one device work-list operation, but MLX otherwise chooses
+  // its large batched-GEMM AV specialization from token count.  Use the same
+  // per-token Steel tile as the serial oracle across the device token axis.
+  auto av=tail_widths&&ragged_av?
+   ragged_tail_av(rounded,keys,*tail_widths,0,true):mx::matmul(rounded,keys);
   if(tail_widths&&ragged_av&&first>=128){
    const int pooled_block=(first-128)/64;
    auto use_tail=mx::logical_and(mx::equal(tail_blocks,mx::array(pooled_block,mx::int32)),

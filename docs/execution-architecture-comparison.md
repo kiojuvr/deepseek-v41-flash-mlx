@@ -830,6 +830,21 @@ grouped-projection, and output-linear boundaries. This distinguishes batched
 projection arithmetic from work-list/attention arithmetic without adding a
 new kernel or weakening the gate.
 
+The attributed rerun
+`attention/fixed-tile-layer-localization-20260919-024057-77425` located the
+first difference inside layer 3 attention core: qr, q, and kv were bit exact,
+while core output differed in only two BF16 elements (RMS `8.99269e-07`). The
+grouped projection expanded that to 71 elements and the output linear to 1,189
+before layer 4 amplification. Pinned MLX 0.32.2 chooses its regular Steel tile
+using `batch_size * M * N`: the fixed 128-token AV crosses the large-matmul
+threshold even though the token-serial oracle does not. The AV work-list now
+uses the oracle's BM64/BN32/BK32, WM2/WN2 tile for every 64-row block across
+the device token axis, not only for the ragged pooled tail. This retains one
+device dispatch per block and removes the batch-size-dependent reduction
+change; it does not restore a host token loop. The existing flag name remains
+transitional, and the path remains opt-in pending official isolation and
+40-layer gates.
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \

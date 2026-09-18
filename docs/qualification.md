@@ -1081,6 +1081,15 @@ layer 3 attn-inはbit-exactなので、次の同一runnerはlayer 3/4のqr、q/k
 inverse RoPE、grouped projection、output linearも記録する。projection起因かwork-list/core起因かを
 一回で確定する診断であり、新kernel実装またはthreshold緩和ではない。
 
+attribution rerun `attention/fixed-tile-layer-localization-20260919-024057-77425`ではlayer 3の
+qr/q/kvがbit-exactで、最初の差はattention coreの2 BF16 elements、RMS `8.99269e-07`だった。
+grouped projectionで71、output linearで1,189 elementsへ増幅した。MLX 0.32.2 regular Steelは
+`batch_size * M * N`でtileを選び、128-token fixed AVだけがlarge-matmul閾値を越えるため、
+token-serial oracleとreduction構成が変わっていた。candidateはhost token loopへ戻さず、全64-row
+AV blockをdevice token軸へまとめたままoracleのBM64/BN32/BK32、WM2/WN2で実行する。ragged tailも
+同じoperationで処理する。synthetic attention suite通過後もopt-inのまま、公式isolationと40-layer
+gateを再実行する。
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \

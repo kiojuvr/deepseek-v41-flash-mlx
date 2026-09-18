@@ -1,7 +1,8 @@
 // Copyright © 2024 Apple Inc.
 // SPDX-License-Identifier: MIT
-// Device work-list adaptation of the MLX 0.32.2 regular Steel GEMM used by
-// [64,K] x [K,512] AV. Preserve its unaligned-K-tail-first MMA order.
+// Device work-list adaptation of the MLX 0.32.2 per-token regular Steel GEMM
+// used by [64,K] x [K,512] AV. Full blocks and ragged tails share the same
+// tile; ragged K preserves the oracle's unaligned-tail-first MMA order.
 using gemm_kernel = mlx::steel::GEMMKernel<
     float, float, 64, 32, 32, 2, 2, false, false, true, true>;
 using loader_a_t = typename gemm_kernel::loader_a_t;
@@ -17,13 +18,14 @@ const uint3 group = threadgroup_position_in_grid;
 const int token = int(group.z);
 if (token >= meta[0] || int(group.x) >= 16 || int(group.y) >= 1) return;
 const int selected = widths[token];
-const int columns = selected & 63;
+const bool direct = meta[3] != 0;
+const int columns = direct ? 64 : (selected & 63);
 const int tail_block = selected / 64;
-if (columns == 0 || tail_block != meta[2]) return;
+if (columns == 0 || (!direct && tail_block != meta[2])) return;
 
 const int c_row = int(group.y) * 64;
 const int c_col = int(group.x) * 32;
-const int tail_row = 128 + tail_block * 64;
+const int tail_row = direct ? 0 : 128 + tail_block * 64;
 const device float* A = probabilities + size_t(token) * 64 * 64 + size_t(c_row) * 64;
 const device float* B = keys + (size_t(token) * meta[1] + tail_row) * 512 + c_col;
 device float* C = output + size_t(token) * 64 * 512 + size_t(c_row) * 512 + c_col;
