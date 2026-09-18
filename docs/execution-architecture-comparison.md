@@ -769,6 +769,18 @@ qualified batched split-K path. The candidate is opt-in through
 official isolation establishes whether its nine-value chunk-zero residual is
 material after projection.
 
+Official opt-in isolation
+`attention/fixed-tile-isolation-20260919-020313-74339` confirmed that the
+device width classes reproduce the intended QK reductions. Chunk-one dense
+reduction became bit exact. Chunk-zero dense reduction retained only the nine
+AV-attributed differences (RMS 0.00000670324); producer RMS fell from
+0.000498815 to 0.000178388 and first-reuse RMS from 0.000424763 to
+0.000105944. The run passed publication/window/position checks with zero swap.
+Before spending a full-backbone gate, the same short fixture now reports the
+number and first/last token carrying those nine AV differences. This decides
+between a constant request-frontier correction and a general ragged-AV work
+list without adding production telemetry.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```

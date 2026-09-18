@@ -1042,6 +1042,12 @@ materializerからdevice metadataとして出し、native Steelと同じ3 width 
 33–39: BN16/P8、40–63: BN32/P8）を固定dispatchする。host selected-count grouping/readbackは
 導入しない。`DSV41_RUNTIME_RAGGED_TAIL_QK=1`は公式2-layer isolation通過までopt-inである。
 
+opt-in run `attention/fixed-tile-isolation-20260919-020313-74339`はexit 0、swap 0。
+chunk 1のdense reductionはbit-exactになり、chunk 0はAV由来9 mismatches、RMS
+`6.70324e-06`だけが残った。producer RMSは`0.000178388`、first reuseは`0.000105944`へ低下。
+publication/window/positionはexact。40-layer gate前に同じfixtureでAV mismatchを持つtokenの
+count/first/lastだけを追加確認し、request-frontier固有か一般ragged AVかを決める。
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```

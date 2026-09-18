@@ -93,6 +93,18 @@ void report_fixed_tile_rms(const mx::array& candidate,const mx::array& reference
           <<" max_abs="<<maximum.item<float>()
           <<" bit_mismatches="<<mismatches.item<std::uint32_t>()<<std::endl;
 }
+void report_fixed_tile_mismatch_tokens(const mx::array& candidate,const mx::array& reference,
+ const char* label){
+ auto token_mask=mx::any(mx::not_equal(candidate,reference),std::vector<int>{1,2});
+ const int tokens=candidate.shape(0);
+ auto ids=mx::arange(tokens,mx::int32);
+ auto count=mx::sum(mx::astype(token_mask,mx::uint32));
+ auto first=mx::min(mx::where(token_mask,ids,mx::array(tokens,mx::int32)));
+ auto last=mx::max(mx::where(token_mask,ids,mx::array(-1,mx::int32)));
+ mx::eval(count,first,last);
+ std::cout<<label<<" mismatch_tokens="<<count.item<std::uint32_t>()
+          <<" first="<<first.item<std::int32_t>()<<" last="<<last.item<std::int32_t>()<<std::endl;
+}
 }
 CompressedLayerReference::CompressedLayerReference(WeightCatalog& c,int layer):layer_(checked_producer_layer(layer)),ratio_(layer_compress_ratio(layer)),
  qa_(c,("layers."+std::to_string(layer_))+".attn.wq_a"),qb_(c,("layers."+std::to_string(layer_))+".attn.wq_b"),kv_(c,("layers."+std::to_string(layer_))+".attn.wkv"),output_(c,("layers."+std::to_string(layer_))+".attn.wo_b"),
@@ -223,6 +235,7 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
     report_fixed_tile_rms(content,exact,"fixed-tile producer dense-content/exact-shape");
     report_fixed_tile_rms(qk_padded,exact,"fixed-tile producer padded-tail-QK/exact-shape");
     report_fixed_tile_rms(av_padded,exact,"fixed-tile producer padded-tail-AV/exact-shape");
+    report_fixed_tile_mismatch_tokens(av_padded,exact,"fixed-tile producer padded-tail-AV tokens");
     report_fixed_tile_rms(fixed_output,exact,"fixed-tile producer dense-reduction/exact-shape");
     // Qualification-only exact/content graphs must not appear in production
     // dispatch telemetry.
