@@ -620,3 +620,13 @@ gather/decode graphs without claiming operation-level fusion. The official
 two-layer 2x128-token fixture is bit-exact for hidden, pre-mix, and logits and
 keeps state/publication exact. Eliminating the groups now requires an
 exact-reduction dynamic-tail fused kernel, not rectangular padding.
+
+The corresponding clean full-backbone gate
+`attention/packed-fused-backbone-20260918-133655-62171` passed two 128-token
+chunks bit-exact for hidden, pre-mix, and logits, with route ties,
+state/publication/hash, and invalid-request atomicity exact. Revision
+`3878755`, tracked patch 0 bytes, exit 0, and swap 0 were verified. Telemetry
+reported 76 packed-attention chunk calls, 23,810 batched split-K QK calls, and
+9,594 scalar QK calls. This promotes only the exact-shape packed
+materialization boundary to the 2K measurement; it is not evidence of reduced
+attention-group topology.

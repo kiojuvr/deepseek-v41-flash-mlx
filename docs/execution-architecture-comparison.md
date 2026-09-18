@@ -556,3 +556,12 @@ fused kernel. The updated 40-layer gate remains:
 ```sh
 bash tools/benchmark/run_packed_attention_backbone_check.sh
 ```
+
+The clean 40-layer result
+`attention/packed-fused-backbone-20260918-133655-62171` passed both 128-token
+chunks bit-exact for hidden, pre-mix, and logits; route ties,
+state/publication/hash, and invalid-request atomicity were exact. It ran from
+commit `3878755`, with an empty tracked patch, exit 0, and zero swap. The run
+reported 76 packed-attention chunk calls, 23,810 batched split-K QK calls, and
+9,594 scalar QK calls. This qualifies the packed materializer semantically; it
+does not qualify performance or claim that the shape groups were removed.

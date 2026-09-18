@@ -951,6 +951,13 @@ operation fusionはまだ主張しない。公式2-layer 2x128-token fixtureで�
 bit-exact、state/publicationもexactに戻った。更新済みrunnerは同じ40-layer gateでこの限定候補を
 検証する。
 
+40-layer gate `attention/packed-fused-backbone-20260918-133655-62171`をreview済み。
+clean revision `3878755`、tracked patch 0 bytes、exit 0、swap 0。2つの128-token chunkで
+hidden/pre-mix/logitsはbit-exact、route tie、state/publication/hash、invalid-request atomicityも
+exactだった。telemetryはpacked attention chunk 76、batched split-K QK 23,810、scalar QK
+9,594。これによりexact-shape packed materializationだけを2K full-path測定へ昇格する。
+performanceおよび17,910 shape group削減は未qualifiedのままとする。
+
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh
