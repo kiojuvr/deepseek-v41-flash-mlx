@@ -101,9 +101,10 @@ inline bool runtime_batched_splitk_qk_diagnostics_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_BATCHED_SPLITK_QK_DIAGNOSTICS must be 0 or 1");
 }
 
-// Fuse QK, causal/local masking, online softmax, BF16-rounded PV and AV into
-// the reviewed oMLX one-threadgroup-per-token dispatch topology. The scalar
-// and decomposed chunk paths remain available as qualification oracles.
+// Submit one packed, device-resident KV work list per layer chunk. The first
+// oMLX one-dispatch reduction exceeded the fixed semantic gate; production
+// candidate execution therefore retains the qualified Steel split-K/AV
+// reductions while removing host shape grouping and pooled gather/decode.
 inline bool runtime_packed_chunk_attention_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_PACKED_CHUNK_ATTENTION");
  if(value==nullptr||std::string_view(value)=="0") return false;

@@ -515,3 +515,40 @@ bash tools/benchmark/run_packed_attention_backbone_check.sh
 
 Only after review of that result should
 `tools/benchmark/run_packed_attention_prefill_measurement.sh` be run.
+
+### One-dispatch gate result and exact-reduction fallback
+
+The first full-backbone gate
+`attention/packed-fused-backbone-20260918-131753-60269` rejected the direct
+oMLX reduction: chunk-0 hidden relative RMS was 0.00328311, above the fixed
+0.002 limit (maximum absolute 2048, mean absolute 0.671945). Swap remained
+zero and the run used clean commit `8dda737`; it is not a performance result.
+A smaller official layer-2-to-3 fixture localized the difference before
+routing or long-lived state: the three-token consumer output already had RMS
+0.005740. Thus this is the expected MMA reduction-order incompatibility with
+the current Steel split-K oracle, not a cache-publication failure. Per the
+precommitted non-bitwise contract, the threshold is unchanged and the direct
+one-dispatch kernel is not connected to production execution.
+
+The replacement preserves the oMLX/DwarfStar device work-list boundary but
+uses the already-qualified reference reduction. One Metal dispatch expands
+the local and packed pooled rows into a rectangular device tensor and mask;
+the entire layer chunk then enters one `swa_attention_masked_chunk` call with
+the qualified batched Steel split-K QK and AV schedule. No selected-count host
+group, per-token pooled gather, or persistent decoded cache remains. Position
+zero is isolated from the rest of the first chunk because the oracle uses a
+one-row raw shape for token zero and a 128-row padded shape thereafter; all
+later chunks require one group.
+
+This fallback is not the final oMLX one-dispatch topology. For 38 compressed
+layers x 17 chunks it uses 646 packed work-list materializations and at most
+684 attention groups (38 additional position-zero groups), then about ten
+64-row QK/AV blocks per group. It still reduces the prior 17,910 selected-count
+groups and eliminates 12,378 producer token-serial calls, while retaining the
+fixed numerical gate. The official layer-2-to-3 fixture now passes: positions
+0--127 have RMS 0.000424763 and positions 128--255 RMS 0.000009841, with state
+checks intact. The updated 40-layer gate remains:
+
+```sh
+bash tools/benchmark/run_packed_attention_backbone_check.sh
+```

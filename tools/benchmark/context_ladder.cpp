@@ -323,9 +323,9 @@ int main(int argc,char** argv) { try {
  if(dsv41::runtime_packed_chunk_attention_enabled()){
   if(at.packed_chunk_attention_calls==0)
    throw std::runtime_error("packed chunk attention was enabled but never invoked");
-  if(at.chunk_attention_calls!=0||at.chunk_batched_splitk_qk_calls!=0||
-     at.chunk_scalar_qk_calls!=0||at.chunk_av_batches!=0)
-   throw std::runtime_error("packed chunk attention regressed to decomposed QK/AV execution");
+  if(!dsv41::runtime_batched_splitk_qk_enabled()||at.chunk_attention_calls!=0||
+     at.chunk_batched_splitk_qk_calls==0||at.chunk_av_batches==0)
+   throw std::runtime_error("packed attention work list did not use qualified chunk reductions");
  }
  report["attention_telemetry"]={{"concat_calls",at.concat_calls},{"concat_input_bytes",at.concat_input_bytes},
   {"concat_output_bytes",at.concat_output_bytes},{"cumulative_bytes_copied",at.cumulative_bytes_copied},

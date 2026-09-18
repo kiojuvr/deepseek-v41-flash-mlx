@@ -601,3 +601,14 @@ local fixture is bit-exact and the packed-pooled fixture has relative RMS
 ```sh
 bash tools/benchmark/run_packed_attention_backbone_check.sh
 ```
+
+The initial one-dispatch run subsequently failed the fixed gate at hidden RMS
+0.00328311. A three-token official layer-3 fixture reproduced RMS 0.005740, so
+the direct oMLX MMA reduction is rejected rather than masking the result with
+a relaxed threshold. The active candidate now keeps one device packed
+work-list per layer chunk but feeds its rectangular tensor into the previously
+qualified exact Steel split-K/AV schedule. This removes the 17,910
+selected-count host groups and per-token packed-cache gathers while deferring
+true one-dispatch fusion until an exact-reduction implementation exists. The
+replacement layer-3 fixture is within gate at RMS 0.000424763 for positions
+0--127 and 0.000009841 for positions 128--255.

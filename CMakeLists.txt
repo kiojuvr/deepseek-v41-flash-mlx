@@ -62,14 +62,16 @@ if(DSV41_ENABLE_MLX)
   file(READ ${CMAKE_CURRENT_BINARY_DIR}/generated/steel_attention_header.metal DSV41_STEEL_ATTENTION_HEADER)
   string(REGEX REPLACE "#pragma clang module import[^\n]*\n" "" DSV41_STEEL_ATTENTION_HEADER "${DSV41_STEEL_ATTENTION_HEADER}")
   file(READ ${CMAKE_CURRENT_SOURCE_DIR}/metal/attention/packed_chunk_attention.metal DSV41_PACKED_CHUNK_ATTENTION)
+  file(READ ${CMAKE_CURRENT_SOURCE_DIR}/metal/attention/packed_attention_worklist.metal DSV41_PACKED_ATTENTION_WORKLIST)
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     metal/attention/kv_quant.metal
     metal/attention/batched_splitk_qk.metal metal/attention/batched_splitk_accum.metal
     metal/attention/steel_gemm_header.metal metal/attention/steel_attention_header.metal
-    metal/attention/packed_chunk_attention.metal)
+    metal/attention/packed_chunk_attention.metal metal/attention/packed_attention_worklist.metal)
   configure_file(src/attention/kv_quant.hpp.in generated/kv_quant.hpp @ONLY)
   configure_file(src/attention/batched_splitk_qk.hpp.in generated/batched_splitk_qk.hpp @ONLY)
   configure_file(src/attention/packed_chunk_attention.hpp.in generated/packed_chunk_attention.hpp @ONLY)
+  configure_file(src/attention/packed_attention_worklist.hpp.in generated/packed_attention_worklist.hpp @ONLY)
   file(READ ${CMAKE_CURRENT_SOURCE_DIR}/metal/moe/route_select.metal DSV41_ROUTE_SELECT)
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS metal/moe/route_select.metal)
   configure_file(src/moe/route_select.hpp.in generated/route_select.hpp @ONLY)

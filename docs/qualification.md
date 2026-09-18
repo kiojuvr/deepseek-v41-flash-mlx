@@ -933,6 +933,19 @@ bash tools/benchmark/run_packed_attention_backbone_check.sh
 このgateのreview前に2K wallをqualification扱いしない。通過後のisolated measurementは
 `bash tools/benchmark/run_packed_attention_prefill_measurement.sh`で再現する。
 
+最初の40-layer run `attention/packed-fused-backbone-20260918-131753-60269`は
+chunk-0 hidden relative RMS 0.00328311（max absolute 2048、mean absolute 0.671945）で
+固定上限0.002を超えたためrejectした。clean `8dda737`、swap 0。performance結果ではない。
+公式layer 2→3の3-token fixtureでもRMS 0.005740を再現し、差はstate/routing以前のoMLX MMA
+reductionに局所化された。閾値は変更しない。
+
+production candidateはpacked device work listの境界を維持しつつ、1 dispatchでlocal/pooled KVと
+maskをrectangular tensorへ展開し、既にqualified済みのbatched Steel split-K QK / AVへchunk全体を
+一度だけ渡すfallbackへ変更した。selected-count host groupとper-token pooled gatherは除去する。
+position 0だけはoracleのraw shapeを守るためfirst chunkの残りと分ける。短い公式fixtureは
+positions 0--127でRMS 0.000424763、positions 128--255で0.000009841となりgate内、state checkも
+通過した。更新済みrunnerは`DSV41_RUNTIME_BATCHED_SPLITK_QK=1`を固定して同じ40-layer gateを行う。
+
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh

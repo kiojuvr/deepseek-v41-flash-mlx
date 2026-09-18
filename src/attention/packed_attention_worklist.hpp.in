@@ -1,0 +1,2 @@
+#pragma once
+inline constexpr const char* dsv41_packed_attention_worklist_source=R"packedworklist(@DSV41_PACKED_ATTENTION_WORKLIST@)packedworklist";

@@ -225,7 +225,7 @@ int main(int argc,char** argv){try{
     auto intact=mx::all(mx::equal(snapshot,publications.back().cache().main_bytes()));mx::eval(intact);if(!intact.item<bool>())throw std::runtime_error("consumer changed producer bytes");}
    dsv41::ReusedLayerState chunk_target;auto chunk_publications=publications;
    auto chunk_output=consumer.forward_chunk(inputs,chunk_target,chunk_publications,0);
-   if(dsv41::runtime_chunk_attention_enabled())
+   if(dsv41::runtime_chunk_attention_enabled()||dsv41::runtime_packed_chunk_attention_enabled())
     rms_close(chunk_output,mx::concatenate(outputs,0),"consumer chunk output tolerance");
    else equal(chunk_output,mx::concatenate(outputs,0),"consumer chunk output bits");
    equal(chunk_target.window(),target.window(),"consumer chunk window bits");

@@ -132,8 +132,18 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
   if(publications)pending_publications.push_back(std::move(publication));
  }
  if(packed_chunk){
-  auto o=swa_packed_attention_chunk(q,all_window,cache_prefixes.back().main_bytes(),
-   cache_prefixes.back().main_scales(),mx::concatenate(packed_rows,0),sink_,start,ratio_);
+  auto topk=mx::concatenate(packed_rows,0);std::vector<mx::array> attention_groups;
+  auto run_group=[&](int first,int end){
+   auto local=mx::slice(all_window,{0,0},{state.window_.shape(0)+end,512});
+   auto rows=mx::slice(topk,{first,0},{end,topk.shape(1)});
+   auto work=swa_packed_attention_work_list(local,cache_prefixes.back().main_bytes(),
+    cache_prefixes.back().main_scales(),rows,start+first,ratio_);
+   attention_groups.push_back(swa_attention_masked_chunk(
+    mx::slice(q,{first,0,0},{end,64,512}),work.ordered,sink_,work.valid));
+  };
+  if(start==0&&h.shape(0)>1){run_group(0,1);run_group(1,h.shape(0));}
+  else run_group(0,h.shape(0));
+  auto o=attention_groups.size()==1?attention_groups.front():mx::concatenate(attention_groups,0);
   o=compressed_rope_reference(o,positions,true);
   auto grouped=mx::transpose(grouped_,{0,2,1});
   for(int i=0;i<h.shape(0);++i){
@@ -251,8 +261,18 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
   }
   auto work_list=mx::concatenate(work_rows,0);
   const auto& pooled=publications.back().cache();
-  auto o=swa_packed_attention_chunk(q,all_window,pooled.main_bytes(),pooled.main_scales(),
-                                    work_list,sink_,start,ratio_);
+  std::vector<mx::array> attention_groups;
+  auto run_group=[&](int first,int end){
+   auto local=mx::slice(all_window,{0,0},{state.window_.shape(0)+end,512});
+   auto rows=mx::slice(work_list,{first,0},{end,work_list.shape(1)});
+   auto work=swa_packed_attention_work_list(local,pooled.main_bytes(),pooled.main_scales(),
+                                            rows,start+first,ratio_);
+   attention_groups.push_back(swa_attention_masked_chunk(
+    mx::slice(q,{first,0,0},{end,64,512}),work.ordered,sink_,work.valid));
+  };
+  if(start==0&&x.shape(0)>1){run_group(0,1);run_group(1,x.shape(0));}
+  else run_group(0,x.shape(0));
+  auto o=attention_groups.size()==1?attention_groups.front():mx::concatenate(attention_groups,0);
   o=compressed_rope_reference(o,positions,true);
   auto grouped=mx::transpose(grouped_,{0,2,1});
   for(int i=0;i<x.shape(0);++i){

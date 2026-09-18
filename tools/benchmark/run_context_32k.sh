@@ -99,6 +99,7 @@ shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp 
  src/attention/batched_splitk_qk.hpp.in metal/attention/batched_splitk_qk.metal \
  metal/attention/batched_splitk_accum.metal metal/attention/steel_gemm_header.metal \
  src/attention/packed_chunk_attention.hpp.in metal/attention/packed_chunk_attention.metal \
+ src/attention/packed_attention_worklist.hpp.in metal/attention/packed_attention_worklist.metal \
  metal/attention/steel_attention_header.metal \
  src/attention/index_key.cpp src/attention/index_query.cpp src/attention/shared_attention.cpp src/cache/global_kv.cpp \
  include/dsv41/moe.hpp src/moe/reference.cpp src/moe/expert_bank.cpp \
