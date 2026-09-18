@@ -912,6 +912,27 @@ accumulationの2 dispatchを数えるとQK Metal dispatchは約1,226,878から25
 bash tools/benchmark/run_batched_splitk_qk_component_profile.sh
 ```
 
+review済みcomponent run `context-ladder/32k-run-20260918-124010-58187`はexit 0、
+tracked patchなし、prefill 59.934584秒 / 34.4209 token/sだった。Attentionは
+41.179713秒から37.928151秒へ3.251562秒（7.90%）短縮したが、57.544021秒のlayer
+component wallの65.9%を占める。17,910 shape group、117,579 AV batch、12,378 producer
+token-serial callは残存したため、QK/AVを別targetとする段階は終了する。
+
+次候補`DSV41_RUNTIME_PACKED_CHUNK_ATTENTION=1`はpinned oMLXの公式DeepSeek V4.1
+packed attentionを現在のsplit pooled-cache layoutへ適応したもの。DwarfStarの同型kernelは
+FP16 Q/K/Vのため採用しない。candidateは1 tokenあたり1つの256-thread threadgroupで、
+QK/mask/online softmax/BF16-rounded PV/AV/sinkをfusionし、pooled cacheを直接decodeする。
+local-only最小fixtureはbit-exact、packed-pooled fixtureはrelative RMS 0.000210066でgate内。
+これはfull-path qualificationではない。約5分、240 GB Unified Memory、checkpoint read-only、
+失敗ログ保持、resumeなしの40-layer gateは次で実行する。
+
+```sh
+bash tools/benchmark/run_packed_attention_backbone_check.sh
+```
+
+このgateのreview前に2K wallをqualification扱いしない。通過後のisolated measurementは
+`bash tools/benchmark/run_packed_attention_prefill_measurement.sh`で再現する。
+
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh

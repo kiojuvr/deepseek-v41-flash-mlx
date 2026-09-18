@@ -572,3 +572,32 @@ backbone semantic gate.
 
 CED/deferred decoder prefill remains excluded from the 2K critical path.  It
 is reconsidered only after these measured 2K work amplifications are removed.
+
+## Attention-operation fusion checkpoint
+
+The synchronized batched-QK component result
+`context-ladder/32k-run-20260918-124010-58187` attributes 37.928151 of
+57.544021 layer seconds to attention (65.9%). QK batching saved 3.251562
+attention seconds (7.90%) but left 17,910 host shape groups, 117,579 AV
+batches, and 12,378 producer token-serial calls. This rejects further isolated
+QK/AV tuning as the next step.
+
+Pinned source inspection shows that DwarfStar and oMLX both make sparse
+prefill attention itself the dispatch unit. DwarfStar's implementation is not
+directly portable because it converts Q/K/V to FP16. The oMLX DeepSeek V4.1
+kernel has the required official BF16 QK, FP32 online normalization,
+BF16-rounded PV, and packed 4-bit/E4M3 pooled cache semantics, so its execution
+structure and kernel are the primary adaptation rather than a new design.
+
+`DSV41_RUNTIME_PACKED_CHUNK_ATTENTION=1` now selects an adapted one-threadgroup
+per token kernel for both producer and reuse layers. It consumes one rectangular
+device work list, reads pooled cache bytes/scales without gather-decode, and
+fuses QK, mask, online softmax, PV/AV, and sink. In the current 17-microtile
+sweep this bounds attention-core dispatches at 646 instead of roughly 367,857
+QK+AV dispatches, while keeping the reference paths unchanged. The short
+local fixture is bit-exact and the packed-pooled fixture has relative RMS
+0.000210066. Full-backbone promotion is pending the reproducible gate:
+
+```sh
+bash tools/benchmark/run_packed_attention_backbone_check.sh
+```

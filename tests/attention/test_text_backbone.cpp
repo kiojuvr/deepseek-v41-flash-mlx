@@ -173,10 +173,14 @@ int main(int argc,char** argv){try{
   if(chunk_attention_check&&dsv41::runtime_batched_splitk_qk_enabled()&&
      attention.chunk_batched_splitk_qk_calls==0)
    throw std::runtime_error("batched split-K QK candidate was never invoked");
+  if(chunk_attention_check&&dsv41::runtime_packed_chunk_attention_enabled()&&
+     attention.packed_chunk_attention_calls==0)
+   throw std::runtime_error("packed chunk attention candidate was never invoked");
   std::cout<<"PASS: layer-major backbone 2x128 tokens and invalid-token atomicity; active_bytes="<<mx::get_active_memory()
    <<" cache_bytes="<<mx::get_cache_memory()<<" peak_bytes="<<mx::get_peak_memory()
    <<" bank_constructions="<<dsv41::packed_expert_bank_construction_count()
    <<" loaded_experts="<<dsv41::packed_expert_bank_loaded_expert_count()
+   <<" packed_attention_calls="<<attention.packed_chunk_attention_calls
    <<" batched_splitk_qk_calls="<<attention.chunk_batched_splitk_qk_calls
    <<" scalar_qk_calls="<<attention.chunk_scalar_qk_calls
    <<"; performance/32K unqualified"<<std::endl;

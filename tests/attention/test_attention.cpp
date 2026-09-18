@@ -121,6 +121,34 @@ int main(int argc,char** argv){try{
   equal(out,mx::full({64,512},float(live)/float(live+1),mx::bfloat16),"masked sink mismatch");
  }
  {
+  // Minimal compile/semantic fixture for the one-dispatch oMLX topology.
+  // Token 0 sees local row 0; token 1 sees rows 0..1. Pooled slots are all
+  // invalid, but retain the production fixed-width device work-list shape.
+  auto q=varied;
+  auto local=mx::astype(mx::reshape(mx::cos(mx::arange(2*512,mx::float32)),{2,512}),mx::bfloat16);
+  auto sink=mx::zeros({64},mx::float32);
+  auto topk=mx::broadcast_to(mx::array(-1,mx::int32),{2,1});
+  auto candidate=dsv41::swa_packed_attention_chunk(q,local,mx::zeros({1,256},mx::uint8),
+   mx::ones({1,32},mx::uint8),topk,sink,0,4);
+  std::vector<mx::array> reference;
+  for(int token=0;token<2;++token)reference.push_back(mx::expand_dims(dsv41::swa_attention_masked_reference(
+   mx::reshape(mx::slice(q,{token,0,0},{token+1,64,512}),{64,512}),
+   mx::slice(local,{0,0},{token+1,512}),sink,mx::ones({token+1},mx::bool_)),0));
+  rms_report(candidate,mx::concatenate(reference,0),"packed fused attention local fixture");
+  auto pooled_source=mx::astype(mx::reshape(mx::sin(mx::arange(512,mx::float32)),{1,512}),mx::bfloat16);
+  auto pooled=dsv41::kv_quant_reference(pooled_source,dsv41::KVQuantFormat::MainE4M3);
+  auto selected=mx::zeros({2,1},mx::int32);
+  candidate=dsv41::swa_packed_attention_chunk(q,local,pooled.packed,pooled.scales,selected,sink,8,4);
+  reference.clear();
+  for(int token=0;token<2;++token){
+   auto ordered=mx::concatenate({mx::slice(local,{0,0},{token+1,512}),pooled.decoded},0);
+   reference.push_back(mx::expand_dims(dsv41::swa_attention_masked_reference(
+    mx::reshape(mx::slice(q,{token,0,0},{token+1,64,512}),{64,512}),ordered,sink,
+    mx::ones({ordered.shape(0)},mx::bool_)),0));
+  }
+  rms_report(candidate,mx::concatenate(reference,0),"packed fused attention pooled fixture");
+ }
+ {
   dsv41::reset_attention_telemetry();
   auto q=varied;
   auto kv=mx::reshape(mx::concatenate({varied,varied},0),{2,128,512});

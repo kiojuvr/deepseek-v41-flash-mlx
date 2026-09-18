@@ -1,0 +1,3 @@
+#pragma once
+inline constexpr const char* dsv41_packed_chunk_attention_source=R"packedattention(@DSV41_PACKED_CHUNK_ATTENTION@)packedattention";
+inline constexpr const char* dsv41_packed_chunk_attention_header=R"packedheader(@DSV41_STEEL_ATTENTION_HEADER@)packedheader";

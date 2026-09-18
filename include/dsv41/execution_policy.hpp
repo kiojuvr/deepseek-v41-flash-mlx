@@ -101,6 +101,16 @@ inline bool runtime_batched_splitk_qk_diagnostics_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_BATCHED_SPLITK_QK_DIAGNOSTICS must be 0 or 1");
 }
 
+// Fuse QK, causal/local masking, online softmax, BF16-rounded PV and AV into
+// the reviewed oMLX one-threadgroup-per-token dispatch topology. The scalar
+// and decomposed chunk paths remain available as qualification oracles.
+inline bool runtime_packed_chunk_attention_enabled() {
+ const char* value=std::getenv("DSV41_RUNTIME_PACKED_CHUNK_ATTENTION");
+ if(value==nullptr||std::string_view(value)=="0") return false;
+ if(std::string_view(value)=="1") return true;
+ throw std::runtime_error("DSV41_RUNTIME_PACKED_CHUNK_ATTENTION must be 0 or 1");
+}
+
 // Own prefill at the request boundary and execute it as a transactional
 // layer-major sweep.  Decode remains on the one-token reference schedule.
 // This is independently opt-in until the 2K full-path result is reviewed.

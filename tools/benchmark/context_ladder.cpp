@@ -143,6 +143,8 @@ int main(int argc,char** argv) { try {
   {"route_diagnostics",dsv41::runtime_route_diagnostics_enabled()},
   {"index_diagnostics",dsv41::runtime_index_diagnostics_enabled()},
   {"chunk_attention",dsv41::runtime_chunk_attention_enabled()},
+  {"batched_splitk_qk",dsv41::runtime_batched_splitk_qk_enabled()},
+  {"packed_chunk_attention",dsv41::runtime_packed_chunk_attention_enabled()},
   {"layer_sweep",dsv41::runtime_layer_sweep_enabled()},
   {"batched_dense_qmm",dsv41::runtime_batched_dense_qmm_enabled()},
   {"mlx_cache_limit_bytes",dsv41::runtime_mlx_cache_limit_bytes()},
@@ -318,11 +320,19 @@ int main(int argc,char** argv) { try {
   }else if(at.chunk_av_batches==0)throw std::runtime_error("chunk attention produced no AV batches");
   if(at.chunk_scalar_av_calls!=0)throw std::runtime_error("chunk attention regressed to scalar AV calls");
  }
+ if(dsv41::runtime_packed_chunk_attention_enabled()){
+  if(at.packed_chunk_attention_calls==0)
+   throw std::runtime_error("packed chunk attention was enabled but never invoked");
+  if(at.chunk_attention_calls!=0||at.chunk_batched_splitk_qk_calls!=0||
+     at.chunk_scalar_qk_calls!=0||at.chunk_av_batches!=0)
+   throw std::runtime_error("packed chunk attention regressed to decomposed QK/AV execution");
+ }
  report["attention_telemetry"]={{"concat_calls",at.concat_calls},{"concat_input_bytes",at.concat_input_bytes},
   {"concat_output_bytes",at.concat_output_bytes},{"cumulative_bytes_copied",at.cumulative_bytes_copied},
   {"logical_tokens",at.logical_tokens},{"attention_rows",at.attention_rows},{"indexer_rows",at.indexer_rows},
   {"index_host_readbacks",at.index_host_readbacks},{"token_serial_attention_calls",at.token_serial_attention_calls},
-  {"chunk_attention_calls",at.chunk_attention_calls},{"chunk_batched_splitk_qk_calls",at.chunk_batched_splitk_qk_calls},
+  {"chunk_attention_calls",at.chunk_attention_calls},{"packed_chunk_attention_calls",at.packed_chunk_attention_calls},
+  {"chunk_batched_splitk_qk_calls",at.chunk_batched_splitk_qk_calls},
   {"chunk_scalar_qk_calls",at.chunk_scalar_qk_calls},
   {"chunk_scalar_av_calls",at.chunk_scalar_av_calls},{"chunk_av_batches",at.chunk_av_batches}};
  if(dsv41::runtime_component_profile_enabled()){

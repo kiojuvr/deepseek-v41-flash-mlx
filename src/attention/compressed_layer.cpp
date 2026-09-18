@@ -88,6 +88,8 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
  auto kv=linear_activation_reference(compressed_rope_reference(
   rms_norm_reference(kv_.forward(h),kvnorm_,1e-20f),positions)).decoded;
  auto next=state;std::vector<mx::array> projected_rows;projected_rows.reserve(h.shape(0));
+ const bool packed_chunk=runtime_packed_chunk_attention_enabled()&&publications&&h.shape(0)>1;
+ std::vector<mx::array> packed_rows;if(packed_chunk)packed_rows.reserve(h.shape(0));
  auto all_window=mx::concatenate({state.window_,kv},0);
  { std::lock_guard l(attention_telemetry_mutex()); auto& t=attention_telemetry(); ++t.concat_calls; t.concat_input_bytes+=(state.window_.size()+kv.size())*2; t.concat_output_bytes+=all_window.size()*2; t.cumulative_bytes_copied+=all_window.size()*2; }
  std::vector<SharedAttentionReference> pending_publications;
@@ -96,10 +98,13 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
  // `forward()` is the diagnostic/reference entry point; production block
  // execution requests every per-token publication through `publications`.
  auto selections=index_.forward_chunk(h,qr,cache_prefixes,start,nullptr,nullptr,publications==nullptr);
+ int packed_width=1;
+ if(packed_chunk)for(const auto& selection:selections)
+  packed_width=std::max(packed_width,int(selection.device_rows.size()));
  for(int i=0;i<h.shape(0);++i){
   const std::uint64_t pos=start+std::uint64_t(i);auto x=mx::slice(h,{i,0},{i+1,5120});
   auto end=state.window_.shape(0)+i+1; auto begin=std::max(0,end-128);
-  auto window=mx::slice(all_window,{begin,0},{end,512}); { std::lock_guard l(attention_telemetry_mutex()); auto& t=attention_telemetry(); t.attention_rows++; t.logical_tokens++;t.token_serial_attention_calls++; }
+  auto window=mx::slice(all_window,{begin,0},{end,512}); { std::lock_guard l(attention_telemetry_mutex()); auto& t=attention_telemetry(); t.attention_rows++; t.logical_tokens++;if(!packed_chunk)t.token_serial_attention_calls++; }
   int padding=pos==0?0:128-window.shape(0);
   auto ordered=padding?mx::concatenate({mx::zeros({padding,512},mx::bfloat16),window},0):window;
   int offset=ordered.shape(0);
@@ -107,16 +112,36 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
   auto publication=SharedAttentionReference(cache_prefixes[i],selection.device_rows,
    selection.device_candidates,pos,offset,layer_,ratio_,std::move(selection.rows),
    std::move(selection.candidates));
-  if(selection.device_rows.size())ordered=mx::concatenate(
-   {ordered,main_rows(cache_prefixes[i],selection.device_rows)},0);
-  auto valid=mx::greater_equal(mx::arange(ordered.shape(0),mx::int32),mx::array(padding));
-  auto token_q=mx::reshape(mx::slice(q,{i,0,0},{i+1,64,512}),{64,512});
-  auto o=swa_attention_masked_reference(token_q,ordered,sink_,valid);
-  o=compressed_rope_reference(mx::reshape(o,{1,64,512}),std::span(&pos,1),true);
-  auto projected=mx::matmul(mx::reshape(o,{8,1,4096}),mx::transpose(grouped_,{0,2,1}));
-  projected_rows.push_back(mx::reshape(projected,{1,8192}));
+  if(packed_chunk){
+   auto row=selection.device_rows;
+   if(row.size()==0)row=mx::broadcast_to(mx::array(-1,mx::int32),{packed_width});
+   else if(int(row.size())<packed_width)row=mx::concatenate({row,mx::broadcast_to(mx::array(-1,mx::int32),
+                                                        {packed_width-int(row.size())})},0);
+   packed_rows.push_back(mx::expand_dims(row,0));
+  }else{
+   if(selection.device_rows.size())ordered=mx::concatenate(
+    {ordered,main_rows(cache_prefixes[i],selection.device_rows)},0);
+   auto valid=mx::greater_equal(mx::arange(ordered.shape(0),mx::int32),mx::array(padding));
+   auto token_q=mx::reshape(mx::slice(q,{i,0,0},{i+1,64,512}),{64,512});
+   auto o=swa_attention_masked_reference(token_q,ordered,sink_,valid);
+   o=compressed_rope_reference(mx::reshape(o,{1,64,512}),std::span(&pos,1),true);
+   auto projected=mx::matmul(mx::reshape(o,{8,1,4096}),mx::transpose(grouped_,{0,2,1}));
+   projected_rows.push_back(mx::reshape(projected,{1,8192}));
+  }
   next.window_=window;next.publication_=publication;
   if(publications)pending_publications.push_back(std::move(publication));
+ }
+ if(packed_chunk){
+  auto o=swa_packed_attention_chunk(q,all_window,cache_prefixes.back().main_bytes(),
+   cache_prefixes.back().main_scales(),mx::concatenate(packed_rows,0),sink_,start,ratio_);
+  o=compressed_rope_reference(o,positions,true);
+  auto grouped=mx::transpose(grouped_,{0,2,1});
+  for(int i=0;i<h.shape(0);++i){
+   auto token_o=mx::reshape(mx::slice(o,{i,0,0},{i+1,64,512}),{8,1,4096});
+   projected_rows.push_back(mx::reshape(mx::matmul(token_o,grouped),{1,8192}));
+  }
+  { std::lock_guard l(attention_telemetry_mutex());
+    ++attention_telemetry().packed_chunk_attention_calls; }
  }
  auto projected=projected_rows.size()==1?projected_rows.front():mx::concatenate(projected_rows,0);
  next.window_=mx::slice(all_window,{std::max(0,all_window.shape(0)-128),0},{all_window.shape(0),512});
@@ -213,7 +238,30 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
  }
  { std::lock_guard l(attention_telemetry_mutex());auto& t=attention_telemetry();
    t.logical_tokens+=x.shape(0);t.attention_rows+=x.shape(0); }
- if(runtime_chunk_attention_enabled()&&x.shape(0)>1){
+ if(runtime_packed_chunk_attention_enabled()&&x.shape(0)>1){
+  std::vector<mx::array> work_rows;work_rows.reserve(x.shape(0));
+  int work_width=1;for(const auto& selected:selected_rows)
+   work_width=std::max(work_width,int(selected.size()));
+  for(const auto& selected:selected_rows){
+   auto row=selected;
+   if(row.size()==0)row=mx::broadcast_to(mx::array(-1,mx::int32),{work_width});
+   else if(int(row.size())<work_width)row=mx::concatenate({row,mx::broadcast_to(mx::array(-1,mx::int32),
+                                                          {work_width-int(row.size())})},0);
+   work_rows.push_back(mx::expand_dims(row,0));
+  }
+  auto work_list=mx::concatenate(work_rows,0);
+  const auto& pooled=publications.back().cache();
+  auto o=swa_packed_attention_chunk(q,all_window,pooled.main_bytes(),pooled.main_scales(),
+                                    work_list,sink_,start,ratio_);
+  o=compressed_rope_reference(o,positions,true);
+  auto grouped=mx::transpose(grouped_,{0,2,1});
+  for(int i=0;i<x.shape(0);++i){
+   auto token_o=mx::reshape(mx::slice(o,{i,0,0},{i+1,64,512}),{8,1,4096});
+   projected_rows.push_back(mx::reshape(mx::matmul(token_o,grouped),{1,8192}));
+  }
+  { std::lock_guard l(attention_telemetry_mutex());
+    ++attention_telemetry().packed_chunk_attention_calls; }
+ }else if(runtime_chunk_attention_enabled()&&x.shape(0)>1){
   auto grouped=mx::transpose(grouped_,{0,2,1});
   for(int first=0;first<x.shape(0);){
    const auto first_pos=start+std::uint64_t(first);

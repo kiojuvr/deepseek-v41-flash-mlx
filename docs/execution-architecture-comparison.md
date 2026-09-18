@@ -450,3 +450,68 @@ reduction. The much smaller wall reduction proves QK was only one part of the
 attention amplification; 17,910 shape-group calls and 117,579 AV batches
 remain. Against pinned oMLX's 10.901336 seconds, the remaining full-path ratio
 is 5.74x.
+
+The follow-up synchronized component run
+`context-ladder/32k-run-20260918-124010-58187` completed at clean commit
+`601629e`. Its synchronization-perturbed prefill was 59.934584 seconds / 34.4209
+token/s. Attention fell from 41.179713 to 37.928151 seconds (3.251562 seconds,
+7.90%), while MoE was 18.251121 seconds and post-MoE 1.100472 seconds.
+Attention still owns 65.9% of the 57.544021-second summed layer wall. The run
+retained 17,910 shape groups, 100,428 batched full QK calls plus 24,711 scalar
+tails, and 117,579 AV batches. Separate QK batching has therefore reached its
+architectural limit; the next boundary is the attention operation.
+
+## Fused prefill-attention topology decision
+
+The pinned code-level comparison used DwarfStar/ds4 commit
+`8db1d1d155cb0400a86a86b9c62d0defb3a6148b` and oMLX commit
+`b390b31e0c6831225fed0f24d278eb1db7fcb68b`.
+
+DwarfStar's `ds4_gpu_attention_indexed_mixed_batch_heads_tensor` sorts a
+chunk's selected rows on device and then dispatches
+`kernel_dsv4_indexed_mixed_attention_heads16_dual` on a
+`[token, ceil(head/16)]` threadgroup grid. Each threadgroup stages a KV row
+once for 16 heads and performs QK, validity handling, online max/sum, value
+accumulation, and sink normalization without materializing an attention
+matrix. The dispatch topology is applicable, but the reviewed kernel casts
+Q/K/V to FP16 and is not directly admissible under the official BF16/FP8
+precision invariant.
+
+oMLX's `deepseek_v41_packed_attention` is compatible. It uses one 256-thread
+threadgroup per token, processes all 64 width-512 heads, tiles 64 KV rows at a
+time, reads packed rows directly, keeps the online denominator in FP32, and
+rounds probabilities to BF16 only at the PV boundary. Its pooled row is 256
+packed value bytes plus 32 E4M3 scale bytes, exactly the runtime's
+`GlobalKVState` layout. No QK matrix, probability matrix, or decoded pooled
+cache is published.
+
+The adapted candidate is behind `DSV41_RUNTIME_PACKED_CHUNK_ATTENTION=1`. It
+retains the current local window's official quantization-round-trip BF16
+representation, consumes persistent pooled value/scale buffers in place, and
+pads the per-token device-selected rows to the chunk maximum in one
+`[tokens,1..512]` work list.
+QK, causal/global masking, online softmax, BF16-rounded PV, AV, and sink
+normalization execute in one Metal kernel. Scalar and decomposed chunk paths
+remain qualification oracles. The adapted source retains upstream
+Apache-2.0 attribution and license.
+
+For a 2,063-token layer sweep, the schedule changes from 17,910 host shape
+groups, approximately 250,278 QK dispatches, 117,579 AV batches, and 12,378
+producer token-serial calls to at most 38 compressed layers x 17 chunks = 646
+fused attention dispatches. That is a 569x reduction against QK+AV dispatches
+alone and removes decoded pooled-row gather/materialization. It remains 17x
+more attention dispatches than oMLX's one 2,063-token call per compressed
+layer; widening the surrounding 128-row projection/state contract is a later
+scheduling step.
+
+The short Metal fixture passed: local-only output was bit-exact; a packed
+pooled-row case measured relative RMS 0.000210066 and maximum absolute error
+0.00390625, below the fixed 0.002 semantic gate. This is component evidence,
+not full-backbone qualification. Run the prepared 40-layer gate first:
+
+```sh
+bash tools/benchmark/run_packed_attention_backbone_check.sh
+```
+
+Only after review of that result should
+`tools/benchmark/run_packed_attention_prefill_measurement.sh` be run.
