@@ -1069,7 +1069,14 @@ BM64/BN32/BK32、WM2/WN2へ修正した。synthetic width 1/33/40はbit-exact、
 padded-K diagnosticに対して1 element、RMS `6.8384e-10`、max `1.19209e-07`。誤った候補は
 promotion対象外であり、修正版も公式2-layer gateを再通過するまではopt-inのままとする。
 
+修正版の公式isolation `attention/fixed-tile-isolation-20260919-023456-76747`はclean
+`0303aa6`、exit 0、swap 0。ragged QK/AVを両方有効にした状態で、2 chunksのdense reduction、
+producer、first reuseがすべてbit-exact、publication/window/positionもexactだった。これは2-layer
+境界だけを閉じる結果であり、promotion前に40-layer stage-localizationを通す。
+
 ```sh
+DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
+DSV41_RUNTIME_RAGGED_TAIL_AV=1 \
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```
 

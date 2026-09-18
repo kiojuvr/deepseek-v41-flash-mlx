@@ -810,7 +810,17 @@ semantic gate. The corrected operation is
 separately opt-in with `DSV41_RUNTIME_RAGGED_TAIL_AV=1` until official
 two-layer and 40-layer gates pass.
 
+The corrected official isolation
+`attention/fixed-tile-isolation-20260919-023456-76747` passed at clean revision
+`0303aa6` with both ragged operations enabled. Both chunks' dense reductions,
+producer outputs, and first-reuse outputs were bit exact; publication, window,
+and position state were exact. Exit status was zero and swap remained zero.
+This closes the two-layer boundary only. The 40-layer stage-localization gate
+is next and remains diagnostic rather than performance qualification.
+
 ```sh
+DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
+DSV41_RUNTIME_RAGGED_TAIL_AV=1 \
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```
 
