@@ -13,12 +13,12 @@ trap finish EXIT
 echo "Logs: $run_dir"
 checkpoint=${CHECKPOINT:-/Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-Flash}
 printf '%s\n' \
- 'scope=40 layers; 2x128 token-serial oracle chunks vs device packed work-list attention with qualified Steel reductions; official checkpoint' \
+ 'scope=40 layers; 2x128 token-serial oracle chunks vs exact-shape device packed materialization plus qualified Steel attention; official checkpoint' \
  'resources=allow 5 minutes; budget 240 GB Unified Memory; approximately 578 GB logical read-only checkpoint expert reads; no swap expected' \
  'gate=relative RMS <0.002 hidden/pre-mix/logits; logits argmax, route ties, persistent state/publication/hash and invalid-request atomicity exact' \
- 'dispatch=one packed-KV materialization plus chunk-wide qualified split-K/AV per layer group; pooled cache decoded on device; no selected-count shape grouping' \
+ 'dispatch=preserves oracle (raw-width,selected-count) groups and reduction shapes; replaces per-token pooled gather/decode with one device materialization per exact-shape group' \
  'logs=artifacts/attention/packed-fused-backbone-<timestamp>-<pid>/{test.log,resource.log,identity.txt,tracked.patch,exit-code.txt}' \
- 'failure=retain the failed run directory; inspect test/resource logs; do not promote the fused candidate' \
+ 'failure=retain the failed run directory; inspect test/resource logs; do not promote the packed-materialization candidate' \
  'resume=unsupported; rerun this script for fresh model/request state' > "$run_dir/config.txt"
 {
  cmake -S . -B build-mlx
@@ -46,4 +46,4 @@ cmd=(env DSV41_RUNTIME_LAYER_FINITE_CHECKS=0 DSV41_RUNTIME_PACKED_EXPERT_BANK=0 
 printf '%q ' "${cmd[@]}" > "$run_dir/command.txt"; printf '\n' >> "$run_dir/command.txt"
 /usr/bin/vm_stat > "$run_dir/system-before.txt"
 (/usr/bin/time -l "${cmd[@]}") > >(tee "$run_dir/test.log") 2> >(tee "$run_dir/resource.log" >&2)
-echo 'Completed; review semantic/state/resource logs before connecting packed work-list attention to the 2K production sweep.'
+echo 'Completed; review semantic/state/resource logs before connecting exact-shape packed materialization to the 2K production sweep.'

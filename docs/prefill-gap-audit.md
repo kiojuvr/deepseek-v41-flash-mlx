@@ -589,11 +589,11 @@ kernel has the required official BF16 QK, FP32 online normalization,
 BF16-rounded PV, and packed 4-bit/E4M3 pooled cache semantics, so its execution
 structure and kernel are the primary adaptation rather than a new design.
 
-`DSV41_RUNTIME_PACKED_CHUNK_ATTENTION=1` now selects an adapted one-threadgroup
+The initial `DSV41_RUNTIME_PACKED_CHUNK_ATTENTION=1` candidate selected an adapted one-threadgroup
 per token kernel for both producer and reuse layers. It consumes one rectangular
 device work list, reads pooled cache bytes/scales without gather-decode, and
 fuses QK, mask, online softmax, PV/AV, and sink. In the current 17-microtile
-sweep this bounds attention-core dispatches at 646 instead of roughly 367,857
+sweep this would have bounded attention-core dispatches at 646 instead of roughly 367,857
 QK+AV dispatches, while keeping the reference paths unchanged. The short
 local fixture is bit-exact and the packed-pooled fixture has relative RMS
 0.000210066. Full-backbone promotion is pending the reproducible gate:
@@ -605,10 +605,18 @@ bash tools/benchmark/run_packed_attention_backbone_check.sh
 The initial one-dispatch run subsequently failed the fixed gate at hidden RMS
 0.00328311. A three-token official layer-3 fixture reproduced RMS 0.005740, so
 the direct oMLX MMA reduction is rejected rather than masking the result with
-a relaxed threshold. The active candidate now keeps one device packed
-work-list per layer chunk but feeds its rectangular tensor into the previously
-qualified exact Steel split-K/AV schedule. This removes the 17,910
-selected-count host groups and per-token packed-cache gathers while deferring
-true one-dispatch fusion until an exact-reduction implementation exists. The
-replacement layer-3 fixture is within gate at RMS 0.000424763 for positions
-0--127 and 0.000009841 for positions 128--255.
+a relaxed threshold. A first fallback kept a single rectangular work list and
+the qualified Steel reduction, but the full gate
+`attention/packed-fused-backbone-20260918-132819-61332` still failed: hidden
+RMS was 0.000780165, while pre-mix RMS was 0.00817721 (maximum 0.0319417,
+mean 0.00193994, 508 differing values). Padding tokens to the chunk-maximum
+selected width changed the reduction geometry and mHC amplified the result.
+
+The corrected candidate therefore retains the existing 17,910 exact
+`(raw_width, selected_count)` host groups and their Steel QK/AV reduction
+shapes. Within each group, a single device kernel now materializes local rows
+and decodes selected packed pooled rows directly; it replaces per-token
+gather/decode graphs without claiming operation-level fusion. The official
+two-layer 2x128-token fixture is bit-exact for hidden, pre-mix, and logits and
+keeps state/publication exact. Eliminating the groups now requires an
+exact-reduction dynamic-tail fused kernel, not rectangular padding.

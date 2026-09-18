@@ -485,7 +485,7 @@ packed value bytes plus 32 E4M3 scale bytes, exactly the runtime's
 `GlobalKVState` layout. No QK matrix, probability matrix, or decoded pooled
 cache is published.
 
-The adapted candidate is behind `DSV41_RUNTIME_PACKED_CHUNK_ATTENTION=1`. It
+The initial adapted candidate was placed behind `DSV41_RUNTIME_PACKED_CHUNK_ATTENTION=1`. It
 retains the current local window's official quantization-round-trip BF16
 representation, consumes persistent pooled value/scale buffers in place, and
 pads the per-token device-selected rows to the chunk maximum in one
@@ -495,7 +495,7 @@ normalization execute in one Metal kernel. Scalar and decomposed chunk paths
 remain qualification oracles. The adapted source retains upstream
 Apache-2.0 attribution and license.
 
-For a 2,063-token layer sweep, the schedule changes from 17,910 host shape
+Its intended 2,063-token layer-sweep schedule would have changed from 17,910 host shape
 groups, approximately 250,278 QK dispatches, 117,579 AV batches, and 12,378
 producer token-serial calls to at most 38 compressed layers x 17 chunks = 646
 fused attention dispatches. That is a 569x reduction against QK+AV dispatches
@@ -504,7 +504,7 @@ more attention dispatches than oMLX's one 2,063-token call per compressed
 layer; widening the surrounding 128-row projection/state contract is a later
 scheduling step.
 
-The short Metal fixture passed: local-only output was bit-exact; a packed
+Its short Metal fixture passed: local-only output was bit-exact; a packed
 pooled-row case measured relative RMS 0.000210066 and maximum absolute error
 0.00390625, below the fixed 0.002 semantic gate. This is component evidence,
 not full-backbone qualification. Run the prepared 40-layer gate first:
@@ -530,24 +530,28 @@ the current Steel split-K oracle, not a cache-publication failure. Per the
 precommitted non-bitwise contract, the threshold is unchanged and the direct
 one-dispatch kernel is not connected to production execution.
 
-The replacement preserves the oMLX/DwarfStar device work-list boundary but
-uses the already-qualified reference reduction. One Metal dispatch expands
-the local and packed pooled rows into a rectangular device tensor and mask;
-the entire layer chunk then enters one `swa_attention_masked_chunk` call with
-the qualified batched Steel split-K QK and AV schedule. No selected-count host
-group, per-token pooled gather, or persistent decoded cache remains. Position
-zero is isolated from the rest of the first chunk because the oracle uses a
-one-row raw shape for token zero and a 128-row padded shape thereafter; all
-later chunks require one group.
+The first fallback also failed. Run
+`attention/packed-fused-backbone-20260918-132819-61332` kept hidden RMS within
+the fixed limit at 0.000780165, but pre-mix RMS reached 0.00817721 (maximum
+absolute 0.0319417, mean absolute 0.00193994, 508 differing values). The
+rectangular padding had changed the selected-row reduction width. That small
+attention difference was then amplified by the mHC pre-mix. This candidate is
+rejected; the fixed gate is not relaxed.
 
-This fallback is not the final oMLX one-dispatch topology. For 38 compressed
-layers x 17 chunks it uses 646 packed work-list materializations and at most
-684 attention groups (38 additional position-zero groups), then about ten
-64-row QK/AV blocks per group. It still reduces the prior 17,910 selected-count
-groups and eliminates 12,378 producer token-serial calls, while retaining the
-fixed numerical gate. The official layer-2-to-3 fixture now passes: positions
-0--127 have RMS 0.000424763 and positions 128--255 RMS 0.000009841, with state
-checks intact. The updated 40-layer gate remains:
+The corrected fallback preserves the oMLX/DwarfStar packed-cache boundary but
+also preserves the oracle's exact `(raw_width, selected_count)` group shapes.
+For each existing group, one Metal dispatch expands local and packed pooled
+rows directly into the exact tensor and mask expected by the already-qualified
+Steel split-K QK/AV schedule. It removes per-token pooled-cache gather/decode
+graphs and any persistent decoded cache, but deliberately does **not** yet
+remove the 17,910 host shape groups. The direct fused kernel remains diagnostic
+only.
+
+The official two-layer, 2x128-token fixture now passes bit-exact for hidden,
+pre-mix, and logits, with state/publication checks intact. This is the narrowest
+correct candidate: it tests whether device-side packed materialization alone is
+beneficial and establishes the exact input contract for a later dynamic-tail
+fused kernel. The updated 40-layer gate remains:
 
 ```sh
 bash tools/benchmark/run_packed_attention_backbone_check.sh

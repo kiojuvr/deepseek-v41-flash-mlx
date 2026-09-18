@@ -98,9 +98,6 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
  // `forward()` is the diagnostic/reference entry point; production block
  // execution requests every per-token publication through `publications`.
  auto selections=index_.forward_chunk(h,qr,cache_prefixes,start,nullptr,nullptr,publications==nullptr);
- int packed_width=1;
- if(packed_chunk)for(const auto& selection:selections)
-  packed_width=std::max(packed_width,int(selection.device_rows.size()));
  for(int i=0;i<h.shape(0);++i){
   const std::uint64_t pos=start+std::uint64_t(i);auto x=mx::slice(h,{i,0},{i+1,5120});
   auto end=state.window_.shape(0)+i+1; auto begin=std::max(0,end-128);
@@ -114,10 +111,7 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
    std::move(selection.candidates));
   if(packed_chunk){
    auto row=selection.device_rows;
-   if(row.size()==0)row=mx::broadcast_to(mx::array(-1,mx::int32),{packed_width});
-   else if(int(row.size())<packed_width)row=mx::concatenate({row,mx::broadcast_to(mx::array(-1,mx::int32),
-                                                        {packed_width-int(row.size())})},0);
-   packed_rows.push_back(mx::expand_dims(row,0));
+   packed_rows.push_back(row);
   }else{
    if(selection.device_rows.size())ordered=mx::concatenate(
     {ordered,main_rows(cache_prefixes[i],selection.device_rows)},0);
@@ -132,17 +126,27 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
   if(publications)pending_publications.push_back(std::move(publication));
  }
  if(packed_chunk){
-  auto topk=mx::concatenate(packed_rows,0);std::vector<mx::array> attention_groups;
-  auto run_group=[&](int first,int end){
+  std::vector<mx::array> attention_groups;
+  auto run_group=[&](int first,int end,int selected_count){
    auto local=mx::slice(all_window,{0,0},{state.window_.shape(0)+end,512});
-   auto rows=mx::slice(topk,{first,0},{end,topk.shape(1)});
+   mx::array rows=mx::broadcast_to(mx::array(-1,mx::int32),{end-first,1});
+   if(selected_count){
+    std::vector<mx::array> group_rows;group_rows.reserve(end-first);
+    for(int i=first;i<end;++i)group_rows.push_back(mx::expand_dims(packed_rows[i],0));
+    rows=mx::concatenate(group_rows,0);
+   }
    auto work=swa_packed_attention_work_list(local,cache_prefixes.back().main_bytes(),
-    cache_prefixes.back().main_scales(),rows,start+first,ratio_);
+    cache_prefixes.back().main_scales(),rows,start+first,ratio_,selected_count);
    attention_groups.push_back(swa_attention_masked_chunk(
     mx::slice(q,{first,0,0},{end,64,512}),work.ordered,sink_,work.valid));
   };
-  if(start==0&&h.shape(0)>1){run_group(0,1);run_group(1,h.shape(0));}
-  else run_group(0,h.shape(0));
+  for(int first=0;first<h.shape(0);){
+   const int raw_width=start+std::uint64_t(first)==0?1:128;
+   const int selected_count=packed_rows[first].size();int end=first+1;
+   while(end<h.shape(0)&&(start+std::uint64_t(end)==0?1:128)==raw_width&&
+         int(packed_rows[end].size())==selected_count)++end;
+   run_group(first,end,selected_count);first=end;
+  }
   auto o=attention_groups.size()==1?attention_groups.front():mx::concatenate(attention_groups,0);
   o=compressed_rope_reference(o,positions,true);
   auto grouped=mx::transpose(grouped_,{0,2,1});
@@ -249,29 +253,28 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
  { std::lock_guard l(attention_telemetry_mutex());auto& t=attention_telemetry();
    t.logical_tokens+=x.shape(0);t.attention_rows+=x.shape(0); }
  if(runtime_packed_chunk_attention_enabled()&&x.shape(0)>1){
-  std::vector<mx::array> work_rows;work_rows.reserve(x.shape(0));
-  int work_width=1;for(const auto& selected:selected_rows)
-   work_width=std::max(work_width,int(selected.size()));
-  for(const auto& selected:selected_rows){
-   auto row=selected;
-   if(row.size()==0)row=mx::broadcast_to(mx::array(-1,mx::int32),{work_width});
-   else if(int(row.size())<work_width)row=mx::concatenate({row,mx::broadcast_to(mx::array(-1,mx::int32),
-                                                          {work_width-int(row.size())})},0);
-   work_rows.push_back(mx::expand_dims(row,0));
-  }
-  auto work_list=mx::concatenate(work_rows,0);
   const auto& pooled=publications.back().cache();
   std::vector<mx::array> attention_groups;
-  auto run_group=[&](int first,int end){
+  auto run_group=[&](int first,int end,int selected_count){
    auto local=mx::slice(all_window,{0,0},{state.window_.shape(0)+end,512});
-   auto rows=mx::slice(work_list,{first,0},{end,work_list.shape(1)});
+   mx::array rows=mx::broadcast_to(mx::array(-1,mx::int32),{end-first,1});
+   if(selected_count){
+    std::vector<mx::array> group_rows;group_rows.reserve(end-first);
+    for(int i=first;i<end;++i)group_rows.push_back(mx::expand_dims(selected_rows[i],0));
+    rows=mx::concatenate(group_rows,0);
+   }
    auto work=swa_packed_attention_work_list(local,pooled.main_bytes(),pooled.main_scales(),
-                                            rows,start+first,ratio_);
+                                            rows,start+first,ratio_,selected_count);
    attention_groups.push_back(swa_attention_masked_chunk(
     mx::slice(q,{first,0,0},{end,64,512}),work.ordered,sink_,work.valid));
   };
-  if(start==0&&x.shape(0)>1){run_group(0,1);run_group(1,x.shape(0));}
-  else run_group(0,x.shape(0));
+  for(int first=0;first<x.shape(0);){
+   const int raw_width=start+std::uint64_t(first)==0?1:128;
+   const int selected_count=selected_rows[first].size();int end=first+1;
+   while(end<x.shape(0)&&(start+std::uint64_t(end)==0?1:128)==raw_width&&
+         int(selected_rows[end].size())==selected_count)++end;
+   run_group(first,end,selected_count);first=end;
+  }
   auto o=attention_groups.size()==1?attention_groups.front():mx::concatenate(attention_groups,0);
   o=compressed_rope_reference(o,positions,true);
   auto grouped=mx::transpose(grouped_,{0,2,1});

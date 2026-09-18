@@ -18,10 +18,12 @@ mlx::core::array swa_packed_attention_chunk(const mlx::core::array& queries,
  const mlx::core::array& local_kv,const mlx::core::array& pooled_values,
  const mlx::core::array& pooled_scales,const mlx::core::array& topk,
  const mlx::core::array& sink,std::uint64_t start,int compress_ratio);
+// Materialize an exact-shape work list. selected_count separates the logical
+// pooled width from the one-column dummy storage used for empty lists.
 PackedAttentionWorkList swa_packed_attention_work_list(
  const mlx::core::array& local_kv,const mlx::core::array& pooled_values,
  const mlx::core::array& pooled_scales,const mlx::core::array& topk,
- std::uint64_t start,int compress_ratio);
+ std::uint64_t start,int compress_ratio,int selected_count=-1);
 // One already projected/rotated query [64,512] and chronological visible KV [1..128,512].
 // KV is already official FP8 round-tripped BF16. No RoPE/projection/state mutation here.
 mlx::core::array swa_attention_reference(const mlx::core::array& query,

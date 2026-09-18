@@ -918,7 +918,7 @@ tracked patchなし、prefill 59.934584秒 / 34.4209 token/sだった。Attentio
 component wallの65.9%を占める。17,910 shape group、117,579 AV batch、12,378 producer
 token-serial callは残存したため、QK/AVを別targetとする段階は終了する。
 
-次候補`DSV41_RUNTIME_PACKED_CHUNK_ATTENTION=1`はpinned oMLXの公式DeepSeek V4.1
+最初の候補`DSV41_RUNTIME_PACKED_CHUNK_ATTENTION=1`はpinned oMLXの公式DeepSeek V4.1
 packed attentionを現在のsplit pooled-cache layoutへ適応したもの。DwarfStarの同型kernelは
 FP16 Q/K/Vのため採用しない。candidateは1 tokenあたり1つの256-thread threadgroupで、
 QK/mask/online softmax/BF16-rounded PV/AV/sinkをfusionし、pooled cacheを直接decodeする。
@@ -939,12 +939,17 @@ chunk-0 hidden relative RMS 0.00328311（max absolute 2048、mean absolute 0.671
 公式layer 2→3の3-token fixtureでもRMS 0.005740を再現し、差はstate/routing以前のoMLX MMA
 reductionに局所化された。閾値は変更しない。
 
-production candidateはpacked device work listの境界を維持しつつ、1 dispatchでlocal/pooled KVと
-maskをrectangular tensorへ展開し、既にqualified済みのbatched Steel split-K QK / AVへchunk全体を
-一度だけ渡すfallbackへ変更した。selected-count host groupとper-token pooled gatherは除去する。
-position 0だけはoracleのraw shapeを守るためfirst chunkの残りと分ける。短い公式fixtureは
-positions 0--127でRMS 0.000424763、positions 128--255で0.000009841となりgate内、state checkも
-通過した。更新済みrunnerは`DSV41_RUNTIME_BATCHED_SPLITK_QK=1`を固定して同じ40-layer gateを行う。
+最初のfallbackはpacked work listをchunk最大幅へpaddingし、qualified済みSteel reductionへ渡したが、
+2回目の40-layer run `attention/packed-fused-backbone-20260918-132819-61332`もrejectした。hidden RMS
+0.000780165は上限内だった一方、pre-mix RMSは0.00817721（max 0.0319417、mean 0.00193994、
+508 values）だった。selected幅のpaddingがreduction geometryを変え、その差をmHCが増幅した。
+
+修正版はoracleと同じ`(raw_width, selected_count)` host groupとSteel QK/AV shapeを維持する。
+各groupのlocal rowとselected packed pooled rowだけを1 device dispatchでexact-shape tensorへ
+materializeし、per-token gather/decode graphを除去する。したがって17,910 group除去やattention
+operation fusionはまだ主張しない。公式2-layer 2x128-token fixtureではhidden/pre-mix/logitsが
+bit-exact、state/publicationもexactに戻った。更新済みrunnerは同じ40-layer gateでこの限定候補を
+検証する。
 
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
