@@ -313,8 +313,8 @@ int main(int argc,char** argv) { try {
   if(at.chunk_attention_calls==0)throw std::runtime_error("chunk attention was enabled but never invoked");
   if(dsv41::runtime_batched_splitk_qk_enabled()){
    if(at.chunk_batched_splitk_qk_calls==0)throw std::runtime_error("batched split-K QK was enabled but never invoked");
-   if(at.chunk_scalar_qk_calls!=0||at.chunk_av_batches==0)
-    throw std::runtime_error("batched split-K QK regressed to scalar QK or produced no AV batches");
+   if(at.chunk_av_batches==0)
+    throw std::runtime_error("batched split-K QK produced no AV batches");
   }else if(at.chunk_av_batches==0)throw std::runtime_error("chunk attention produced no AV batches");
   if(at.chunk_scalar_av_calls!=0)throw std::runtime_error("chunk attention regressed to scalar AV calls");
  }

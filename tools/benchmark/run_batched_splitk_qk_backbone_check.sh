@@ -16,7 +16,7 @@ printf '%s\n' \
  'scope=40 layers; token-serial oracle vs token-batched exact Steel split-K QK; 2x128 tokens; official checkpoint' \
  'resources=allow 5 minutes; budget 240 GB Unified Memory; approximately 578 GB logical read-only checkpoint reads; no swap expected' \
  'gate=relative RMS <0.002 hidden/pre-mix/logits; logits argmax, route ties, persistent state/publication/hash and invalid-request atomicity exact' \
- 'kernel=scalar-oracle BM32/BN32/BK16/WM2/WN2 split-K reduction retained; independent token matrices share two dispatches per 64-key block' \
+ 'kernel=exact full-width BM32/BN32/BK16/WM2/WN2 split-K reduction retained; independent token matrices share two dispatches per 64-key block; short tail blocks remain native scalar' \
  'logs=artifacts/attention/batched-splitk-qk-backbone-<timestamp>-<pid>/{test.log,resource.log,identity.txt,tracked.patch,exit-code.txt}' \
  'failure=retain the failed run directory; inspect test/resource logs; do not promote the batched split-K candidate' \
  'resume=unsupported; rerun this script for fresh model/request state' > "$run_dir/config.txt"

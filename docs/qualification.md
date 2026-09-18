@@ -869,12 +869,17 @@ relative RMSは0.000928321だったが、pre-mixは0.00896325で固定上限0.00
 gate前に停止した。peak footprint 142,117,727,720 bytes、swap 0。133.14秒wallはperformance値に
 使わない。scalar MLX Steel split-Kと異なるSIMD reductionが40層で増幅したため、kernelは削除した。
 
-代替候補はMLX 0.32.2 scalar oracleのM=64/K=512、BM32/BN32/BK16、WM2/WN2、8 split-K
-partitionとordered accumulationをそのまま保持し、独立token軸だけを64-key blockごとの
-2 dispatchへbatch化する。
+代替候補はMLX 0.32.2 scalar oracleのM=64/K=512、BM32/BN32/BK16、WM2/WN2、split-K
+partitionとordered accumulationをcomplete 64-key blockで保持し、独立token軸だけをblockごとの
+2 dispatchへbatch化する。直接float32比較では1-column tailが最大0.000046、71要素不一致だったため、
+short tailはnative scalar Steelに残す。
 softmaxと既存qualified batched AVは変更しない。63/64/65/128 live-row合成fixtureと公式checkpoint
 layer 3のposition 0/128はいずれもbit-exactになった。40層gateは約5分、Unified Memory上限240 GB、
 checkpoint read-only、失敗ログ保持、resumeなしで、次をfresh stateから実行する。
+
+この限定前のclean run `attention/batched-splitk-qk-backbone-20260918-015331-53102`
+（`1b802f2`）はhidden RMS 0.000640952、pre-mix RMS 0.00811268でrejectした。peak footprintは
+142,208,691,760 bytes、swap 0。107.69秒wallはperformance値に使わない。
 
 ```sh
 bash tools/benchmark/run_batched_splitk_qk_backbone_check.sh

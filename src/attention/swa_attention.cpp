@@ -80,8 +80,32 @@ mx::array swa_attention_masked_chunk(const mx::array& q,const mx::array& kv,
   // while rank-3 batch QK selects a different regular GEMM reduction. Keep
   // only this qualified reduction token-wise; softmax and AV remain batched.
   mx::array scores=mx::array(0.0f);
-  if(batched_splitk){
+  // The standalone custom compilation differs by a few float32 ULPs from
+  // native Steel on short-N tails. Batch only complete 64-key blocks; keep
+  // every tail on the native scalar oracle.
+  if(batched_splitk&&last-first==64){
    scores=batched_splitk_qk(qf,keys);
+   if(runtime_batched_splitk_qk_diagnostics_enabled()){
+    std::vector<mx::array> rows;rows.reserve(tokens);
+    for(int token=0;token<tokens;++token){
+     auto token_q=mx::reshape(mx::slice(qf,{token,0,0},{token+1,64,512}),{64,512});
+     auto token_keys=mx::reshape(mx::slice(keys,{token,0,0},{token+1,last-first,512}),{last-first,512});
+     rows.push_back(mx::expand_dims(mx::matmul(token_q,mx::transpose(token_keys)),0));
+    }
+    auto oracle=mx::concatenate(rows,0);
+    if(scores.shape()!=oracle.shape())throw std::runtime_error("batched split-K QK diagnostic shape mismatch");
+    auto equal=mx::all(mx::equal(scores,oracle));mx::eval(equal);
+    if(!equal.item<bool>()){
+     auto difference=mx::abs(mx::subtract(scores,oracle));
+     auto maximum=mx::max(difference),mean=mx::mean(difference);
+     auto mismatches=mx::sum(mx::astype(mx::not_equal(scores,oracle),mx::uint32));
+     mx::eval(maximum,mean,mismatches);
+     throw std::runtime_error("batched split-K QK float32 mismatch: tokens="+
+      std::to_string(tokens)+" columns="+std::to_string(last-first)+" max_abs="+
+      std::to_string(maximum.item<float>())+" mean_abs="+std::to_string(mean.item<float>())+
+      " mismatches="+std::to_string(mismatches.item<std::uint32_t>()));
+    }
+   }
    { std::lock_guard l(attention_telemetry_mutex());++attention_telemetry().chunk_batched_splitk_qk_calls; }
   }else{
    std::vector<mx::array> score_rows;score_rows.reserve(tokens);

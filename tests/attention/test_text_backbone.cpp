@@ -1,5 +1,6 @@
 #include "dsv41/text_backbone.hpp"
 #include "dsv41/execution_policy.hpp"
+#include "dsv41/attention_telemetry.hpp"
 #include "dsv41/generation_loop.hpp"
 #include <bit>
 #include <cstdlib>
@@ -139,6 +140,7 @@ int main(int argc,char** argv){try{
    return 0;
   }
   std::vector<std::uint32_t> input(128);for(int i=0;i<128;++i)input[i]=std::uint32_t((i*7919)%129263);
+  dsv41::reset_attention_telemetry();
   for(int chunk_index=0;chunk_index<2;++chunk_index){
    const auto start=std::uint64_t(chunk_index*128);
    if(chunk_attention_check&&setenv("DSV41_RUNTIME_CHUNK_ATTENTION","0",1)!=0)
@@ -167,10 +169,16 @@ int main(int argc,char** argv){try{
    try{packed.forward_packed_chunk(std::span(&invalid,1),actual_state,256);}catch(const std::exception&){rejected=true;}
    if(!rejected)throw std::runtime_error("invalid token accepted");full_state_same(saved,actual_state);
   }
+  const auto attention=dsv41::attention_telemetry();
+  if(chunk_attention_check&&dsv41::runtime_batched_splitk_qk_enabled()&&
+     attention.chunk_batched_splitk_qk_calls==0)
+   throw std::runtime_error("batched split-K QK candidate was never invoked");
   std::cout<<"PASS: layer-major backbone 2x128 tokens and invalid-token atomicity; active_bytes="<<mx::get_active_memory()
    <<" cache_bytes="<<mx::get_cache_memory()<<" peak_bytes="<<mx::get_peak_memory()
    <<" bank_constructions="<<dsv41::packed_expert_bank_construction_count()
    <<" loaded_experts="<<dsv41::packed_expert_bank_loaded_expert_count()
+   <<" batched_splitk_qk_calls="<<attention.chunk_batched_splitk_qk_calls
+   <<" scalar_qk_calls="<<attention.chunk_scalar_qk_calls
    <<"; performance/32K unqualified"<<std::endl;
   return 0;
  }

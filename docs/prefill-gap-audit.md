@@ -480,13 +480,22 @@ candidate's SIMD QK reduction did not preserve the scalar MLX Steel split-K
 topology, and it was removed rather than weakening the gate.
 
 The replacement batches the exact MLX 0.32.2 scalar Steel split-K topology
-across independent tokens. Each M=64, K=512 QK retains BM32/BN32/BK16,
-WM2/WN2, eight ordered split-K partitions, and the original accumulation;
-only the token axis shares two QK dispatches per 64-key block. Existing qualified softmax
+across independent tokens for complete 64-key blocks. Each M=64, K=512 QK
+retains BM32/BN32/BK16, WM2/WN2, ordered split-K partitions, and the original
+accumulation; only the token axis shares two QK dispatches per full block.
+Direct float32 diagnostics found that a separately compiled one-column tail
+differed by up to 0.000046 across 71 values, even though the final BF16 fixture
+hid it. Short tails therefore remain on native scalar Steel. Existing qualified softmax
 and batched AV remain unchanged. Synthetic 63/64/65/128-live-row cases and
 official-checkpoint layer 3 at positions 0 and 128 are now bit-exact. The
 candidate remains opt-in with `DSV41_RUNTIME_BATCHED_SPLITK_QK=1` pending this
 official-checkpoint gate:
+
+This narrowing follows rejected run
+`attention/batched-splitk-qk-backbone-20260918-015331-53102` at `1b802f2`:
+hidden RMS was 0.000640952 but pre-mix RMS was 0.00811268. Peak footprint was
+142,208,691,760 bytes with zero swap; its 107.69-second failed-gate wall is not
+a performance result.
 
 ```sh
 bash tools/benchmark/run_batched_splitk_qk_backbone_check.sh

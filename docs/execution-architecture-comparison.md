@@ -426,8 +426,10 @@ required before a kernel change. The first one-dispatch attention candidate
 failed the fixed full-backbone gate because its SIMD reduction diverged from
 the scalar Steel split-K oracle (`pre-mix RMS 0.00896325`) and was removed.
 The replacement preserves MLX 0.32.2's exact per-token BM32/BN32/BK16,
-WM2/WN2, eight-partition QK reduction while batching the independent token
-matrices into two dispatches per 64-key block. Existing softmax and qualified batched AV remain
+WM2/WN2 split-K reduction for complete 64-key blocks while batching the
+independent token matrices into two dispatches per block. Short tails remain
+on native scalar Steel because the separately compiled tail reduction was not
+float32-exact. Existing softmax and qualified batched AV remain
 unchanged. Synthetic boundary cases and official layer-3 128-token fixtures
 are bit-exact; the default remains off until
 `tools/benchmark/run_batched_splitk_qk_backbone_check.sh` passes and is

@@ -91,6 +91,16 @@ inline bool runtime_batched_splitk_qk_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_BATCHED_SPLITK_QK must be 0 or 1");
 }
 
+// Qualification-only comparison of batched split-K scores with the native
+// token-scalar Steel result. This deliberately synchronizes every eligible
+// complete QK block.
+inline bool runtime_batched_splitk_qk_diagnostics_enabled() {
+ const char* value=std::getenv("DSV41_RUNTIME_BATCHED_SPLITK_QK_DIAGNOSTICS");
+ if(value==nullptr||std::string_view(value)=="0") return false;
+ if(std::string_view(value)=="1") return true;
+ throw std::runtime_error("DSV41_RUNTIME_BATCHED_SPLITK_QK_DIAGNOSTICS must be 0 or 1");
+}
+
 // Own prefill at the request boundary and execute it as a transactional
 // layer-major sweep.  Decode remains on the one-token reference schedule.
 // This is independently opt-in until the 2K full-path result is reviewed.

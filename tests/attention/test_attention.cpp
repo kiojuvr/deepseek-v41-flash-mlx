@@ -151,6 +151,7 @@ int main(int argc,char** argv){try{
    rms_report(full_candidate,mx::concatenate(reference,0),"chunk attention live-row ladder");
   }
   if(dsv41::runtime_batched_splitk_qk_enabled())for(int width:{1,31,32,33,39,40,63,64,65,127,128,129,640}){
+   dsv41::reset_attention_telemetry();
    auto width_kv=mx::astype(mx::reshape(mx::sin(mx::arange(2*width*512,mx::float32)),{2,width,512}),mx::bfloat16);
    auto width_valid=mx::ones({2,width},mx::bool_);
    auto width_candidate=dsv41::swa_attention_masked_chunk(q,width_kv,sink,width_valid);
@@ -160,6 +161,26 @@ int main(int argc,char** argv){try{
     mx::reshape(mx::slice(width_kv,{token,0,0},{token+1,width,512}),{width,512}),sink,
     mx::ones({width},mx::bool_)),0));
    rms_report(width_candidate,mx::concatenate(reference,0),"chunk attention split-K shape ladder");
+   const auto width_telemetry=dsv41::attention_telemetry();
+   if(width_telemetry.chunk_batched_splitk_qk_calls!=std::size_t(width/64)||
+      width_telemetry.chunk_scalar_qk_calls!=std::size_t(width%64?2:0))
+    throw std::runtime_error("chunk attention full-block/tail QK dispatch mismatch");
+  }
+  if(dsv41::runtime_batched_splitk_qk_enabled())for(int token_count:{1,3,63,64,65,127,128}){
+   // Backbone groups are usually non-zero-offset slices of a 128-token Q tensor.
+   // Exercise both their retained input stride and a large grid-z token axis.
+   auto parent_q=mx::astype(mx::reshape(mx::sin(mx::arange(130*64*512,mx::float32)),{130,64,512}),mx::bfloat16);
+   auto sliced_q=mx::slice(parent_q,{1,0,0},{token_count+1,64,512});
+   auto token_kv=mx::astype(mx::reshape(mx::cos(mx::arange(token_count*128*512,mx::float32)),
+                                        {token_count,128,512}),mx::bfloat16);
+   auto token_valid=mx::ones({token_count,128},mx::bool_);
+   auto token_candidate=dsv41::swa_attention_masked_chunk(sliced_q,token_kv,sink,token_valid);
+   std::vector<mx::array> reference;reference.reserve(token_count);
+   for(int token=0;token<token_count;++token)reference.push_back(mx::expand_dims(dsv41::swa_attention_masked_reference(
+    mx::reshape(mx::slice(sliced_q,{token,0,0},{token+1,64,512}),{64,512}),
+    mx::reshape(mx::slice(token_kv,{token,0,0},{token+1,128,512}),{128,512}),sink,
+    mx::ones({128},mx::bool_)),0));
+   rms_report(token_candidate,mx::concatenate(reference,0),"chunk attention split-K token ladder");
   }
  }
  if(argc!=1&&argc!=3)throw std::runtime_error("usage: dsv41-swa-attention-test [checkpoint m1-summary]");
