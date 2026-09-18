@@ -1007,6 +1007,13 @@ code comparisonでchunk 0の具体的な差を特定した。exact pathはtoken 
 修正版はfixed windowをright-alignし、同じisolation runnerでdense-contentをexact shapeへ戻した比較と
 complete dense reduction比較を別々に出力する。runner passまでは未qualified。
 
+clean isolation `attention/fixed-tile-isolation-20260918-234217-70452`ではdense contentが両chunkで
+bit-exact。dense reduction RMSは`1.68876e-05` / `4.10141e-05`、producerは`0.000498815` /
+`0.000375034`、first reuseは`0.000424763` / `9.84098e-06`で全て0.002未満だった。
+publication/window/position checkにも到達した。exit 1はdiagnostic exact graphがproduction scalar-QK
+counterへ混入したharness defectによる。diagnostic後にtelemetry snapshotを復元するよう修正したが、
+promotionにはexit 0の再実行を要求する。
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
 ```

@@ -682,6 +682,15 @@ boundary were not. The candidate now right-aligns fixed windows and the same
 isolation runner reports both dense-content/exact-shape and full dense
 reduction/exact-shape RMS before its producer/reuse gates.
 
+The clean official two-layer observation
+`attention/fixed-tile-isolation-20260918-234217-70452` made dense work-list
+content bit-exact and kept dense reduction, producer output, and first-reuse
+output below the 0.002 gate in both chunks (worst RMS 0.000498815). Its final
+topology assertion failed only because diagnostic exact graphs incremented
+the shared scalar-QK counter. The harness now restores production telemetry
+after diagnostics; the semantic result is retained but an exit-0 rerun is
+required for promotion.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
 ```

@@ -705,6 +705,15 @@ right-aligns all live prefixes; diagnostics separately compare dense content
 repacked to exact shapes and the complete dense reduction against the exact
 path. This correction remains unqualified until the isolation runner passes.
 
+Clean isolation run `attention/fixed-tile-isolation-20260918-234217-70452`
+confirmed the localization. Dense content repacked to exact shapes was
+bit-exact in both chunks. Dense-reduction RMS was 0.0000168876 and 0.0000410141;
+producer output RMS was 0.000498815 and 0.000375034; first-reuse output RMS was
+0.000424763 and 0.00000984098. Publication rows, window state, and positions
+reached their exact checks. The process exited only because diagnostic exact
+graphs polluted the production scalar-QK counter; telemetry is now restored
+after diagnostics. A clean rerun is required before the full-backbone gate.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
 ```

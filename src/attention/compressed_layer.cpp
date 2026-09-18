@@ -171,6 +171,7 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
    auto fixed_output=swa_attention_masked_chunk(q,fixed_work.ordered,sink_,fixed_work.valid);
    attention_groups.push_back(fixed_output);
    if(runtime_fixed_tile_attention_diagnostics_enabled()){
+    const auto production_telemetry=read_attention_telemetry();
     std::vector<mx::array> exact_outputs,content_outputs;
     auto run_group=[&](int first,int end,int selected_count){
      auto local=mx::slice(all_window,{0,0},{state.window_.shape(0)+end,512});
@@ -210,6 +211,9 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
     auto content=content_outputs.size()==1?content_outputs.front():mx::concatenate(content_outputs,0);
     report_fixed_tile_rms(content,exact,"fixed-tile producer dense-content/exact-shape");
     report_fixed_tile_rms(fixed_output,exact,"fixed-tile producer dense-reduction/exact-shape");
+    // Qualification-only exact/content graphs must not appear in production
+    // dispatch telemetry.
+    { std::lock_guard l(attention_telemetry_mutex());attention_telemetry()=production_telemetry; }
    }
   }else{
   auto run_group=[&](int first,int end,int selected_count){
