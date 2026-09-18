@@ -68,7 +68,7 @@ mx::array ragged_tail_av(const mx::array& probabilities,const mx::array& keys,
   {"probabilities","keys","widths","meta"},{"output"},dsv41_ragged_tail_av_source,
   dsv41_batched_splitk_header);
  return kernel({probabilities,keys,widths,mx::array({tokens,rows,block},mx::int32)},
-  {{tokens,64,512}},{mx::float32},{16*32,2*2,tokens*2},{32,2,2},{},
+  {{tokens,64,512}},{mx::float32},{16*32,1*2,tokens*2},{32,2,2},{},
   std::nullopt,false,mx::Device::gpu).front();
 }
 }

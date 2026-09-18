@@ -797,8 +797,16 @@ RMS 0.000158488, then layer 4 attention amplified it to 0.00972281; the first
 hard-gate crossing moved from layer 2 MoE to layer 4 attention but was not
 eliminated. The candidate therefore adds an indirect AV work-list for the
 single ragged pooled block per token. It uses the MLX Steel regular-GEMM
-tail-first K reduction (BM32/BN32/BK16, WM2/WN2) rather than padding K to 64.
-Synthetic selected widths 1, 33, 40, and 63 are BF16 exact. The operation is
+tail-first K reduction (BM64/BN32/BK32, WM2/WN2 on the large-device path)
+rather than padding K to 64. The first BM32/BN32/BK16 translation was rejected
+by official isolation `attention/fixed-tile-isolation-20260919-022833-75572`:
+it increased the chunk-zero dense-reduction mismatch from nine to eleven BF16
+elements and producer RMS from 0.000178388 to 0.000266951. Reviewing the pinned
+MLX dispatch selector showed that this was the wrong Steel specialization for
+float32 NN matmul on M3 Ultra; it is not promoted. Synthetic selected widths 1,
+33, and 40 are BF16 exact; width 63 differs from the padded-K diagnostic in one
+element (RMS `6.8384e-10`, max `1.19209e-07`) and remains far inside the local
+semantic gate. The corrected operation is
 separately opt-in with `DSV41_RUNTIME_RAGGED_TAIL_AV=1` until official
 two-layer and 40-layer gates pass.
 

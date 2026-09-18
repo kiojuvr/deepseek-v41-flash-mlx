@@ -1061,6 +1061,14 @@ ragged AVが必要。MLX Steel regular GEMMと同じtail-first K reductionをdev
 width 1/33/40/63 synthetic fixtureはBF16 exact。`DSV41_RUNTIME_RAGGED_TAIL_AV=1`は公式
 2-layer/40-layer gate通過までopt-in。
 
+最初のBM32/BN32/BK16 ragged-AV候補は公式isolation
+`attention/fixed-tile-isolation-20260919-022833-75572`でrejectした。chunk 0のdense-reduction差を
+9から11 BF16 valuesへ、producer RMSを`0.000178388`から`0.000266951`へ悪化させた。pinned
+MLX 0.32.2のlarge-device float32 NN selectorを再確認し、AV固有の正しい構成
+BM64/BN32/BK32、WM2/WN2へ修正した。synthetic width 1/33/40はbit-exact、width 63は
+padded-K diagnosticに対して1 element、RMS `6.8384e-10`、max `1.19209e-07`。誤った候補は
+promotion対象外であり、修正版も公式2-layer gateを再通過するまではopt-inのままとする。
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```
