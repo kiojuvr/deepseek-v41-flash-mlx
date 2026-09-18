@@ -179,12 +179,17 @@ int main(int argc,char** argv){try{
   if(chunk_attention_check&&dsv41::runtime_wide_attention_enabled()&&
      attention.wide_attention_calls==0)
    throw std::runtime_error("wide attention candidate was never invoked");
+  if(chunk_attention_check&&dsv41::runtime_fixed_tile_attention_enabled()&&
+     (attention.fixed_tile_attention_calls==0||attention.chunk_scalar_qk_calls!=0||
+      attention.chunk_scalar_av_calls!=0))
+   throw std::runtime_error("fixed-tile attention candidate topology mismatch");
   std::cout<<"PASS: layer-major backbone 2x128 tokens and invalid-token atomicity; active_bytes="<<mx::get_active_memory()
    <<" cache_bytes="<<mx::get_cache_memory()<<" peak_bytes="<<mx::get_peak_memory()
    <<" bank_constructions="<<dsv41::packed_expert_bank_construction_count()
    <<" loaded_experts="<<dsv41::packed_expert_bank_loaded_expert_count()
    <<" packed_attention_calls="<<attention.packed_chunk_attention_calls
    <<" wide_attention_calls="<<attention.wide_attention_calls
+   <<" fixed_tile_attention_calls="<<attention.fixed_tile_attention_calls
    <<" batched_splitk_qk_calls="<<attention.chunk_batched_splitk_qk_calls
    <<" scalar_qk_calls="<<attention.chunk_scalar_qk_calls
    <<"; performance/32K unqualified"<<std::endl;

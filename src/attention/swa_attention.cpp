@@ -92,7 +92,7 @@ mx::array swa_wide_attention_chunk(const mx::array& q,const mx::array& local,
 }
 PackedAttentionWorkList swa_packed_attention_work_list(const mx::array& local,
  const mx::array& pooled_values,const mx::array& pooled_scales,const mx::array& topk,
- std::uint64_t start,int ratio,int selected_count){
+ std::uint64_t start,int ratio,int selected_count,bool fixed_window){
  if(local.dtype()!=mx::bfloat16||local.ndim()!=2||local.shape(0)<1||local.shape(0)>256||
     local.shape(1)!=512||pooled_values.dtype()!=mx::uint8||pooled_values.ndim()!=2||
     pooled_values.shape(1)!=256||pooled_scales.dtype()!=mx::uint8||
@@ -102,7 +102,7 @@ PackedAttentionWorkList swa_packed_attention_work_list(const mx::array& local,
     selected_count<-1||selected_count>topk.shape(1)||(selected_count==0&&topk.shape(1)!=1))
   throw std::runtime_error("invalid packed attention work-list geometry");
  if(selected_count<0)selected_count=topk.shape(1);
- const int tokens=topk.shape(0),window=start==0?std::min(128,tokens):128;
+ const int tokens=topk.shape(0),window=fixed_window?128:(start==0?std::min(128,tokens):128);
  const int rows=window+selected_count;
  static auto kernel=mx::fast::metal_kernel("dsv41_packed_attention_worklist",
   {"local_kv","pooled_values","pooled_scales","topk","meta"},{"ordered","valid"},
@@ -111,10 +111,21 @@ PackedAttentionWorkList swa_packed_attention_work_list(const mx::array& local,
                      mx::contiguous(pooled_values,false,mx::Device::gpu),
                      mx::contiguous(pooled_scales,false,mx::Device::gpu),
                      mx::contiguous(topk,false,mx::Device::gpu),
-                     mx::array({tokens,local.shape(0),pooled_values.shape(0),int(start),ratio,selected_count},mx::int32)},
+                     mx::array({tokens,local.shape(0),pooled_values.shape(0),int(start),ratio,selected_count,
+                                fixed_window?1:0},mx::int32)},
                     {{tokens,rows,512},{tokens,rows}},{mx::bfloat16,mx::bool_},
                     {512,rows,tokens},{32,1,1},{},std::nullopt,false,mx::Device::gpu);
  return {result[0],result[1]};
+}
+mx::array swa_fixed_tile_attention_chunk(const mx::array& q,const mx::array& local,
+ const mx::array& pooled_values,const mx::array& pooled_scales,const mx::array& topk,
+ const mx::array& sink,std::uint64_t start,int ratio){
+ if(topk.dtype()!=mx::int32||topk.ndim()!=2||topk.shape(0)!=q.shape(0)||topk.shape(1)!=512)
+  throw std::runtime_error("fixed-tile attention requires a dense [tokens,512] plan");
+ auto work=swa_packed_attention_work_list(local,pooled_values,pooled_scales,topk,start,ratio,512,true);
+ if(work.ordered.shape(1)!=640)
+  throw std::runtime_error("fixed-tile attention must materialize ten 64-row tiles");
+ return swa_attention_masked_chunk(q,work.ordered,sink,work.valid);
 }
 mx::array swa_attention_reference(const mx::array& q,const mx::array& kv,const mx::array& sink){
  if(kv.ndim()!=2||kv.shape(0)>128)throw std::runtime_error("invalid SWA KV rank/window");

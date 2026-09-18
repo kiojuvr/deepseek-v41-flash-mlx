@@ -68,11 +68,11 @@ mx::array main_rows(const GlobalKVState& state,const mx::array& selected){
  return mx::astype(mx::reshape(mx::multiply(mx::reshape(v,{int(selected.size()),32,16}),
   mx::expand_dims(scale,-1)),{int(selected.size()),512}),mx::bfloat16);
 }
-mx::array wide_topk(const std::vector<mx::array>& selected){
+mx::array dense_topk(const std::vector<mx::array>& selected){
  std::vector<mx::array> rows;rows.reserve(selected.size());
  for(const auto& row:selected){
   if(row.dtype()!=mx::int32||row.ndim()!=1||row.size()>512)
-   throw std::runtime_error("invalid wide attention selected rows");
+   throw std::runtime_error("invalid dense attention selected rows");
   auto padded=row.size()==512?row:mx::concatenate(
    {row,mx::broadcast_to(mx::array(-1,mx::int32),{512-int(row.size())})},0);
   rows.push_back(mx::expand_dims(padded,0));
@@ -100,7 +100,9 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
   rms_norm_reference(kv_.forward(h),kvnorm_,1e-20f),positions)).decoded;
  auto next=state;std::vector<mx::array> projected_rows;projected_rows.reserve(h.shape(0));
  const bool wide_chunk=runtime_wide_attention_enabled()&&publications&&h.shape(0)>1;
- const bool packed_chunk=(runtime_packed_chunk_attention_enabled()||wide_chunk)&&publications&&h.shape(0)>1;
+ const bool fixed_tile=runtime_fixed_tile_attention_enabled()&&publications&&h.shape(0)>1;
+ if(wide_chunk&&fixed_tile)throw std::runtime_error("wide and fixed-tile attention are mutually exclusive");
+ const bool packed_chunk=(runtime_packed_chunk_attention_enabled()||wide_chunk||fixed_tile)&&publications&&h.shape(0)>1;
  std::vector<mx::array> packed_rows;if(packed_chunk)packed_rows.reserve(h.shape(0));
  auto all_window=mx::concatenate({state.window_,kv},0);
  { std::lock_guard l(attention_telemetry_mutex()); auto& t=attention_telemetry(); ++t.concat_calls; t.concat_input_bytes+=(state.window_.size()+kv.size())*2; t.concat_output_bytes+=all_window.size()*2; t.cumulative_bytes_copied+=all_window.size()*2; }
@@ -139,12 +141,14 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
  }
  if(packed_chunk){
   std::vector<mx::array> attention_groups;
-  if(wide_chunk){
-   auto plan=wide_topk(packed_rows);
+  if(wide_chunk||fixed_tile){
+   auto plan=dense_topk(packed_rows);
    for(auto& publication:pending_publications)
     publication.publish_chunk_plan(layer_,plan,start,h.shape(0));
-   auto o=swa_wide_attention_chunk(q,all_window,cache_prefixes.back().main_bytes(),
-    cache_prefixes.back().main_scales(),plan,sink_,start,ratio_);
+   auto o=wide_chunk?swa_wide_attention_chunk(q,all_window,cache_prefixes.back().main_bytes(),
+    cache_prefixes.back().main_scales(),plan,sink_,start,ratio_):
+    swa_fixed_tile_attention_chunk(q,all_window,cache_prefixes.back().main_bytes(),
+     cache_prefixes.back().main_scales(),plan,sink_,start,ratio_);
    attention_groups.push_back(o);
   }else{
   auto run_group=[&](int first,int end,int selected_count){
@@ -177,6 +181,7 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
   }
   { std::lock_guard l(attention_telemetry_mutex());
     if(wide_chunk)++attention_telemetry().wide_attention_calls;
+    else if(fixed_tile)++attention_telemetry().fixed_tile_attention_calls;
     else ++attention_telemetry().packed_chunk_attention_calls; }
  }
  auto projected=projected_rows.size()==1?projected_rows.front():mx::concatenate(projected_rows,0);
@@ -274,19 +279,24 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
  }
  { std::lock_guard l(attention_telemetry_mutex());auto& t=attention_telemetry();
    t.logical_tokens+=x.shape(0);t.attention_rows+=x.shape(0); }
- if((runtime_packed_chunk_attention_enabled()||runtime_wide_attention_enabled())&&x.shape(0)>1){
+ if((runtime_packed_chunk_attention_enabled()||runtime_wide_attention_enabled()||
+     runtime_fixed_tile_attention_enabled())&&x.shape(0)>1){
   const bool wide_chunk=runtime_wide_attention_enabled();
+  const bool fixed_tile=runtime_fixed_tile_attention_enabled();
+  if(wide_chunk&&fixed_tile)throw std::runtime_error("wide and fixed-tile attention are mutually exclusive");
   const auto& pooled=publications.back().cache();
   std::vector<mx::array> attention_groups;
-  if(wide_chunk){
+  if(wide_chunk||fixed_tile){
    mx::array plan=mx::array(0);
    if(is_index_source_){
-    plan=wide_topk(selected_rows);
+    plan=dense_topk(selected_rows);
     for(auto& publication:publications)
      publication.publish_chunk_plan(layer_,plan,start,x.shape(0));
    }else plan=publications.front().device_chunk_indices(layer_,start,x.shape(0));
-   attention_groups.push_back(swa_wide_attention_chunk(q,all_window,pooled.main_bytes(),
-    pooled.main_scales(),plan,sink_,start,ratio_));
+   attention_groups.push_back(wide_chunk?swa_wide_attention_chunk(q,all_window,pooled.main_bytes(),
+    pooled.main_scales(),plan,sink_,start,ratio_):
+    swa_fixed_tile_attention_chunk(q,all_window,pooled.main_bytes(),pooled.main_scales(),
+     plan,sink_,start,ratio_));
   }else{
   auto run_group=[&](int first,int end,int selected_count){
    auto local=mx::slice(all_window,{0,0},{state.window_.shape(0)+end,512});
@@ -318,6 +328,7 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
   }
   { std::lock_guard l(attention_telemetry_mutex());
     if(wide_chunk)++attention_telemetry().wide_attention_calls;
+    else if(fixed_tile)++attention_telemetry().fixed_tile_attention_calls;
     else ++attention_telemetry().packed_chunk_attention_calls; }
  }else if(runtime_chunk_attention_enabled()&&x.shape(0)>1){
   auto grouped=mx::transpose(grouped_,{0,2,1});

@@ -120,6 +120,17 @@ inline bool runtime_wide_attention_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_WIDE_ATTENTION must be 0 or 1");
 }
 
+// Phase-4 arithmetic bridge: one dense [tokens,512] device plan and ten
+// fixed 64-row tiles replace request-dependent shape groups.  It deliberately
+// keeps the already-qualified split-K QK/BF16-PV reductions while the rejected
+// row-serial fused reduction remains diagnostic-only.
+inline bool runtime_fixed_tile_attention_enabled() {
+ const char* value=std::getenv("DSV41_RUNTIME_FIXED_TILE_ATTENTION");
+ if(value==nullptr||std::string_view(value)=="0") return false;
+ if(std::string_view(value)=="1") return true;
+ throw std::runtime_error("DSV41_RUNTIME_FIXED_TILE_ATTENTION must be 0 or 1");
+}
+
 // Own prefill at the request boundary and execute it as a transactional
 // layer-major sweep.  Decode remains on the one-token reference schedule.
 // This is independently opt-in until the 2K full-path result is reviewed.

@@ -641,3 +641,38 @@ The prepared full-backbone gate is:
 ```sh
 bash tools/benchmark/run_wide_attention_backbone_check.sh
 ```
+
+The clean full-backbone result
+`attention/wide-backbone-20260918-225410-67687` rejected that first slice.
+It ran revision `eee85ac` with an empty tracked patch, exit 1, and zero swap.
+Hidden-state relative RMS was 0.0111344 (maximum absolute 2048, mean absolute
+1.52399, 2,599,165 differing elements), beyond the fixed 0.002 gate. The
+dense plan and transactional publication reached the full backbone, so this
+localizes the failure to the DwarfStar-style row-serial reduction rather than
+host grouping or partial publication. The threshold remains unchanged and
+wide attention stays disabled.
+
+The next integrated slice is `DSV41_RUNTIME_FIXED_TILE_ATTENTION=1`. It keeps
+the same shared `[tokens,512]` device plan but feeds one layer-chunk work list
+to the already-qualified Steel split-K QK and BF16-rounded PV schedule. Every
+operation has exactly 640 rows (128 local plus 512 pooled metadata slots), so
+it executes ten 64-row tiles regardless of selected count. Negative pooled
+rows are mask metadata, not host-visible shape groups. This changes the
+topology from a mean 27.72 work-list materializers, 391.24 QK dispatch
+equivalents, and 203.43 AV batches per operation to one materializer, 20 QK
+kernel dispatches (split plus accumulation), and 10 AV batches. Across the
+646-operation 2K sweep, the 17,910 variable groups become 646 fixed logical
+operations and short-tail scalar QK becomes zero.
+
+This is an arithmetic qualification bridge, not the final Phase-4 fusion: it
+still materializes a 640-row tensor and retains separate tile reductions. If
+it passes, the fixed schedule provides a semantics-preserving base from which
+the materializer and ten tiles can be encoded as one device-resident work
+submission. If it fails, fixed padding itself is incompatible with the gate
+and the implementation must preserve exact reduction segments inside a fused
+kernel. The prepared full-backbone gate is intentionally not launched by the
+agent:
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_backbone_check.sh
+```

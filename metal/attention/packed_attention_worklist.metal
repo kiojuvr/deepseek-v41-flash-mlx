@@ -11,7 +11,7 @@ const int pooledL = meta[2];
 const int q_offset = meta[3];
 const int compress_ratio = meta[4];
 const int topkN = meta[5];
-const int window_slots = q_offset == 0 ? metal::min(128, tokens) : 128;
+const int window_slots = meta[6] ? 128 : (q_offset == 0 ? metal::min(128, tokens) : 128);
 const int rows = window_slots + topkN;
 if (d >= 512 || slot >= rows || token >= tokens) return;
 

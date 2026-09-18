@@ -642,3 +642,23 @@ batches. Phase 4 now treats metadata, index reuse, QK/mask/online-softmax/AV,
 publication, and frontier commit as one execution plan. See the integrated
 plan in `execution-architecture-comparison.md`; no further local QK, AV, or
 materializer candidate is authorized by this result.
+
+The first DwarfStar-style dense-plan fusion did not pass the unchanged
+full-backbone gate. Clean run
+`attention/wide-backbone-20260918-225410-67687` reported hidden relative RMS
+0.0111344 (maximum absolute 2048, mean absolute 1.52399, 2,599,165 differing
+elements), exit 1, and zero swap from revision `eee85ac`. This rejects its
+row-serial reduction arithmetic; it does not reject dense device metadata or
+chunk-atomic publication.
+
+The follow-up fixed-tile bridge removes variable shape grouping without
+introducing another attention arithmetic. One `[tokens,512]` plan and one
+packed work-list materialization feed exactly ten 64-row tiles through the
+qualified split-K QK / BF16-PV path. The structural comparison per compressed
+layer-chunk is 27.72 to 1 materialization operations, 391.24 to 20 QK Metal
+dispatches, and 203.43 to 10 AV batches; scalar tail QK is structurally zero.
+This is gated before any 2K timing by:
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_backbone_check.sh
+```

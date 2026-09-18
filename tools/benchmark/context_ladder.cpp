@@ -146,6 +146,7 @@ int main(int argc,char** argv) { try {
   {"batched_splitk_qk",dsv41::runtime_batched_splitk_qk_enabled()},
   {"packed_chunk_attention",dsv41::runtime_packed_chunk_attention_enabled()},
   {"wide_attention",dsv41::runtime_wide_attention_enabled()},
+  {"fixed_tile_attention",dsv41::runtime_fixed_tile_attention_enabled()},
   {"layer_sweep",dsv41::runtime_layer_sweep_enabled()},
   {"batched_dense_qmm",dsv41::runtime_batched_dense_qmm_enabled()},
   {"mlx_cache_limit_bytes",dsv41::runtime_mlx_cache_limit_bytes()},
@@ -334,12 +335,21 @@ int main(int argc,char** argv) { try {
      at.chunk_scalar_qk_calls!=0||at.chunk_av_batches!=0)
    throw std::runtime_error("wide attention did not own the complete attention operation");
  }
+ if(dsv41::runtime_fixed_tile_attention_enabled()){
+  if(at.fixed_tile_attention_calls==0||at.packed_chunk_attention_calls!=0||
+     at.wide_attention_calls!=0||at.chunk_attention_calls!=0||
+     !dsv41::runtime_batched_splitk_qk_enabled()||
+     at.chunk_batched_splitk_qk_calls==0||at.chunk_scalar_qk_calls!=0||
+     at.chunk_av_batches==0||at.chunk_scalar_av_calls!=0)
+   throw std::runtime_error("fixed-tile attention did not retain the qualified ten-tile schedule");
+ }
  report["attention_telemetry"]={{"concat_calls",at.concat_calls},{"concat_input_bytes",at.concat_input_bytes},
   {"concat_output_bytes",at.concat_output_bytes},{"cumulative_bytes_copied",at.cumulative_bytes_copied},
   {"logical_tokens",at.logical_tokens},{"attention_rows",at.attention_rows},{"indexer_rows",at.indexer_rows},
   {"index_host_readbacks",at.index_host_readbacks},{"token_serial_attention_calls",at.token_serial_attention_calls},
   {"chunk_attention_calls",at.chunk_attention_calls},{"packed_chunk_attention_calls",at.packed_chunk_attention_calls},
   {"wide_attention_calls",at.wide_attention_calls},
+  {"fixed_tile_attention_calls",at.fixed_tile_attention_calls},
   {"chunk_batched_splitk_qk_calls",at.chunk_batched_splitk_qk_calls},
   {"chunk_scalar_qk_calls",at.chunk_scalar_qk_calls},
   {"chunk_scalar_av_calls",at.chunk_scalar_av_calls},{"chunk_av_batches",at.chunk_av_batches}};

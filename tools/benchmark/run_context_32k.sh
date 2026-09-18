@@ -31,6 +31,7 @@ export DSV41_RUNTIME_CHUNK_ATTENTION=${DSV41_RUNTIME_CHUNK_ATTENTION:-0}
 export DSV41_RUNTIME_BATCHED_SPLITK_QK=${DSV41_RUNTIME_BATCHED_SPLITK_QK:-0}
 export DSV41_RUNTIME_PACKED_CHUNK_ATTENTION=${DSV41_RUNTIME_PACKED_CHUNK_ATTENTION:-0}
 export DSV41_RUNTIME_WIDE_ATTENTION=${DSV41_RUNTIME_WIDE_ATTENTION:-0}
+export DSV41_RUNTIME_FIXED_TILE_ATTENTION=${DSV41_RUNTIME_FIXED_TILE_ATTENTION:-0}
 export DSV41_RUNTIME_LAYER_SWEEP=${DSV41_RUNTIME_LAYER_SWEEP:-0}
 export DSV41_RUNTIME_BATCHED_DENSE_QMM=${DSV41_RUNTIME_BATCHED_DENSE_QMM:-0}
 export DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES=${DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES:-0}
@@ -69,6 +70,7 @@ printf '%s\n' "checkpoint=$checkpoint" "context=$context" "base_prefill=$((prefi
  "batched_splitk_qk=$DSV41_RUNTIME_BATCHED_SPLITK_QK" \
  "packed_chunk_attention=$DSV41_RUNTIME_PACKED_CHUNK_ATTENTION" \
  "wide_attention=$DSV41_RUNTIME_WIDE_ATTENTION" \
+ "fixed_tile_attention=$DSV41_RUNTIME_FIXED_TILE_ATTENTION" \
  "layer_sweep=$DSV41_RUNTIME_LAYER_SWEEP" \
  "batched_dense_qmm=$DSV41_RUNTIME_BATCHED_DENSE_QMM" \
  "mlx_cache_limit_bytes=$DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES" \
@@ -86,6 +88,7 @@ shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp 
  tools/benchmark/run_batched_splitk_qk_prefill_measurement.sh \
  tools/benchmark/run_batched_splitk_qk_component_profile.sh \
  tools/benchmark/run_packed_attention_prefill_measurement.sh \
+ tools/benchmark/run_fixed_tile_attention_backbone_check.sh \
  tools/benchmark/run_layer_sweep_component_profile.sh \
  tools/benchmark/run_layer_component_profile.sh \
  tools/benchmark/run_resident_layer_component_profile.sh \

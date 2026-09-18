@@ -976,6 +976,23 @@ component結果に過ぎず、full-backbone昇格は次の約5分、240 GB、che
 bash tools/benchmark/run_wide_attention_backbone_check.sh
 ```
 
+このgateのclean run `attention/wide-backbone-20260918-225410-67687`はreject。
+revision `eee85ac`、tracked patch 0 bytes、exit 1、swap 0。hidden relative RMSは
+0.0111344（max 2048、mean 1.52399、2,599,165 values）で、固定上限0.002を超えた。
+したがってDwarfStar型row-serial reductionは無効のままとし、gateを緩和しない。dense device
+planとchunk-atomic publicationはfull backboneまで到達しているため、今回のrejectはそれらではなく
+attention reduction arithmeticに帰属する。
+
+次のcandidate `DSV41_RUNTIME_FIXED_TILE_ATTENTION=1`は同じ`[tokens,512]` device planを共有し、
+128 local + 512 pooled metadata slotsを常に10個の64-row tileとしてqualified済みSteel split-K QK /
+BF16-rounded PVへ渡す。可変selected-count group、short-tail scalar QK、token/head host loopは使わない。
+これは最終one-dispatch fusionではなく、固定tile/padding semanticsを分離して検証するPhase 4 bridge。
+約5分、240 GB、checkpoint read-only、失敗ログ保持、resumeなしのgateをagentは実行しない。
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_backbone_check.sh
+```
+
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh
