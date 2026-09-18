@@ -438,3 +438,15 @@ persistent state, publication, hashes, continuation, and invalid-request
 atomicity were exact. It replaced 21,937 full-width token loops with batched
 calls while retaining 8,583 scalar tail calls. The default remains off until
 the isolated full-path wall result is reviewed.
+
+The reviewed isolated 2,063-token result
+`context-ladder/32k-run-20260918-122624-57828` is 62.619395 seconds / 32.9451
+token/s, versus the paired scalar-QK layer-sweep baseline's 65.403335 seconds /
+31.5427 token/s: 2.783939 seconds or 4.26% less wall. Scalar QK calls fell from
+613,439 to 24,711, with 100,428 batched full-width calls. Since both native
+scalar and batched paths use split plus ordered accumulation, this implies
+approximately 1,226,878 versus 250,278 QK Metal dispatches, a 4.90x dispatch
+reduction. The much smaller wall reduction proves QK was only one part of the
+attention amplification; 17,910 shape-group calls and 117,579 AV batches
+remain. Against pinned oMLX's 10.901336 seconds, the remaining full-path ratio
+is 5.74x.

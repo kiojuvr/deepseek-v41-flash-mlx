@@ -900,6 +900,18 @@ bash tools/benchmark/run_batched_splitk_qk_prefill_measurement.sh
 
 このfull-path result review前は`DSV41_RUNTIME_BATCHED_SPLITK_QK`のdefaultを0のまま維持する。
 
+full-path `context-ladder/32k-run-20260918-122624-57828`（`5a68d8d`）はexit 0、tracked patchなし、
+token 339、state position 2063、40 banks、route/index readback 0、swap 0。prefillは62.619395秒 /
+32.9451 token/sで、scalar-QK layer-sweep baseline 65.403335秒から2.783939秒（4.26%）短縮した。
+scalar QK callは613,439から24,711へ減り、full-width batch callは100,428。splitとordered
+accumulationの2 dispatchを数えるとQK Metal dispatchは約1,226,878から250,278へ4.90倍削減した。
+一方でattention shape group 17,910、AV batch 117,579が残り、pinned oMLX 10.901336秒との差は
+まだ5.74倍ある。次のcomponent profileは通常wall比較ではなく、残存Attention bucketの帰属に使う。
+
+```sh
+bash tools/benchmark/run_batched_splitk_qk_component_profile.sh
+```
+
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh

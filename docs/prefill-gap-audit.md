@@ -511,6 +511,24 @@ the reviewed 65.403-second layer-sweep baseline:
 bash tools/benchmark/run_batched_splitk_qk_prefill_measurement.sh
 ```
 
+Reviewed run `context-ladder/32k-run-20260918-122624-57828` at `5a68d8d`
+completed with token 339, state position 2063, 40 model-lifetime banks, and
+zero route/index readbacks or swap. Prefill was 62.619395 seconds / 32.9451
+token/s, down 2.783939 seconds (4.26%) from the paired 65.403335-second
+scalar-QK layer-sweep baseline. Scalar QK calls fell 613,439 -> 24,711 and
+100,428 full-width batches remained. The split/accumulate topology therefore
+implies about 1,226,878 -> 250,278 QK Metal dispatches, a 4.90x reduction.
+Despite that, 17,910 attention shape groups and 117,579 AV batches remain, and
+the full path is still 5.74x the pinned oMLX 10.901336-second observation.
+
+The next synchronized component measurement determines how much of the prior
+41.179713-second Attention bucket remains. It is intentionally not a normal
+wall comparison:
+
+```sh
+bash tools/benchmark/run_batched_splitk_qk_component_profile.sh
+```
+
 Within step 1, the first no-new-kernel candidate is to replace the optimized
 path's one-row `PackedLinearReference::project_quantized()` schedule with the
 already-existing multi-row QMM path.  Reference retains the one-row reduction
