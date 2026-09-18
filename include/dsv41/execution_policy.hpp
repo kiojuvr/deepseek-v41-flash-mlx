@@ -131,6 +131,15 @@ inline bool runtime_fixed_tile_attention_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_FIXED_TILE_ATTENTION must be 0 or 1");
 }
 
+// Qualification-only synchronization of the dense work list against the
+// exact-shape producer path. Never enable in a performance measurement.
+inline bool runtime_fixed_tile_attention_diagnostics_enabled() {
+ const char* value=std::getenv("DSV41_RUNTIME_FIXED_TILE_ATTENTION_DIAGNOSTICS");
+ if(value==nullptr||std::string_view(value)=="0") return false;
+ if(std::string_view(value)=="1") return true;
+ throw std::runtime_error("DSV41_RUNTIME_FIXED_TILE_ATTENTION_DIAGNOSTICS must be 0 or 1");
+}
+
 // Own prefill at the request boundary and execute it as a transactional
 // layer-major sweep.  Decode remains on the one-token reference schedule.
 // This is independently opt-in until the 2K full-path result is reviewed.

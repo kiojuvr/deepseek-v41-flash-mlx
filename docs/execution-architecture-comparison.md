@@ -695,6 +695,16 @@ in packed work-list content/publication reuse or only appears when the fixed
 attention core consumes official values. The architecture remains disabled
 until that result is reviewed.
 
+Code-level comparison after the failed isolation found a concrete materializer
+difference. For chunk zero, the exact path executes token zero at raw width 1,
+then gives tokens 1..127 a 128-row window with leading causal padding. The
+fixed materializer used `q_offset == 0` for the entire chunk and left-aligned
+every live prefix instead. It selected the same KV rows but changed their
+chronological slots relative to the pooled boundary. The corrected fixed mode
+right-aligns all live prefixes; diagnostics separately compare dense content
+repacked to exact shapes and the complete dense reduction against the exact
+path. This correction remains unqualified until the isolation runner passes.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
 ```

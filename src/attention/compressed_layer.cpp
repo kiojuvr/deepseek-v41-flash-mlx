@@ -5,6 +5,7 @@
 #include "dsv41/model_entry.hpp"
 #include "dsv41/engram.hpp"
 #include "dsv41/execution_policy.hpp"
+#include <iostream>
 #include <stdexcept>
 #include "dsv41/layer_owner.hpp"
 namespace dsv41 {
@@ -79,6 +80,19 @@ mx::array dense_topk(const std::vector<mx::array>& selected){
  }
  return mx::concatenate(rows,0);
 }
+void report_fixed_tile_rms(const mx::array& candidate,const mx::array& reference,
+ const char* label){
+ auto c=mx::astype(candidate,mx::float32),r=mx::astype(reference,mx::float32);
+ auto difference=mx::subtract(c,r);
+ auto relative=mx::sqrt(mx::divide(mx::sum(mx::multiply(difference,difference)),
+  mx::maximum(mx::sum(mx::multiply(r,r)),mx::array(1e-30f))));
+ auto maximum=mx::max(mx::abs(difference));
+ auto mismatches=mx::sum(mx::astype(mx::not_equal(candidate,reference),mx::uint32));
+ mx::eval(relative,maximum,mismatches);
+ std::cout<<label<<" relative_rms="<<relative.item<float>()
+          <<" max_abs="<<maximum.item<float>()
+          <<" bit_mismatches="<<mismatches.item<std::uint32_t>()<<std::endl;
+}
 }
 CompressedLayerReference::CompressedLayerReference(WeightCatalog& c,int layer):layer_(checked_producer_layer(layer)),ratio_(layer_compress_ratio(layer)),
  qa_(c,("layers."+std::to_string(layer_))+".attn.wq_a"),qb_(c,("layers."+std::to_string(layer_))+".attn.wq_b"),kv_(c,("layers."+std::to_string(layer_))+".attn.wkv"),output_(c,("layers."+std::to_string(layer_))+".attn.wo_b"),
@@ -141,15 +155,62 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
  }
  if(packed_chunk){
   std::vector<mx::array> attention_groups;
-  if(wide_chunk||fixed_tile){
+  if(wide_chunk){
    auto plan=dense_topk(packed_rows);
    for(auto& publication:pending_publications)
     publication.publish_chunk_plan(layer_,plan,start,h.shape(0));
-   auto o=wide_chunk?swa_wide_attention_chunk(q,all_window,cache_prefixes.back().main_bytes(),
-    cache_prefixes.back().main_scales(),plan,sink_,start,ratio_):
-    swa_fixed_tile_attention_chunk(q,all_window,cache_prefixes.back().main_bytes(),
-     cache_prefixes.back().main_scales(),plan,sink_,start,ratio_);
+   auto o=swa_wide_attention_chunk(q,all_window,cache_prefixes.back().main_bytes(),
+    cache_prefixes.back().main_scales(),plan,sink_,start,ratio_);
    attention_groups.push_back(o);
+  }else if(fixed_tile){
+   auto plan=dense_topk(packed_rows);
+   for(auto& publication:pending_publications)
+    publication.publish_chunk_plan(layer_,plan,start,h.shape(0));
+   auto fixed_work=swa_packed_attention_work_list(all_window,cache_prefixes.back().main_bytes(),
+    cache_prefixes.back().main_scales(),plan,start,ratio_,512,true);
+   auto fixed_output=swa_attention_masked_chunk(q,fixed_work.ordered,sink_,fixed_work.valid);
+   attention_groups.push_back(fixed_output);
+   if(runtime_fixed_tile_attention_diagnostics_enabled()){
+    std::vector<mx::array> exact_outputs,content_outputs;
+    auto run_group=[&](int first,int end,int selected_count){
+     auto local=mx::slice(all_window,{0,0},{state.window_.shape(0)+end,512});
+     mx::array rows=mx::broadcast_to(mx::array(-1,mx::int32),{end-first,1});
+     if(selected_count){
+      std::vector<mx::array> group_rows;group_rows.reserve(end-first);
+      for(int i=first;i<end;++i)group_rows.push_back(mx::expand_dims(packed_rows[i],0));
+      rows=mx::concatenate(group_rows,0);
+     }
+     auto exact_work=swa_packed_attention_work_list(local,cache_prefixes.back().main_bytes(),
+      cache_prefixes.back().main_scales(),rows,start+first,ratio_,selected_count);
+     auto group_q=mx::slice(q,{first,0,0},{end,64,512});
+     exact_outputs.push_back(swa_attention_masked_chunk(
+      group_q,exact_work.ordered,sink_,exact_work.valid));
+     const int raw_width=start+std::uint64_t(first)==0?1:128;
+     const int dense_first=raw_width==1?127:0;
+     auto dense_local=mx::slice(fixed_work.ordered,{first,dense_first,0},
+                                {end,dense_first+raw_width,512});
+     auto dense_valid=mx::slice(fixed_work.valid,{first,dense_first},
+                                {end,dense_first+raw_width});
+     if(selected_count){
+      dense_local=mx::concatenate({dense_local,mx::slice(fixed_work.ordered,
+       {first,128,0},{end,128+selected_count,512})},1);
+      dense_valid=mx::concatenate({dense_valid,mx::slice(fixed_work.valid,
+       {first,128},{end,128+selected_count})},1);
+     }
+     content_outputs.push_back(swa_attention_masked_chunk(group_q,dense_local,sink_,dense_valid));
+    };
+    for(int first=0;first<h.shape(0);){
+     const int raw_width=start+std::uint64_t(first)==0?1:128;
+     const int selected_count=packed_rows[first].size();int end=first+1;
+     while(end<h.shape(0)&&(start+std::uint64_t(end)==0?1:128)==raw_width&&
+           int(packed_rows[end].size())==selected_count)++end;
+     run_group(first,end,selected_count);first=end;
+    }
+    auto exact=exact_outputs.size()==1?exact_outputs.front():mx::concatenate(exact_outputs,0);
+    auto content=content_outputs.size()==1?content_outputs.front():mx::concatenate(content_outputs,0);
+    report_fixed_tile_rms(content,exact,"fixed-tile producer dense-content/exact-shape");
+    report_fixed_tile_rms(fixed_output,exact,"fixed-tile producer dense-reduction/exact-shape");
+   }
   }else{
   auto run_group=[&](int first,int end,int selected_count){
    auto local=mx::slice(all_window,{0,0},{state.window_.shape(0)+end,512});

@@ -15,7 +15,7 @@ checkpoint=${CHECKPOINT:-/Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-
 printf '%s\n' \
  'scope=official layer 2 producer and layer 3 first reuse; token-serial oracle vs fixed-tile 2x128 chunks; no mHC, MoE, or later-layer amplification' \
  'resources=allow 1-2 minutes; Unified Memory target under 40 GB; checkpoint read-only; only two attention layers loaded' \
- 'gate=relative RMS <0.002 producer/reuse output; publication rows, window state, and positions exact; fixed topology invoked with zero scalar QK' \
+ 'gate=dense-content/exact-shape and dense-reduction/exact-shape diagnostics; relative RMS <0.002 producer/reuse output; publication rows, window state, and positions exact; zero scalar QK' \
  'logs=artifacts/attention/fixed-tile-isolation-<timestamp>-<pid>/{test.log,resource.log,identity.txt,tracked.patch,exit-code.txt}' \
  'failure=retain the failed directory and localize producer versus reuse before changing arithmetic' \
  'resume=unsupported; rerun this script for fresh layer/request state' > "$run_dir/config.txt"
@@ -36,7 +36,8 @@ shasum -a 256 build-mlx/dsv41-swa-attention-test tests/attention/test_attention.
 cmd=(env DSV41_RUNTIME_LAYER_FINITE_CHECKS=0 DSV41_RUNTIME_INDEX_DIAGNOSTICS=0 \
  DSV41_RUNTIME_CHUNK_ATTENTION=0 DSV41_RUNTIME_BATCHED_SPLITK_QK=1 \
  DSV41_RUNTIME_PACKED_CHUNK_ATTENTION=0 DSV41_RUNTIME_WIDE_ATTENTION=0 \
- DSV41_RUNTIME_FIXED_TILE_ATTENTION=1 DSV41_CHECK_FIXED_TILE_ISOLATION=1 \
+ DSV41_RUNTIME_FIXED_TILE_ATTENTION=1 DSV41_RUNTIME_FIXED_TILE_ATTENTION_DIAGNOSTICS=1 \
+ DSV41_CHECK_FIXED_TILE_ISOLATION=1 \
  build-mlx/dsv41-swa-attention-test "$checkpoint" artifacts/checkpoint/summary.json)
 printf '%q ' "${cmd[@]}" > "$run_dir/command.txt"; printf '\n' >> "$run_dir/command.txt"
 /usr/bin/vm_stat > "$run_dir/system-before.txt"

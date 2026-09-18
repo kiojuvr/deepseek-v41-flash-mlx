@@ -675,6 +675,13 @@ compares both 128-token chunks before downstream amplification. No 2K timing
 or new local kernel is authorized until that result identifies whether plan
 materialization/publication or official-value attention consumption diverges.
 
+Inspection then found that fixed chunk zero left-aligned live local rows while
+the exact token-1-and-later groups right-align them in a 128-row causal window.
+The row identities were correct, but their slots relative to the pooled
+boundary were not. The candidate now right-aligns fixed windows and the same
+isolation runner reports both dense-content/exact-shape and full dense
+reduction/exact-shape RMS before its producer/reuse gates.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
 ```

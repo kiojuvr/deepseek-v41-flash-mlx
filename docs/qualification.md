@@ -1001,6 +1001,12 @@ clean `855756b`、tracked patch 0 bytes、exit 1、swap 0。hidden RMSは0.01112
 first reuse layerについてchunk 0..127 / 128..255をdownstream amplification前に比較し、packed work-list /
 publicationとattention arithmeticを分離する。この結果をreviewするまで2K測定や新しい局所kernelへ進まない。
 
+code comparisonでchunk 0の具体的な差を特定した。exact pathはtoken 0をraw width 1で処理し、token 1以降の
+128-row causal windowをleading paddingでright-alignする。fixed materializerはchunk全体の`q_offset == 0`を
+使ってlive prefixをleft-alignしていた。row identityは同じでもpooled boundaryに対するslotが異なる。
+修正版はfixed windowをright-alignし、同じisolation runnerでdense-contentをexact shapeへ戻した比較と
+complete dense reduction比較を別々に出力する。runner passまでは未qualified。
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
 ```

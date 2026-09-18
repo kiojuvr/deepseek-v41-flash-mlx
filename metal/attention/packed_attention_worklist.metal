@@ -18,7 +18,12 @@ if (d >= 512 || slot >= rows || token >= tokens) return;
 const int local_offset = localL - tokens;
 const int local_end = metal::min(localL, local_offset + token + 1);
 const int local_start = metal::max(0, local_end - 128);
-const int window_first = q_offset == 0 ? local_start : local_end - window_slots;
+// Exact-shape chunk zero uses a one-row token-zero group followed by 128-row
+// groups with leading causal padding.  A fixed 128-row plan must therefore
+// right-align every live prefix, including chunk zero; otherwise token 1..127
+// observe the right rows in a different chronological slot layout.
+const int window_first = meta[6] ? local_end - window_slots
+                                 : (q_offset == 0 ? local_start : local_end - window_slots);
 const int pooled_valid = metal::min(pooledL, (q_offset + token + 1) / compress_ratio);
 int source = -1;
 bool pooled = false;
