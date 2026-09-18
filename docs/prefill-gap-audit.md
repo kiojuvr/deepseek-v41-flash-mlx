@@ -662,3 +662,19 @@ This is gated before any 2K timing by:
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_backbone_check.sh
 ```
+
+The initial fixed schedule was rejected by clean run
+`attention/fixed-tile-backbone-20260918-231912-68890`: hidden RMS 0.0111286,
+maximum absolute 2048, mean absolute 1.45948, 2,597,542 differing elements,
+exit 1, swap 0, revision `855756b`. The difference is deterministic, but its
+arithmetic source is not yet localized. A synthetic
+129-row exact segment versus invalid-padded 640-row execution was bit-exact,
+which rejects the initial global-token-zero/padding diagnosis. The next
+qualification stops after the official producer and first reuse layer and
+compares both 128-token chunks before downstream amplification. No 2K timing
+or new local kernel is authorized until that result identifies whether plan
+materialization/publication or official-value attention consumption diverges.
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
+```

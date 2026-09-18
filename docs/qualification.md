@@ -985,12 +985,24 @@ attention reduction arithmeticに帰属する。
 
 次のcandidate `DSV41_RUNTIME_FIXED_TILE_ATTENTION=1`は同じ`[tokens,512]` device planを共有し、
 128 local + 512 pooled metadata slotsを常に10個の64-row tileとしてqualified済みSteel split-K QK /
-BF16-rounded PVへ渡す。可変selected-count group、short-tail scalar QK、token/head host loopは使わない。
+BF16-rounded PVへ渡す。可変selected-count group、short-tail host grouping、token/head host loopは使わない。
 これは最終one-dispatch fusionではなく、固定tile/padding semanticsを分離して検証するPhase 4 bridge。
 約5分、240 GB、checkpoint read-only、失敗ログ保持、resumeなしのgateをagentは実行しない。
 
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_backbone_check.sh
+```
+
+最初のfixed-tile run `attention/fixed-tile-backbone-20260918-231912-68890`もreject。
+clean `855756b`、tracked patch 0 bytes、exit 1、swap 0。hidden RMSは0.0111286
+（max 2048、mean 1.45948、2,597,542 values）。global token 0のraw-width差またはpaddingが原因という
+仮説を短いfixtureで確認したが、129-row exact segmentとinvalid-padded
+640-row pathはbit-exactだった。このためbootstrap workaroundは採用しない。次は公式producer layerと
+first reuse layerについてchunk 0..127 / 128..255をdownstream amplification前に比較し、packed work-list /
+publicationとattention arithmeticを分離する。この結果をreviewするまで2K測定や新しい局所kernelへ進まない。
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
 ```
 
 ```sh

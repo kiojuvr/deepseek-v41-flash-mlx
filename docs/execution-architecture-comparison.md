@@ -676,3 +676,25 @@ agent:
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_backbone_check.sh
 ```
+
+The first fixed-tile run
+`attention/fixed-tile-backbone-20260918-231912-68890` was also rejected. It
+was clean revision `855756b`, tracked patch 0 bytes, exit 1, and zero swap;
+hidden relative RMS was 0.0111286 (maximum absolute 2048, mean absolute
+1.45948, 2,597,542 differing elements). A focused synthetic check then showed
+that an exact 129-row segment and the same segment padded to 640 with invalid
+metadata produce bit-identical output through the qualified split-K/AV path.
+Therefore neither padding alone nor the global-token-zero boundary is an
+adequate diagnosis; no bootstrap workaround is promoted.
+
+The next gate is narrowed to the official producer layer and its first reuse
+layer. It compares token-serial publications and attention outputs with the
+dense plan before mHC, MoE, or later-layer amplification, for both chunks
+0..127 and 128..255. This determines independently whether the divergence is
+in packed work-list content/publication reuse or only appears when the fixed
+attention core consumes official values. The architecture remains disabled
+until that result is reviewed.
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
+```

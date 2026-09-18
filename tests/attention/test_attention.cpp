@@ -165,6 +165,7 @@ int main(int argc,char** argv){try{
   auto valid=mx::greater_equal(mx::reshape(mx::arange(128,mx::int32),{1,128}),
                                mx::reshape(mx::array({127,126},mx::int32),{2,1}));
   auto candidate=dsv41::swa_attention_masked_chunk(q,kv,sink,valid);
+
   auto first=dsv41::swa_attention_masked_reference(mx::reshape(mx::slice(q,{0,0,0},{1,64,512}),{64,512}),
    mx::reshape(mx::slice(kv,{0,0,0},{1,128,512}),{128,512}),sink,
    mx::greater_equal(mx::arange(128,mx::int32),mx::array(127)));
@@ -177,6 +178,16 @@ int main(int argc,char** argv){try{
   if(dsv41::runtime_batched_splitk_qk_enabled()&&
      (telemetry.chunk_batched_splitk_qk_calls!=2||telemetry.chunk_scalar_qk_calls!=0||telemetry.chunk_av_batches!=2))
    throw std::runtime_error("batched split-K QK dispatch telemetry mismatch");
+  // Fixed-width qualification: padding after an exact 129-row segment must
+  // not silently change the selected tail reduction.
+  auto exact_kv=mx::astype(mx::reshape(mx::sin(mx::arange(129*512,mx::float32)),{1,129,512}),mx::bfloat16);
+  auto exact_valid=mx::ones({1,129},mx::bool_);
+  auto exact_q=mx::slice(q,{0,0,0},{1,64,512});
+  auto exact_out=dsv41::swa_attention_masked_chunk(exact_q,exact_kv,sink,exact_valid);
+  auto padded_kv=mx::concatenate({exact_kv,mx::zeros({1,511,512},mx::bfloat16)},1);
+  auto padded_valid=mx::concatenate({exact_valid,mx::zeros({1,511},mx::bool_)},1);
+  rms_report(dsv41::swa_attention_masked_chunk(exact_q,padded_kv,sink,padded_valid),
+             exact_out,"fixed-tile 129-to-640 padding diagnostic");
   for(int live:{63,64,65,128}){
    auto full_valid=mx::broadcast_to(mx::greater_equal(mx::arange(128,mx::int32),mx::array(128-live)),{2,128});
    auto full_candidate=dsv41::swa_attention_masked_chunk(q,kv,sink,full_valid);
@@ -223,6 +234,57 @@ int main(int argc,char** argv){try{
  if(argc!=1&&argc!=3)throw std::runtime_error("usage: dsv41-swa-attention-test [checkpoint m1-summary]");
  if(argc==3){
   dsv41::WeightCatalog catalog(argv[1],argv[2]);
+  if(std::getenv("DSV41_CHECK_FIXED_TILE_ISOLATION")){
+   if(!dsv41::runtime_fixed_tile_attention_enabled()||
+      !dsv41::runtime_batched_splitk_qk_enabled())
+    throw std::runtime_error("fixed-tile isolation requires fixed tiles and batched split-K QK");
+   dsv41::CompressedLayerReference producer(catalog,2);
+   dsv41::ReusedLayerReference consumer(catalog,3);
+   dsv41::CompressedLayerState producer_serial,producer_candidate;
+   dsv41::ReusedLayerState consumer_serial,consumer_candidate;
+   dsv41::reset_attention_telemetry();
+   for(int chunk=0;chunk<2;++chunk){
+    const int start=chunk*128;
+    auto values=mx::arange(128*5120,mx::float32);
+    auto input=mx::astype(mx::reshape(chunk?mx::cos(values):mx::sin(values),{128,5120}),mx::bfloat16);
+    std::vector<dsv41::SharedAttentionReference> serial_publications;
+    std::vector<mx::array> producer_rows,consumer_rows;
+    serial_publications.reserve(128);producer_rows.reserve(128);consumer_rows.reserve(128);
+    for(int token=0;token<128;++token){
+     auto row=mx::slice(input,{token,0},{token+1,5120});
+     producer_rows.push_back(producer.forward(row,producer_serial,start+token));
+     serial_publications.push_back(*producer_serial.publication());
+     consumer_rows.push_back(consumer.forward(row,consumer_serial,
+                                               serial_publications.back(),start+token));
+    }
+    std::vector<dsv41::SharedAttentionReference> candidate_publications;
+    auto producer_output=producer.forward_chunk(input,producer_candidate,start,&candidate_publications);
+    auto consumer_output=consumer.forward_chunk(input,consumer_candidate,candidate_publications,start);
+    rms_report(producer_output,mx::concatenate(producer_rows,0),
+               chunk?"fixed-tile producer chunk 1":"fixed-tile producer chunk 0");
+    rms_report(consumer_output,mx::concatenate(consumer_rows,0),
+               chunk?"fixed-tile first reuse chunk 1":"fixed-tile first reuse chunk 0");
+    equal(producer_candidate.window(),producer_serial.window(),"fixed-tile producer window bits");
+    equal(consumer_candidate.window(),consumer_serial.window(),"fixed-tile consumer window bits");
+    if(producer_candidate.position()!=producer_serial.position()||
+       consumer_candidate.position()!=consumer_serial.position()||candidate_publications.size()!=128)
+     throw std::runtime_error("fixed-tile isolation state/publication mismatch");
+    for(int token=0;token<128;++token){
+     const auto pos=std::uint64_t(start+token);const int offset=pos==0?1:128;
+     auto a=serial_publications[token].device_indices(3,pos,offset);
+     auto b=candidate_publications[token].device_indices(3,pos,offset);
+     if(a.shape()!=b.shape())throw std::runtime_error("fixed-tile publication row shape mismatch");
+     auto same=mx::all(mx::equal(a,b));mx::eval(same);
+     if(!same.item<bool>())throw std::runtime_error("fixed-tile publication row mismatch");
+    }
+   }
+   const auto telemetry=dsv41::read_attention_telemetry();
+   if(telemetry.fixed_tile_attention_calls!=4||telemetry.chunk_scalar_qk_calls!=0)
+    throw std::runtime_error("fixed-tile isolation topology mismatch");
+   std::cout<<"PASS: official layer 2 producer and layer 3 reuse fixed-tile isolation; "
+            <<"publication/window/position exact; downstream mHC/MoE excluded\n";
+   return 0;
+  }
   {
    dsv41::CompressedLayerReference producer(catalog,2);dsv41::ReusedLayerReference consumer(catalog,3);
    dsv41::CompressedLayerState source;dsv41::ReusedLayerState target;
