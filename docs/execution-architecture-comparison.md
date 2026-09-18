@@ -845,6 +845,12 @@ change; it does not restore a host token loop. The existing flag name remains
 transitional, and the path remains opt-in pending official isolation and
 40-layer gates.
 
+Official isolation `attention/fixed-tile-isolation-20260919-024624-77938`
+passed this all-block AV schedule at clean revision `1d95ff9`, exit zero and
+zero swap. Both chunks' dense reductions, producer outputs, first-reuse
+outputs, and publication/window/position state were bit exact. This qualifies
+the two-layer boundary, not the 40-layer backbone or performance.
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \

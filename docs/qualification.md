@@ -1090,6 +1090,11 @@ AV blockをdevice token軸へまとめたままoracleのBM64/BN32/BK32、WM2/WN2
 同じoperationで処理する。synthetic attention suite通過後もopt-inのまま、公式isolationと40-layer
 gateを再実行する。
 
+all-block AV修正版の公式isolation
+`attention/fixed-tile-isolation-20260919-024624-77938`はclean `1d95ff9`、exit 0、swap 0。
+両chunkのdense reduction、producer、first reuse、およびpublication/window/position stateは
+bit-exact。2-layer境界のみqualifiedとし、40-layer backboneとperformanceは未qualified。
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \
