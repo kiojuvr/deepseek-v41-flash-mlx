@@ -781,6 +781,15 @@ number and first/last token carrying those nine AV differences. This decides
 between a constant request-frontier correction and a general ragged-AV work
 list without adding production telemetry.
 
+The follow-up run `attention/fixed-tile-isolation-20260919-020514-74675`
+found the nine AV differences across eight tokens, from token 67 through 122;
+they are not a token-zero frontier special case. Chunk one again had no AV
+difference. This does not by itself justify another kernel: with ragged QK,
+producer RMS is already 0.000178388. The existing 40-layer stage trace is run
+next with the opt-in flag to determine whether that residual actually crosses
+the hard hidden/pre-mix/logits contract after MoE amplification. A general
+ragged AV operation is authorized only if that trace shows it is necessary.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```

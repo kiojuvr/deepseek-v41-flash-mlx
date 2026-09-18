@@ -1048,6 +1048,12 @@ chunk 1のdense reductionはbit-exactになり、chunk 0はAV由来9 mismatches�
 publication/window/positionはexact。40-layer gate前に同じfixtureでAV mismatchを持つtokenの
 count/first/lastだけを追加確認し、request-frontier固有か一般ragged AVかを決める。
 
+`attention/fixed-tile-isolation-20260919-020514-74675`ではAV mismatchは8 tokens、first 67、
+last 122で、token 0固有ではなかった。chunk 1は引き続きAV bit-exact。ただし9 BF16 valuesだけを
+理由に新kernelは追加しない。ragged-QK付き40-layer stage traceでhidden/pre-mix/logits hard gateへの
+増幅を確認し、必要な場合だけgeneral ragged AVを実装する。localization runnerは
+`DSV41_RUNTIME_RAGGED_TAIL_QK`を引き継ぐ。
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```

@@ -28,13 +28,18 @@ git diff --binary > "$run_dir/tracked.patch"
 shasum -a 256 build-mlx/dsv41-text-backbone-test tests/attention/test_text_backbone.cpp \
  include/dsv41/trace.hpp src/model/trace.cpp src/model/block.cpp \
  src/model/compressed_block.cpp src/model/reused_block.cpp src/attention/compressed_layer.cpp \
- metal/attention/packed_attention_worklist.metal artifacts/checkpoint/summary.json \
+ include/dsv41/execution_policy.hpp src/attention/swa_attention.cpp \
+ src/attention/ragged_tail_qk.hpp.in metal/attention/ragged_tail_qk.metal \
+ metal/attention/ragged_tail_accum.metal metal/attention/packed_attention_worklist.metal \
+ artifacts/checkpoint/summary.json \
  artifacts/engram/metadata.json > "$run_dir/identity.txt"
 cmd=(env DSV41_RUNTIME_LAYER_FINITE_CHECKS=0 DSV41_RUNTIME_PACKED_EXPERT_BANK=0 \
  DSV41_RUNTIME_GROUP_SELECTED_EXPERTS=0 DSV41_RUNTIME_INDEX_DIAGNOSTICS=1 \
  DSV41_RUNTIME_CHUNK_ATTENTION=0 DSV41_RUNTIME_BATCHED_SPLITK_QK=1 \
  DSV41_RUNTIME_PACKED_CHUNK_ATTENTION=0 DSV41_RUNTIME_WIDE_ATTENTION=0 \
- DSV41_RUNTIME_FIXED_TILE_ATTENTION=1 DSV41_CHECK_LAYER_MAJOR_BACKBONE=1 \
+ DSV41_RUNTIME_FIXED_TILE_ATTENTION=1 \
+ DSV41_RUNTIME_RAGGED_TAIL_QK=${DSV41_RUNTIME_RAGGED_TAIL_QK:-0} \
+ DSV41_CHECK_LAYER_MAJOR_BACKBONE=1 \
  DSV41_CHECK_FIXED_TILE_LAYER_LOCALIZATION=1 \
  build-mlx/dsv41-text-backbone-test "$checkpoint" artifacts/checkpoint/summary.json \
  artifacts/engram/metadata.json)
