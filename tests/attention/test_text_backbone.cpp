@@ -133,9 +133,10 @@ int main(int argc,char** argv){try{
    packed.forward_packed_chunk(input,actual_state,0);
    dsv41::set_active_trace_sink(nullptr);
    int first_layer=-1;std::string first_stage;float first_rms=0.0f;
-   auto report_stage=[&](int layer,const std::string& stage){
+   auto report_stage=[&](int layer,const std::string& stage,const std::string& reference_stage=""){
     const std::string prefix="encoder.layer"+std::to_string(layer)+".";
-    const auto& candidate=actual_trace.at(prefix+stage);const auto& reference=expected_trace.at(prefix+stage);
+    const auto& candidate=actual_trace.at(prefix+stage);
+    const auto& reference=expected_trace.at(prefix+(reference_stage.empty()?stage:reference_stage));
     if(candidate.shape()!=reference.shape()||candidate.dtype()!=reference.dtype())
      throw std::runtime_error("layer trace shape mismatch: "+prefix+stage);
     auto c=mx::astype(candidate,mx::float32),r=mx::astype(reference,mx::float32),d=mx::subtract(c,r);
@@ -170,6 +171,8 @@ int main(int argc,char** argv){try{
                                                 "attn_inverse_rope","attn_grouped","attn_linear"})
      report_stage(layer,stage);
     if(layer==3){
+     for(const char* stage:{"attn_core_native_width1_qk","attn_core_native_width1_av"})
+      report_stage(layer,stage,"attn_core");
      const auto& candidate=actual_trace.at("encoder.layer3.attn_core");
      const auto& reference=expected_trace.at("encoder.layer3.attn_core");
      auto token_mask=mx::any(mx::not_equal(candidate,reference),std::vector<int>{1,2});

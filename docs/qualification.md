@@ -1104,6 +1104,13 @@ ragged-tail operationだけをopt-inで残す。次の同一runnerはarithmetic�
 first/last mismatch tokenとdevice selected widthを出力し、ragged tailとfull-block scheduleを
 切り分ける。この診断が通っても40-layer/full-path promotionにはならない。
 
+`attention/fixed-tile-layer-localization-20260919-030145-79111`ではlayer 3 coreの差は
+exactly 2 tokens、first=1/last=2で、両方のselected widthは1だった。layer 0–2 exact、layer 4
+attn-out RMS `0.00895643`を含む以降の値は再現した。したがってfull-blockではなく最小pooled
+tail境界に限定された。次のrunnerは同じlayer 3実入力に対し、width-one QKだけ、またはAVだけを
+native token-scalar shapeへ置換した結果を別々にoracle coreと比較する。production arithmetic、
+publication、state、promotion gateは変更せず、このattributionだけではqualificationにならない。
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \

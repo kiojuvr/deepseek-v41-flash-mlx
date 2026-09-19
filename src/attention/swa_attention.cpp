@@ -198,7 +198,8 @@ mx::array swa_attention_masked_reference(const mx::array& q,const mx::array& kv,
 }
 namespace {
 mx::array swa_attention_masked_chunk_impl(const mx::array& q,const mx::array& kv,
- const mx::array& sink,const mx::array& valid,const mx::array* tail_widths,bool ragged_av){
+ const mx::array& sink,const mx::array& valid,const mx::array* tail_widths,bool ragged_av,
+ bool native_width_one_qk=false,bool native_width_one_av=false){
  if(q.dtype()!=mx::bfloat16||q.ndim()!=3||q.shape(0)<1||q.shape(0)>128||q.shape(1)!=64||q.shape(2)!=512||
     kv.dtype()!=mx::bfloat16||kv.ndim()!=3||kv.shape(0)!=q.shape(0)||kv.shape(1)<1||kv.shape(1)>640||kv.shape(2)!=512||
     sink.dtype()!=mx::float32||sink.shape()!=mx::Shape({64})||valid.dtype()!=mx::bool_||
@@ -209,7 +210,20 @@ mx::array swa_attention_masked_chunk_impl(const mx::array& q,const mx::array& kv
  if(tail_widths){
   if(tail_widths->dtype()!=mx::int32||tail_widths->shape()!=mx::Shape({tokens})||rows!=640)
    throw std::runtime_error("invalid ragged tail QK metadata");
-  tail_scores=ragged_tail_qk(qf,mx::astype(kv,mx::float32),*tail_widths);
+ tail_scores=ragged_tail_qk(qf,mx::astype(kv,mx::float32),*tail_widths);
+  if(native_width_one_qk){
+   std::vector<mx::array> native_rows;native_rows.reserve(tokens);
+   for(int token=0;token<tokens;++token){
+    auto token_q=mx::reshape(mx::slice(qf,{token,0,0},{token+1,64,512}),{64,512});
+    auto token_key=mx::reshape(mx::slice(kv,{token,128,0},{token+1,129,512}),{1,512});
+    auto score=mx::matmul(token_q,mx::transpose(mx::astype(token_key,mx::float32)));
+    native_rows.push_back(mx::expand_dims(mx::concatenate(
+     {score,mx::full({64,63},-std::numeric_limits<float>::infinity(),mx::float32)},1),0));
+   }
+   auto native_scores=mx::concatenate(native_rows,0);
+   auto use_native=mx::reshape(mx::equal(*tail_widths,mx::array(1,mx::int32)),{tokens,1,1});
+   tail_scores=mx::where(use_native,native_scores,tail_scores);
+  }
   tail_blocks=mx::floor_divide(*tail_widths,mx::array(64,mx::int32));
   tail_remainder=mx::remainder(*tail_widths,mx::array(64,mx::int32));
  }
@@ -282,6 +296,17 @@ mx::array swa_attention_masked_chunk_impl(const mx::array& q,const mx::array& kv
    auto exact_tail=ragged_tail_av(rounded,mx::astype(kv,mx::float32),*tail_widths,pooled_block);
    av=mx::where(mx::reshape(use_tail,{tokens,1,1}),exact_tail,av);
   }
+  if(tail_widths&&native_width_one_av&&first==128){
+   std::vector<mx::array> native_rows;native_rows.reserve(tokens);
+   for(int token=0;token<tokens;++token){
+    auto probability=mx::reshape(mx::slice(rounded,{token,0,0},{token+1,64,1}),{64,1});
+    auto key=mx::reshape(mx::slice(keys,{token,0,0},{token+1,1,512}),{1,512});
+    native_rows.push_back(mx::expand_dims(mx::matmul(probability,key),0));
+   }
+   auto native_av=mx::concatenate(native_rows,0);
+   auto use_native=mx::reshape(mx::equal(*tail_widths,mx::array(1,mx::int32)),{tokens,1,1});
+   av=mx::where(use_native,native_av,av);
+  }
   accumulated=mx::add(mx::multiply(accumulated,rescale),av);maximum=next_max;
   { std::lock_guard l(attention_telemetry_mutex());++attention_telemetry().chunk_av_batches; }
  }
@@ -296,6 +321,25 @@ mx::array swa_attention_masked_chunk(const mx::array& q,const mx::array& kv,
 mx::array swa_attention_fixed_tile_core(const mx::array& q,
  const PackedAttentionWorkList& work,const mx::array& sink,bool ragged_av){
  return swa_attention_masked_chunk_impl(q,work.ordered,sink,work.valid,&work.widths,ragged_av);
+}
+FixedTileWidthOneDiagnostics swa_attention_fixed_tile_width_one_diagnostics(
+ const mx::array& q,const PackedAttentionWorkList& work,const mx::array& sink,bool ragged_av){
+ mx::array native_qk=mx::array(0.0f),native_av=mx::array(0.0f);
+ try{
+  native_qk=swa_attention_masked_chunk_impl(
+   q,work.ordered,sink,work.valid,&work.widths,ragged_av,true,false);
+  auto finite=mx::all(mx::isfinite(native_qk));mx::eval(finite);(void)finite.item<bool>();
+ }catch(const std::exception& error){
+  throw std::runtime_error(std::string("native width-one QK diagnostic: ")+error.what());
+ }
+ try{
+  native_av=swa_attention_masked_chunk_impl(
+   q,work.ordered,sink,work.valid,&work.widths,ragged_av,false,true);
+  auto finite=mx::all(mx::isfinite(native_av));mx::eval(finite);(void)finite.item<bool>();
+ }catch(const std::exception& error){
+  throw std::runtime_error(std::string("native width-one AV diagnostic: ")+error.what());
+ }
+ return {native_qk,native_av};
 }
 AttentionTailDiagnostics swa_attention_tail_diagnostics(const mx::array& q,
  const mx::array& kv,const mx::array& sink,const mx::array& valid){

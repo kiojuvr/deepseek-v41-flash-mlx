@@ -864,6 +864,16 @@ diagnostic changes no arithmetic and reports the first/last mismatching token
 and its device selected-width metadata. That separates a ragged-tail defect
 from the full-block QK/softmax/AV schedule before any further kernel work.
 
+That run, `attention/fixed-tile-layer-localization-20260919-030145-79111`,
+found exactly two mismatching tokens: token 1 and token 2, both with selected
+width one. Layers 0--2 remained bit exact and all later measurements repeated
+the prior trace. This excludes the full-block AV hypothesis and confines the
+first numerical split to the minimum pooled-tail boundary. The next diagnostic
+uses the same real layer-3 work list and separately substitutes native
+token-scalar width-one QK and width-one AV. It is diagnostic-only: production
+still uses the device width classes, and no new local performance kernel or
+host production loop is introduced.
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \

@@ -404,9 +404,16 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
     auto work=swa_packed_attention_work_list(all_window,pooled.main_bytes(),pooled.main_scales(),
                                              plan,start,ratio_,512,true);
     if(trace_arithmetic)trace_record(trace_prefix+"attn_widths",work.widths);
-    attention_groups.push_back(runtime_ragged_tail_qk_enabled()?swa_attention_fixed_tile_core(
-     q,work,sink_,runtime_ragged_tail_av_enabled()):
-     swa_attention_masked_chunk(q,work.ordered,sink_,work.valid));
+    if(runtime_ragged_tail_qk_enabled()){
+     attention_groups.push_back(swa_attention_fixed_tile_core(
+      q,work,sink_,runtime_ragged_tail_av_enabled()));
+     if(trace_arithmetic&&layer_==3){
+      auto diagnostic=swa_attention_fixed_tile_width_one_diagnostics(
+       q,work,sink_,runtime_ragged_tail_av_enabled());
+      trace_record(trace_prefix+"attn_core_native_width1_qk",diagnostic.native_qk);
+      trace_record(trace_prefix+"attn_core_native_width1_av",diagnostic.native_av);
+     }
+    }else attention_groups.push_back(swa_attention_masked_chunk(q,work.ordered,sink_,work.valid));
    }
   }else{
   auto run_group=[&](int first,int end,int selected_count){

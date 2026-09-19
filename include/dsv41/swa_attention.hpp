@@ -8,6 +8,9 @@ struct PackedAttentionWorkList {
 struct AttentionTailDiagnostics {
  mlx::core::array padded_qk,padded_av;
 };
+struct FixedTileWidthOneDiagnostics {
+ mlx::core::array native_qk,native_av;
+};
 // Up to 640 ordered slots (128 window + 512 global); false entries receive -inf.
 mlx::core::array swa_attention_masked_reference(const mlx::core::array& query,
  const mlx::core::array& ordered_kv,const mlx::core::array& sink,const mlx::core::array& valid);
@@ -15,6 +18,12 @@ mlx::core::array swa_attention_masked_chunk(const mlx::core::array& queries,
  const mlx::core::array& ordered_kv,const mlx::core::array& sink,const mlx::core::array& valid);
 mlx::core::array swa_attention_fixed_tile_core(const mlx::core::array& queries,
  const PackedAttentionWorkList& work,const mlx::core::array& sink,bool ragged_av=false);
+// Qualification-only attribution for selected-width one on the real fixed
+// work list. Each result substitutes only the native token-scalar QK or AV
+// shape while leaving metadata, softmax, and the other operation unchanged.
+FixedTileWidthOneDiagnostics swa_attention_fixed_tile_width_one_diagnostics(
+ const mlx::core::array& queries,const PackedAttentionWorkList& work,
+ const mlx::core::array& sink,bool ragged_av);
 // Qualification-only attribution for the final ragged block. Each result
 // changes only one GEMM shape to 64 columns/rows while retaining the exact
 // work-list content and online-softmax schedule.

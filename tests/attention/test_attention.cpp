@@ -173,6 +173,11 @@ int main(int argc,char** argv){try{
    rms_report(exact_tail,padded,"ragged-tail QK width-class fixture");
    auto exact_qk_av=dsv41::swa_attention_fixed_tile_core(q,work,sink,true);
    rms_report(exact_qk_av,padded,"ragged-tail QK/AV width-class fixture");
+   if(width==1){
+    auto diagnostic=dsv41::swa_attention_fixed_tile_width_one_diagnostics(q,work,sink,true);
+    rms_report(diagnostic.native_qk,padded,"native width-one QK attribution fixture");
+    rms_report(diagnostic.native_av,padded,"native width-one AV attribution fixture");
+   }
   }
  }
  {

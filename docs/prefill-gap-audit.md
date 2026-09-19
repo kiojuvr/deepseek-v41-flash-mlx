@@ -736,6 +736,14 @@ local optimization. The next run only attributes those two values to token
 rows and selected widths; Phase 4 remains blocked from performance promotion,
 not from further architecture work.
 
+`attention/fixed-tile-layer-localization-20260919-030145-79111` identified
+those rows as tokens 1 and 2, with selected width one for both. A bounded
+qualification graph now substitutes the native token-scalar width-one QK and
+AV independently on the same layer-3 values. This is an attribution of the
+integrated fixed work list, not another standalone kernel benchmark; whichever
+substitution removes the two BF16 differences defines the semantic correction
+to the device work-list operation.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```
