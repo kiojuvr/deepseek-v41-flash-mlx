@@ -80,3 +80,11 @@ coreを、同じ2行を連続した compact topology で reduce する request-b
 この監査は保存済み証拠の妥当性確認であり、新しい implementation、checkpoint write、長時間
 validationは行っていない。現行 fixed-tile path以外に「現在なら通る可能性があり、かつ既存コードの
 まま bounded に再試験できる」candidateはない。
+
+## 後続のdefault昇格
+
+`context-ladder/fixed-tile-paired-20260919-205611-90245`の5組すべてでfixed-tileが勝ち、
+mean prefillは49.288916秒から43.653977秒へ11.43%短縮、decode平均は横ばい、swap増分0、
+memory増分もboundedだった。このreviewによりfixed-tile + ragged QK/AVを含むqualified resident
+transactional構成をproduction defaultへ昇格し、その5-run分布を新しい内部2K baselineとする。
+これは32K / 256K / API / 長時間decode / 外部performance qualificationではない。

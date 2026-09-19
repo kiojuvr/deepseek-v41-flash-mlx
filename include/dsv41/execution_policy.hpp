@@ -5,22 +5,21 @@
 #include <string_view>
 
 namespace dsv41 {
-// Canonical tests keep eager per-layer finite scans. A full-path measurement may
-// disable only these redundant scans while retaining shape/state checks and its
-// chunk-boundary finite check. This does not change arithmetic or routing policy.
+// Production keeps the qualified chunk-boundary finite check and omits redundant
+// eager per-layer scans. Oracle/diagnostic runs can explicitly restore them.
 inline bool runtime_layer_finite_checks_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_LAYER_FINITE_CHECKS");
- if(value==nullptr||std::string_view(value)=="1") return true;
- if(std::string_view(value)=="0") return false;
+ if(value==nullptr||std::string_view(value)=="0") return false;
+ if(std::string_view(value)=="1") return true;
  throw std::runtime_error("DSV41_RUNTIME_LAYER_FINITE_CHECKS must be 0 or 1");
 }
 
-// Packed routed experts are an opt-in promotion stage until full-MoE and
-// full-backbone parity/resource checks have been reviewed.
+// Packed routed experts are part of the qualified resident production baseline.
+// Reference probes can explicitly disable them.
 inline bool runtime_packed_expert_bank_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_PACKED_EXPERT_BANK");
- if(value==nullptr||std::string_view(value)=="0") return false;
- if(std::string_view(value)=="1") return true;
+ if(value==nullptr||std::string_view(value)=="1") return true;
+ if(std::string_view(value)=="0") return false;
  throw std::runtime_error("DSV41_RUNTIME_PACKED_EXPERT_BANK must be 0 or 1");
 }
 
@@ -33,13 +32,12 @@ inline bool runtime_group_selected_experts_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_GROUP_SELECTED_EXPERTS must be 0 or 1");
 }
 
-// Keep each layer's final packed expert buffers after its first use. This is
-// the production-residency candidate; it is valid only with packed banks and
-// remains opt-in until full-backbone memory/load checks are reviewed.
+// Keep each layer's final packed expert buffers after its first use. The
+// reviewed 40-bank resident layout is the production baseline.
 inline bool runtime_resident_expert_atlas_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS");
- if(value==nullptr||std::string_view(value)=="0") return false;
- if(std::string_view(value)=="1") return true;
+ if(value==nullptr||std::string_view(value)=="1") return true;
+ if(std::string_view(value)=="0") return false;
  throw std::runtime_error("DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS must be 0 or 1");
 }
 
@@ -62,12 +60,12 @@ inline bool runtime_route_diagnostics_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_ROUTE_DIAGNOSTICS must be 0 or 1");
 }
 
-// Preserve full host-visible index/tie records for oracle runs. Optimized
-// resident prefill keeps selected rows and candidate masks device-authoritative.
+// Production keeps selected rows and candidate masks device-authoritative.
+// Oracle runs can explicitly enable full host-visible index/tie records.
 inline bool runtime_index_diagnostics_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_INDEX_DIAGNOSTICS");
- if(value==nullptr||std::string_view(value)=="1") return true;
- if(std::string_view(value)=="0") return false;
+ if(value==nullptr||std::string_view(value)=="0") return false;
+ if(std::string_view(value)=="1") return true;
  throw std::runtime_error("DSV41_RUNTIME_INDEX_DIAGNOSTICS must be 0 or 1");
 }
 
@@ -81,13 +79,12 @@ inline bool runtime_chunk_attention_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_CHUNK_ATTENTION must be 0 or 1");
 }
 
-// Batch the exact scalar-oracle Steel split-K QK topology across tokens. The
-// existing scalar MLX graph remains the oracle and default until full-backbone
-// qualification; softmax and the already-qualified AV batch remain unchanged.
+// Batch the exact scalar-oracle Steel split-K QK topology across tokens. This
+// qualified topology is a dependency of the production fixed-tile baseline.
 inline bool runtime_batched_splitk_qk_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_BATCHED_SPLITK_QK");
- if(value==nullptr||std::string_view(value)=="0") return false;
- if(std::string_view(value)=="1") return true;
+ if(value==nullptr||std::string_view(value)=="1") return true;
+ if(std::string_view(value)=="0") return false;
  throw std::runtime_error("DSV41_RUNTIME_BATCHED_SPLITK_QK must be 0 or 1");
 }
 
@@ -120,14 +117,13 @@ inline bool runtime_wide_attention_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_WIDE_ATTENTION must be 0 or 1");
 }
 
-// Qualified Phase-4 full-path candidate: one dense [tokens,512] device plan,
+// Qualified production baseline: one dense [tokens,512] device plan,
 // ten fixed 64-row tiles, and one device-selected request-boundary graph
-// replace request-dependent shape groups. It stays opt-in until its repeated
-// paired 2K performance gate is reviewed.
+// replace request-dependent shape groups.
 inline bool runtime_fixed_tile_attention_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_FIXED_TILE_ATTENTION");
- if(value==nullptr||std::string_view(value)=="0") return false;
- if(std::string_view(value)=="1") return true;
+ if(value==nullptr||std::string_view(value)=="1") return true;
+ if(std::string_view(value)=="0") return false;
  throw std::runtime_error("DSV41_RUNTIME_FIXED_TILE_ATTENTION must be 0 or 1");
 }
 
@@ -145,26 +141,24 @@ inline bool runtime_fixed_tile_attention_diagnostics_enabled() {
 // fixed-tile measurement requires both QK and AV switches.
 inline bool runtime_ragged_tail_qk_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_RAGGED_TAIL_QK");
- if(value==nullptr||std::string_view(value)=="0") return false;
- if(std::string_view(value)=="1") return true;
+ if(value==nullptr||std::string_view(value)=="1") return true;
+ if(std::string_view(value)=="0") return false;
  throw std::runtime_error("DSV41_RUNTIME_RAGGED_TAIL_QK must be 0 or 1");
 }
 
 inline bool runtime_ragged_tail_av_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_RAGGED_TAIL_AV");
- if(value==nullptr||std::string_view(value)=="0") return false;
- if(std::string_view(value)=="1") return true;
+ if(value==nullptr||std::string_view(value)=="1") return true;
+ if(std::string_view(value)=="0") return false;
  throw std::runtime_error("DSV41_RUNTIME_RAGGED_TAIL_AV must be 0 or 1");
 }
 
 // Own prefill at the request boundary and execute it as a transactional
-// layer-major sweep.  Decode remains on the one-token reference schedule.
-// This remains independently opt-in until repeated full-path performance and
-// longer-context qualification are reviewed.
+// layer-major sweep. Decode remains on the one-token reference schedule.
 inline bool runtime_layer_sweep_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_LAYER_SWEEP");
- if(value==nullptr||std::string_view(value)=="0") return false;
- if(std::string_view(value)=="1") return true;
+ if(value==nullptr||std::string_view(value)=="1") return true;
+ if(std::string_view(value)=="0") return false;
  throw std::runtime_error("DSV41_RUNTIME_LAYER_SWEEP must be 0 or 1");
 }
 
@@ -191,7 +185,7 @@ inline std::size_t runtime_mlx_cache_limit_bytes() {
 
 inline std::size_t runtime_expert_io_threads() {
  const char* value=std::getenv("DSV41_RUNTIME_EXPERT_IO_THREADS");
- if(value==nullptr||std::string_view(value).empty()||std::string_view(value)=="0") return 1;
+ if(value==nullptr||std::string_view(value).empty()||std::string_view(value)=="0") return 4;
  try {
   std::size_t consumed=0; auto parsed=std::stoull(value,&consumed);
   if(consumed!=std::string_view(value).size()||parsed<1||parsed>32)throw std::invalid_argument("range");

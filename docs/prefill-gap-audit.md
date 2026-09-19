@@ -900,3 +900,18 @@ five alternating warm pairs are prepared in a resumable sequential runner:
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_paired_qualification.sh
 ```
+
+Reviewed run `context-ladder/fixed-tile-paired-20260919-205611-90245` closes
+the repeated 2K gate. Fixed-tile won all five pairs, reducing mean prefill from
+49.288916 to 43.653977 seconds (11.43%; 12.91% throughput gain), while mean
+one-token decode stayed flat at 0.310786 versus 0.310601 seconds. The paired
+95% t interval for wall saved was 5.452--5.818 seconds. All children were clean,
+identity-matched, token 339, swap-delta zero, and used the expected 646 fixed
+operations / 6,460 QK / 6,460 AV / zero scalar topology. Peak footprint grew
+only 0.16% and remained below the fixed budget.
+
+The fixed-tile configuration is now the production default and its five-run
+distribution is the internal 2K baseline for subsequent work. Packed
+exact-shape attention remains available only as an explicitly selected
+oracle/comparison fallback. Longer-context, API, decode-tail, and external
+performance gates remain independent and unqualified by this promotion.

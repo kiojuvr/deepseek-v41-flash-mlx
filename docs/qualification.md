@@ -1241,6 +1241,30 @@ logical checkpoint read約3.5 TB、checkpoint read-only、swapなしを要求す
 bash tools/benchmark/run_fixed_tile_attention_paired_qualification.sh
 ```
 
+paired qualification `context-ladder/fixed-tile-paired-20260919-205611-90245`をreview済み。
+rootと全12 childはclean `b5e47f2`、exit 0、tracked patch 0 bytes、recorded identity一致、
+next token 339、request内swap増分0だった。5組すべてでfixed-tileが勝ち、prefill平均は
+packed exact-shape baselineの49.288916秒から43.653977秒へ5.634939秒（11.43%）短縮した。
+wall平均からのthroughput向上は12.91%、paired短縮の95% t区間は5.452--5.818秒で0を跨がない。
+最小/最大短縮も10.99% / 11.71%でrun順に依存しない。1-token decode平均は
+0.310786 / 0.310601秒でregressionなし。
+
+candidateは全runでfixed-tile 646、batched split-K QK 6,460、AV batch 6,460、scalar QK/AV 0、
+index readback 0、40 lifetime banks / 15,360 loaded expertsだった。candidateの平均MLX cache増分は
+1,048,845,601 bytesだが、平均peak allocation差は442,352 bytes、平均peak footprint差は
+501,428,616 bytes（0.16%）に留まり、最大footprint 310,870,768,360 bytesで340 GB予算内だった。
+
+この結果でfixed-tile scheduleをproduction defaultへ昇格し、この5-run分布を新しい内部2K
+production baselineとして固定する。未指定時はresident packed expert atlas、transactional layer
+sweep、batched split-K QK、fixed-tile、ragged QK/AVを選び、per-layer finite scanとhost index
+diagnosticsを無効にする。`tools/benchmark/run_fixed_tile_attention_prefill_measurement.sh`をbaseline
+runnerとし、旧packed exact-shape pathは`tools/benchmark/run_packed_attention_prefill_measurement.sh`
+で明示的に選ぶ比較/oracle fallbackとして保持する。各環境変数の明示値はdefaultを上書きできる。
+
+この昇格は2K internal production prefill baselineの更新であり、32K、256K、API、長時間decode、
+外部oMLX performance qualificationを意味しない。以後のoptimizationは43.653977秒平均を内部baseline
+として同一条件のpaired gateで比較する。
+
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh

@@ -1024,3 +1024,29 @@ automatically:
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_paired_qualification.sh
 ```
+
+The reviewed paired run
+`context-ladder/fixed-tile-paired-20260919-205611-90245` passed all five warm
+pairs at clean revision `b5e47f2`. Every root/child exit status was zero, every
+tracked patch was empty, recorded identities matched, every next token was
+339, and no request added swap. Fixed-tile won 5/5 pairs: mean prefill fell
+from 49.288916 to 43.653977 seconds, a 5.634939-second or 11.43% reduction.
+The improvement ranged from 10.99% to 11.71%, and the paired 95% t interval
+for seconds saved was 5.452--5.818. Mean first decode was effectively flat at
+0.310786 versus 0.310601 seconds.
+
+All candidate runs recorded 646 fixed-tile operations, 6,460 batched split-K
+QK calls, 6,460 AV batches, zero scalar QK/AV calls, zero index readbacks, and
+40 lifetime banks with 15,360 loaded experts. The approximately 1.05 GB final
+MLX cache increase changed mean peak allocation by only 442,352 bytes and mean
+process peak footprint by 501,428,616 bytes (0.16%); maximum footprint remained
+310,870,768,360 bytes under the 340 GB budget.
+
+Fixed-tile is therefore the production default and this five-run distribution
+is the new internal 2K production baseline. The no-environment configuration
+selects the resident packed atlas, transactional layer sweep, batched split-K,
+fixed tiles, and ragged QK/AV, with redundant per-layer finite scans and host
+index diagnostics disabled. The fixed-tile measurement runner is now the
+canonical baseline runner; the packed exact-shape runner remains an explicit
+oracle/comparison fallback. This promotion does not qualify 32K, 256K, API,
+long-decode, or external-oMLX performance.
