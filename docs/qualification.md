@@ -1111,6 +1111,12 @@ tail境界に限定された。次のrunnerは同じlayer 3実入力に対し、
 native token-scalar shapeへ置換した結果を別々にoracle coreと比較する。production arithmetic、
 publication、state、promotion gateは変更せず、このattributionだけではqualificationにならない。
 
+`attention/fixed-tile-layer-localization-20260919-140336-81730`ではnative width-one QK置換だけが
+layer 3 coreをbit-exactにし、native width-one AV置換は2差を残した。pinned MLX 0.32.2との
+コード比較で、ragged QK producerだけが公式`steel_gemm_splitk`の`gemm_loop`後threadgroup
+barrierを欠いていた。device work-list、dispatch数、materialization、host loopを変えずに公式と
+同じ同期を復元した。次は同じ40-layer localizationを再実行し、結果を読むまでpromotionしない。
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \

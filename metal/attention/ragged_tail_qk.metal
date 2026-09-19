@@ -42,9 +42,15 @@ const short tile_columns = min(BN, columns - c_col);
 if (tile_columns == BN) {
     gemm_kernel::gemm_loop(As, Bs, iterations, loader_a, loader_b, mma_op,
         short(32), tile_columns, short(0), mlx::steel::LoopAlignment<true, true, true>{});
-    mma_op.store_result(C, 64);
 } else {
     gemm_kernel::gemm_loop(As, Bs, iterations, loader_a, loader_b, mma_op,
         short(32), tile_columns, short(0), mlx::steel::LoopAlignment<true, false, true>{});
+}
+// Match MLX steel_gemm_splitk exactly: every SIMD group must finish its
+// cooperative threadgroup-memory reads before any group stores and exits.
+threadgroup_barrier(mem_flags::mem_threadgroup);
+if (tile_columns == BN) {
+    mma_op.store_result(C, 64);
+} else {
     mma_op.store_result_safe(C, 64, short2(tile_columns, 32));
 }

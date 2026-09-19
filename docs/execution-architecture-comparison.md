@@ -874,6 +874,18 @@ token-scalar width-one QK and width-one AV. It is diagnostic-only: production
 still uses the device width classes, and no new local performance kernel or
 host production loop is introduced.
 
+The substitution run
+`attention/fixed-tile-layer-localization-20260919-140336-81730` made the
+attribution exact. Native width-one QK removed both layer-3 core differences;
+native width-one AV removed neither. Inspection against pinned MLX 0.32.2 then
+found that the indirect ragged QK producer omitted the unconditional
+threadgroup barrier which official `steel_gemm_splitk` places between its
+cooperative `gemm_loop` and result store. The regular batched port already had
+this barrier. The candidate restores that official synchronization inside the
+same three-class device work list; it adds no dispatch, materialization,
+readback, or host token loop. Full-layer semantics remain unqualified until the
+same official localization runner is reviewed.
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \

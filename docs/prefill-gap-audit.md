@@ -744,6 +744,15 @@ integrated fixed work list, not another standalone kernel benchmark; whichever
 substitution removes the two BF16 differences defines the semantic correction
 to the device work-list operation.
 
+`attention/fixed-tile-layer-localization-20260919-140336-81730` showed that
+width-one native QK is bit exact while width-one native AV retains the same two
+differences. The production discrepancy is therefore in the indirect QK
+producer. Code-level comparison with pinned MLX 0.32.2 found one structural
+deviation: `ragged_tail_qk` lacked the official post-`gemm_loop` threadgroup
+barrier before Steel result stores. That barrier is restored without changing
+the fixed device work list or its dispatch count. The next long action is the
+unchanged localization gate, not a performance measurement.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```
