@@ -1,0 +1,3 @@
+#pragma once
+inline constexpr const char* dsv41_ragged_width_one_qk_source=R"widthone(@DSV41_RAGGED_WIDTH_ONE_QK@)widthone";
+inline constexpr const char* dsv41_gemv_header=R"gemvheader(@DSV41_GEMV_HEADER@)gemvheader";

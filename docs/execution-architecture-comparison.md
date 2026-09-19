@@ -889,13 +889,25 @@ same official localization runner is reviewed.
 Clean rerun `attention/fixed-tile-layer-localization-20260919-141217-82333`
 at `dad4989` produced values identical to the pre-barrier trace. The official
 synchronization is retained for source fidelity, but synchronization alone is
-not the numerical correction. The remaining layout difference is now bounded:
-official width-one Steel writes `[16,64,1]` partials with `ldc=1` and partition
-stride 64, whereas the first indirect class wrote into a padded
-`[16,64,64]` tile. Width one is split into a fourth fixed device class which
-preserves the official partial layout exactly. Tokens remain selected by
-device metadata; this adds a constant producer/accumulator pair per layer, not
-a shape-count loop or host readback. Widths 2--32 retain the existing class.
+not the numerical correction. The exact `[16,64,1]` partial-layout candidate
+was then tested.
+
+`attention/fixed-tile-layer-localization-20260919-141802-83005` produced the
+same trace and rejected that layout hypothesis. Reading the pinned MLX 0.32.2
+selector showed why: scalar-width matmul bypasses Steel GEMM and dispatches
+`gemv_axbpy` first. The native width-one QK operation is specifically
+`GEMVKernel<float,4,1,1,32,4,4,false>` with four x threadgroups and four
+simdgroups per threadgroup. The fixed architecture now expresses this as one
+device-token GEMV class, while widths 2--63 remain in the fixed Steel classes.
+There is still no host shape loop or selected-width readback. Synthetic
+fixtures are exact; this is not promoted until the unchanged 40-layer gate is
+read and checked.
+
+Official isolation `attention/fixed-tile-isolation-20260919-145102-84647`
+passed the device-token GEMV candidate with bit-exact dense reduction,
+producer, first reuse, and publication/window/position state for both chunks.
+It exited zero with zero swap. This qualifies the two-layer boundary, not the
+40-layer backbone or full-path performance.
 
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \

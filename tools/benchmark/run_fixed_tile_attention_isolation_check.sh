@@ -29,7 +29,8 @@ shasum -a 256 build-mlx/dsv41-swa-attention-test tests/attention/test_attention.
  include/dsv41/execution_policy.hpp include/dsv41/swa_attention.hpp include/dsv41/attention_telemetry.hpp \
  src/attention/swa_attention.cpp src/attention/compressed_layer.cpp \
  src/attention/ragged_tail_qk.hpp.in metal/attention/ragged_tail_qk.metal \
- metal/attention/ragged_tail_accum.metal \
+ metal/attention/ragged_tail_accum.metal src/attention/ragged_width_one_qk.hpp.in \
+ metal/attention/ragged_width_one_qk.metal metal/attention/gemv_header.metal \
  src/attention/ragged_tail_av.hpp.in metal/attention/ragged_tail_av.metal \
  src/attention/packed_attention_worklist.hpp.in metal/attention/packed_attention_worklist.metal \
  src/attention/batched_splitk_qk.hpp.in metal/attention/batched_splitk_qk.metal \

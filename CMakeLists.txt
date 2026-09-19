@@ -39,6 +39,8 @@ if(DSV41_ENABLE_MLX)
   file(READ ${CMAKE_CURRENT_SOURCE_DIR}/metal/attention/batched_splitk_accum.metal DSV41_BATCHED_SPLITK_ACCUM)
   file(READ ${CMAKE_CURRENT_SOURCE_DIR}/metal/attention/ragged_tail_qk.metal DSV41_RAGGED_TAIL_QK)
   file(READ ${CMAKE_CURRENT_SOURCE_DIR}/metal/attention/ragged_tail_accum.metal DSV41_RAGGED_TAIL_ACCUM)
+  file(READ ${CMAKE_CURRENT_SOURCE_DIR}/metal/attention/ragged_width_one_qk.metal DSV41_RAGGED_WIDTH_ONE_QK)
+  file(READ ${CMAKE_CURRENT_SOURCE_DIR}/metal/attention/gemv_header.metal DSV41_GEMV_HEADER)
   file(READ ${CMAKE_CURRENT_SOURCE_DIR}/metal/attention/ragged_tail_av.metal DSV41_RAGGED_TAIL_AV)
   list(GET MLX_INCLUDE_DIRS 0 DSV41_MLX_INCLUDE_DIR)
   file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/metal-module-cache)
@@ -71,6 +73,7 @@ if(DSV41_ENABLE_MLX)
     metal/attention/kv_quant.metal
     metal/attention/batched_splitk_qk.metal metal/attention/batched_splitk_accum.metal
     metal/attention/ragged_tail_qk.metal metal/attention/ragged_tail_accum.metal
+    metal/attention/ragged_width_one_qk.metal metal/attention/gemv_header.metal
     metal/attention/ragged_tail_av.metal
     metal/attention/steel_gemm_header.metal metal/attention/steel_attention_header.metal
     metal/attention/packed_chunk_attention.metal metal/attention/wide_chunk_attention.metal
@@ -78,6 +81,7 @@ if(DSV41_ENABLE_MLX)
   configure_file(src/attention/kv_quant.hpp.in generated/kv_quant.hpp @ONLY)
   configure_file(src/attention/batched_splitk_qk.hpp.in generated/batched_splitk_qk.hpp @ONLY)
   configure_file(src/attention/ragged_tail_qk.hpp.in generated/ragged_tail_qk.hpp @ONLY)
+  configure_file(src/attention/ragged_width_one_qk.hpp.in generated/ragged_width_one_qk.hpp @ONLY)
   configure_file(src/attention/ragged_tail_av.hpp.in generated/ragged_tail_av.hpp @ONLY)
   configure_file(src/attention/packed_chunk_attention.hpp.in generated/packed_chunk_attention.hpp @ONLY)
   configure_file(src/attention/wide_chunk_attention.hpp.in generated/wide_chunk_attention.hpp @ONLY)

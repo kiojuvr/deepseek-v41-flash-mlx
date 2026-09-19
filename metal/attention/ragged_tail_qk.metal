@@ -1,9 +1,8 @@
 // Copyright © 2024 Apple Inc.
 // SPDX-License-Identifier: MIT
 // Indirect token work-list adaptation of MLX 0.32.2 steel_gemm_splitk.
-// BN/PARTITIONS/MIN_WIDTH/MAX_WIDTH are native short-N Steel configurations;
-// PARTIAL_COLUMNS is normally the pooled-tile width, but width one preserves
-// the official [partitions,64,1] result layout exactly.
+// BN/PARTITIONS/MIN_WIDTH/MAX_WIDTH are the native short-N Steel
+// configurations used for widths greater than one.
 using gemm_kernel = mlx::steel::GEMMKernel<
     float, float, 32, BN, 16, 2, 2, false, true, false, true>;
 using loader_a_t = typename gemm_kernel::loader_a_t;
@@ -33,8 +32,8 @@ const int k_start = partition_size * split;
 const int tail_row = 128 + (selected / 64) * 64;
 const device float* A = queries + size_t(token) * 64 * 512 + size_t(c_row) * 512 + k_start;
 const device float* B = keys + (size_t(token) * meta[1] + tail_row + c_col) * 512 + k_start;
-device float* C = partial + size_t(token) * PARTITIONS * 64 * PARTIAL_COLUMNS +
-    size_t(split) * 64 * PARTIAL_COLUMNS + size_t(c_row) * PARTIAL_COLUMNS + c_col;
+device float* C = partial + size_t(token) * PARTITIONS * 64 * 64 +
+    size_t(split) * 64 * 64 + size_t(c_row) * 64 + c_col;
 
 thread loader_a_t loader_a(A, 512, As, simd_group, lane);
 thread loader_b_t loader_b(B, 512, Bs, simd_group, lane);
@@ -51,7 +50,7 @@ if (tile_columns == BN) {
 // cooperative threadgroup-memory reads before any group stores and exits.
 threadgroup_barrier(mem_flags::mem_threadgroup);
 if (tile_columns == BN) {
-    mma_op.store_result(C, PARTIAL_COLUMNS);
+    mma_op.store_result(C, 64);
 } else {
-    mma_op.store_result_safe(C, PARTIAL_COLUMNS, short2(tile_columns, 32));
+    mma_op.store_result_safe(C, 64, short2(tile_columns, 32));
 }

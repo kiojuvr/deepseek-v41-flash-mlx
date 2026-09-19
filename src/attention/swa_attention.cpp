@@ -3,6 +3,7 @@
 #include "dsv41/execution_policy.hpp"
 #include "batched_splitk_qk.hpp"
 #include "ragged_tail_qk.hpp"
+#include "ragged_width_one_qk.hpp"
 #include "ragged_tail_av.hpp"
 #include "packed_chunk_attention.hpp"
 #include "wide_chunk_attention.hpp"
@@ -43,22 +44,27 @@ mx::array ragged_tail_qk(const mx::array& queries,const mx::array& keys,
   dsv41_batched_splitk_header);
  static auto accumulate=mx::fast::metal_kernel("dsv41_ragged_tail_accum",
   {"partial","widths","meta"},{"scores"},dsv41_ragged_tail_accum_source);
- auto run=[&](int bn,int partitions,int minimum,int maximum,int partial_columns){
+ static auto width_one=mx::fast::metal_kernel("dsv41_ragged_width_one_qk",
+  {"queries","keys","widths","meta"},{"scores"},dsv41_ragged_width_one_qk_source,
+  dsv41_gemv_header);
+ auto one_raw=width_one({queries,keys,widths,mx::array({tokens,rows},mx::int32)},
+  {{tokens,64,1}},{mx::float32},{4*32,1,tokens*4},{32,1,4},{},
+  std::nullopt,false,mx::Device::gpu).front();
+ auto one=mx::concatenate({one_raw,mx::full({tokens,64,63},
+  -std::numeric_limits<float>::infinity(),mx::float32)},2);
+ auto run=[&](int bn,int partitions,int minimum,int maximum){
   const int tiles=(maximum+bn-1)/bn;
   auto partial=splitk({queries,keys,widths,mx::array({tokens,rows},mx::int32)},
-   {{tokens,partitions,64,partial_columns}},{mx::float32},
+   {{tokens,partitions,64,64}},{mx::float32},
    {tiles*32,2*2,tokens*partitions*2},{32,2,2},
-   {{"BN",bn},{"PARTITIONS",partitions},{"MIN_WIDTH",minimum},{"MAX_WIDTH",maximum},
-    {"PARTIAL_COLUMNS",partial_columns}},
+   {{"BN",bn},{"PARTITIONS",partitions},{"MIN_WIDTH",minimum},{"MAX_WIDTH",maximum}},
    std::nullopt,false,mx::Device::gpu).front();
   return accumulate({partial,widths,mx::array({tokens},mx::int32)},
    {{tokens,64,64}},{mx::float32},{64*64,tokens,1},{256,1,1},
-   {{"PARTITIONS",partitions},{"MIN_WIDTH",minimum},{"MAX_WIDTH",maximum},
-    {"PARTIAL_COLUMNS",partial_columns}},
+   {{"PARTITIONS",partitions},{"MIN_WIDTH",minimum},{"MAX_WIDTH",maximum}},
    std::nullopt,false,mx::Device::gpu).front();
  };
- auto one=run(16,16,1,1,1),small=run(16,16,2,32,64);
- auto middle=run(16,8,33,39,64),large=run(32,8,40,63,64);
+ auto small=run(16,16,2,32),middle=run(16,8,33,39),large=run(32,8,40,63);
  auto remainder=mx::remainder(widths,mx::array(64,mx::int32));
  auto one_mask=mx::reshape(mx::equal(remainder,mx::array(1,mx::int32)),{tokens,1,1});
  auto small_mask=mx::reshape(mx::less_equal(remainder,mx::array(32,mx::int32)),{tokens,1,1});

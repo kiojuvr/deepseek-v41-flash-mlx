@@ -28,7 +28,11 @@ git rev-parse HEAD > "$run_dir/revision.txt"
 git diff --binary > "$run_dir/tracked.patch"
 shasum -a 256 build-mlx/dsv41-text-backbone-test tests/attention/test_text_backbone.cpp \
  include/dsv41/execution_policy.hpp include/dsv41/swa_attention.hpp include/dsv41/attention_telemetry.hpp \
- src/attention/swa_attention.cpp src/attention/batched_splitk_qk.hpp.in \
+ src/attention/swa_attention.cpp src/attention/ragged_tail_qk.hpp.in \
+ metal/attention/ragged_tail_qk.metal metal/attention/ragged_tail_accum.metal \
+ src/attention/ragged_width_one_qk.hpp.in metal/attention/ragged_width_one_qk.metal \
+ metal/attention/gemv_header.metal src/attention/ragged_tail_av.hpp.in \
+ metal/attention/ragged_tail_av.metal src/attention/batched_splitk_qk.hpp.in \
  metal/attention/batched_splitk_qk.metal metal/attention/batched_splitk_accum.metal \
  src/attention/packed_attention_worklist.hpp.in metal/attention/packed_attention_worklist.metal \
  metal/attention/steel_attention_header.metal src/attention/compressed_layer.cpp \

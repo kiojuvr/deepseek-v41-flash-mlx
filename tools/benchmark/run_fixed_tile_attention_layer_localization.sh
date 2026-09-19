@@ -30,7 +30,9 @@ shasum -a 256 build-mlx/dsv41-text-backbone-test tests/attention/test_text_backb
  src/model/compressed_block.cpp src/model/reused_block.cpp src/attention/compressed_layer.cpp \
  include/dsv41/execution_policy.hpp include/dsv41/swa_attention.hpp src/attention/swa_attention.cpp \
  src/attention/ragged_tail_qk.hpp.in metal/attention/ragged_tail_qk.metal \
- metal/attention/ragged_tail_accum.metal src/attention/ragged_tail_av.hpp.in \
+ metal/attention/ragged_tail_accum.metal src/attention/ragged_width_one_qk.hpp.in \
+ metal/attention/ragged_width_one_qk.metal metal/attention/gemv_header.metal \
+ src/attention/ragged_tail_av.hpp.in \
  metal/attention/ragged_tail_av.metal metal/attention/packed_attention_worklist.metal \
  artifacts/checkpoint/summary.json \
  artifacts/engram/metadata.json > "$run_dir/identity.txt"

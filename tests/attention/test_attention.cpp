@@ -160,10 +160,12 @@ int main(int argc,char** argv){try{
   rms_report(candidate,mx::concatenate(reference,0),"packed fused attention pooled fixture");
   wide=dsv41::swa_wide_attention_chunk(q,local,pooled.packed,pooled.scales,selected,sink,8,4);
   rms_report(wide,mx::concatenate(reference,0),"wide fused attention pooled fixture");
-  auto class_source=mx::astype(mx::reshape(mx::sin(mx::arange(63*512,mx::float32)),{63,512}),mx::bfloat16);
+  auto class_source=mx::astype(mx::reshape(mx::sin(mx::arange(65*512,mx::float32)),{65,512}),mx::bfloat16);
   auto class_pooled=dsv41::kv_quant_reference(class_source,dsv41::KVQuantFormat::MainE4M3);
   auto class_local=mx::astype(mx::reshape(mx::cos(mx::arange(128*512,mx::float32)),{128,512}),mx::bfloat16);
-  for(int width:{1,33,40,63}){
+  // Width 65 regresses the device-class predicate: its ragged tail is width
+  // one even though the total selected width is not one.
+  for(int width:{1,33,40,63,65}){
    auto ids=mx::broadcast_to(mx::expand_dims(mx::arange(width,mx::int32),0),{2,width});
    auto dense=mx::concatenate({ids,mx::broadcast_to(mx::array(-1,mx::int32),{2,512-width})},1);
    auto work=dsv41::swa_packed_attention_work_list(class_local,class_pooled.packed,

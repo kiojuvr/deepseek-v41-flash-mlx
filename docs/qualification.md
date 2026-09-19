@@ -1118,11 +1118,21 @@ barrierを欠いていた。device work-list、dispatch数、materialization、h
 同じ同期を復元した。次は同じ40-layer localizationを再実行し、結果を読むまでpromotionしない。
 
 clean rerun `attention/fixed-tile-layer-localization-20260919-141217-82333`はbarrier追加前と
-全数値が同一であり、同期単独の原因仮説をrejectした。公式同期は保持する。残る既知の差はwidth-oneの
-partial layoutで、公式は`[16,64,1]`、`ldc=1`、partition stride 64だが、初期candidateは
-`[16,64,64]`へpaddingしていた。width oneを4番目のfixed device classへ分離し、公式partial layoutを
-そのまま使用する。width 2–32は従来classを維持し、追加はlayerあたり固定producer/accumulator各1回、
-host loop/readbackなし。このcandidateも同じ40-layer localizationの結果確認まで未qualified。
+全数値が同一であり、同期単独の原因仮説をrejectした。公式同期は保持し、width-one partial layout仮説を
+次に検証した。
+
+clean exact-layout rerun `attention/fixed-tile-layer-localization-20260919-141802-83005`も
+全数値が同一で、この仮説をrejectした。pinned MLX 0.32.2のdispatcherを再確認すると、
+`min(M,N)==1`はSteel GEMM selectorより前に`gemv_axbpy`へ分岐していた。したがってwidth-one QKの
+oracleはsplit-Kではなく`GEMVKernel<float,4,1,1,32,4,4,false>`である。このnative geometryを
+token device軸へ展開するfixed GEMV classを追加し、width 2–63は既存Steel classを維持する。
+host token loop、selected-count readback、shape-count dispatchは追加しない。短いsynthetic attention
+fixtureはbit-exactだが、同じ40-layer localizationの結果確認まで未qualified。
+
+公式2-layer isolation `attention/fixed-tile-isolation-20260919-145102-84647`は、このfixed
+GEMV candidateでpassした。両chunkのdense reduction、producer、first reuse、および
+publication/window/position stateはbit-exact、exit 0、swap 0。これはproducer/reuse境界のみを
+qualifiedし、40-layer backbone/full-path performanceは未qualifiedのままである。
 
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \

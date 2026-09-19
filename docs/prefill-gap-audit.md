@@ -756,12 +756,28 @@ unchanged localization gate, not a performance measurement.
 The clean gate rerun
 `attention/fixed-tile-layer-localization-20260919-141217-82333` was numerically
 unchanged, so the missing barrier was not the source of the two values. The
-next candidate retains that official synchronization and removes the other
-known width-one deviation: padded partial `ldc` and partition stride. A fourth
-fixed device class emits exact `[partitions,64,1]` partial storage for selected
-width one, while widths 2--32 remain in the existing fixed class. This costs a
-constant two Metal operations per layer and does not reintroduce 17,910 shape
-groups, token loops, or selected-width readbacks.
+next candidate retained that official synchronization and removed the apparent
+padded-partial layout deviation.
+
+The clean exact-layout rerun
+`attention/fixed-tile-layer-localization-20260919-141802-83005` was also
+numerically identical, rejecting partial `ldc` and partition stride as the
+cause. A subsequent review of the pinned MLX 0.32.2 dispatcher corrected the
+underlying assumption: `min(M,N)==1` is routed to `gemv_axbpy` before the Steel
+GEMM/split-K selector. For this width-one QK shape the oracle therefore uses
+`GEMVKernel<float,4,1,1,32,4,4,false>`, not a `[16,64,1]` split-K reduction.
+The new fixed device class ports that exact GEMV work geometry across the token
+axis; widths 2--63 retain the existing Steel classes. It adds one constant
+Metal operation and a device selection, with no selected-count readback or host
+token loop. Short synthetic attention fixtures are bit exact; the official
+40-layer gate remains required.
+
+The official two-layer isolation
+`attention/fixed-tile-isolation-20260919-145102-84647` passed this GEMV class.
+Both chunks' dense reductions, producer outputs, first-reuse outputs, and
+publication/window/position state were bit exact; exit status and swap were
+zero. This closes the bounded producer/reuse boundary only. The unchanged
+40-layer localization remains the next semantic gate.
 
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
