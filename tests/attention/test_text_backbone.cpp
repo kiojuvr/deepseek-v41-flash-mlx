@@ -167,26 +167,30 @@ int main(int argc,char** argv){try{
               <<" bit_mismatches="<<mismatches.item<std::uint32_t>()<<std::endl;
      if(first_layer<0&&rms>=0.002f){first_layer=layer;first_stage=stage;first_rms=rms;}
     }
-    if(layer==3||layer==4)for(const char* stage:{"attn_qr","attn_q","attn_kv","attn_core",
-                                                "attn_inverse_rope","attn_grouped","attn_linear"})
+    if(layer==3||layer==4||layer==20||layer==21)
+     for(const char* stage:{"attn_qr","attn_q","attn_kv","attn_core",
+                            "attn_inverse_rope","attn_grouped","attn_linear"})
      report_stage(layer,stage);
     if(layer==3){
      for(const char* stage:{"attn_core_native_width1_qk","attn_core_native_width1_av"})
       report_stage(layer,stage,"attn_core");
-     const auto& candidate=actual_trace.at("encoder.layer3.attn_core");
-     const auto& reference=expected_trace.at("encoder.layer3.attn_core");
+    }
+    if(layer==3||layer==20){
+     const std::string prefix=(layer<20?"encoder.layer":"decoder.layer")+std::to_string(layer)+".";
+     const auto& candidate=actual_trace.at(prefix+"attn_core");
+     const auto& reference=expected_trace.at(prefix+"attn_core");
      auto token_mask=mx::any(mx::not_equal(candidate,reference),std::vector<int>{1,2});
      auto ids=mx::arange(candidate.shape(0),mx::int32);
      auto count=mx::sum(mx::astype(token_mask,mx::uint32));
      auto first=mx::min(mx::where(token_mask,ids,mx::array(candidate.shape(0),mx::int32)));
      auto last=mx::max(mx::where(token_mask,ids,mx::array(-1,mx::int32)));
      mx::eval(count,first,last);
-     auto widths=actual_trace.at("encoder.layer3.attn_widths");
+     auto widths=actual_trace.at(prefix+"attn_widths");
      const int first_id=first.item<std::int32_t>(),last_id=last.item<std::int32_t>();
      auto first_width=first_id<candidate.shape(0)?mx::take(widths,mx::array(first_id)):mx::array(-1);
      auto last_width=last_id>=0?mx::take(widths,mx::array(last_id)):mx::array(-1);
      mx::eval(first_width,last_width);
-     std::cout<<"fixed-tile layer=3 stage=attn_core_tokens mismatch_tokens="
+     std::cout<<"fixed-tile layer="<<layer<<" stage=attn_core_tokens mismatch_tokens="
               <<count.item<std::uint32_t>()<<" first="<<first_id
               <<" first_width="<<first_width.item<std::int32_t>()<<" last="<<last_id
               <<" last_width="<<last_width.item<std::int32_t>()<<std::endl;

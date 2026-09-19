@@ -1134,6 +1134,13 @@ GEMV candidateでpassした。両chunkのdense reduction、producer、first reus
 publication/window/position stateはbit-exact、exit 0、swap 0。これはproducer/reuse境界のみを
 qualifiedし、40-layer backbone/full-path performanceは未qualifiedのままである。
 
+clean 40-layer localization `attention/fixed-tile-layer-localization-20260919-145317-84992`では、
+layer 0–19の全記録stageがbit-exactとなり、従来のlayer 3 core差とlayer 4 gate failureは解消した。
+残差はdecoder境界へ移り、layer 20 attn-out RMS `0.000536897`が最初の非zero、layer 21
+attn-out RMS `0.013216`が最初のgate failureだった。revisionはclean `ba03593`、exit 0、swap 0。
+次の同一runnerはproduction arithmeticを変えず、decoder layer 20/21の
+qr/q/kv/core/inverse-RoPE/grouped/linearとlayer 20 mismatch-token selected widthを記録する。
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \

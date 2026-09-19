@@ -125,6 +125,11 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
  auto q=compressed_rope_reference(mx::reshape(qb_.forward(qr),{h.shape(0),64,512}),positions);
  auto kv=linear_activation_reference(compressed_rope_reference(
   rms_norm_reference(kv_.forward(h),kvnorm_,1e-20f),positions)).decoded;
+ const bool trace_arithmetic=active_trace_sink()&&layer_==20;
+ const std::string trace_prefix=(layer_<20?"encoder.layer":"decoder.layer")+
+  std::to_string(layer_)+".";
+ if(trace_arithmetic){trace_record(trace_prefix+"attn_qr",qr);trace_record(trace_prefix+"attn_q",q);
+  trace_record(trace_prefix+"attn_kv",kv);}
  auto next=state;std::vector<mx::array> projected_rows;projected_rows.reserve(h.shape(0));
  const bool wide_chunk=runtime_wide_attention_enabled()&&publications&&h.shape(0)>1;
  const bool fixed_tile=runtime_fixed_tile_attention_enabled()&&publications&&h.shape(0)>1;
@@ -159,9 +164,13 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
    auto valid=mx::greater_equal(mx::arange(ordered.shape(0),mx::int32),mx::array(padding));
    auto token_q=mx::reshape(mx::slice(q,{i,0,0},{i+1,64,512}),{64,512});
    auto o=swa_attention_masked_reference(token_q,ordered,sink_,valid);
+   if(trace_arithmetic)trace_record(trace_prefix+"attn_core",mx::reshape(o,{1,64,512}));
    o=compressed_rope_reference(mx::reshape(o,{1,64,512}),std::span(&pos,1),true);
+   if(trace_arithmetic)trace_record(trace_prefix+"attn_inverse_rope",o);
    auto projected=mx::matmul(mx::reshape(o,{8,1,4096}),mx::transpose(grouped_,{0,2,1}));
-   projected_rows.push_back(mx::reshape(projected,{1,8192}));
+   auto projected_row=mx::reshape(projected,{1,8192});
+   if(trace_arithmetic)trace_record(trace_prefix+"attn_grouped",projected_row);
+   projected_rows.push_back(projected_row);
   }
   next.window_=window;next.publication_=publication;
   if(publications)pending_publications.push_back(std::move(publication));
@@ -181,6 +190,7 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
     publication.publish_chunk_plan(layer_,plan,start,h.shape(0));
    auto fixed_work=swa_packed_attention_work_list(all_window,cache_prefixes.back().main_bytes(),
     cache_prefixes.back().main_scales(),plan,start,ratio_,512,true);
+   if(trace_arithmetic)trace_record(trace_prefix+"attn_widths",fixed_work.widths);
    auto fixed_output=runtime_ragged_tail_qk_enabled()?swa_attention_fixed_tile_core(
     q,fixed_work,sink_,runtime_ragged_tail_av_enabled()):
     swa_attention_masked_chunk(q,fixed_work.ordered,sink_,fixed_work.valid);
@@ -266,7 +276,9 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
   }
   }
   auto o=attention_groups.size()==1?attention_groups.front():mx::concatenate(attention_groups,0);
+  if(trace_arithmetic)trace_record(trace_prefix+"attn_core",o);
   o=compressed_rope_reference(o,positions,true);
+  if(trace_arithmetic)trace_record(trace_prefix+"attn_inverse_rope",o);
   auto grouped=mx::transpose(grouped_,{0,2,1});
   for(int i=0;i<h.shape(0);++i){
    auto token_o=mx::reshape(mx::slice(o,{i,0,0},{i+1,64,512}),{8,1,4096});
@@ -278,8 +290,10 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
     else ++attention_telemetry().packed_chunk_attention_calls; }
  }
  auto projected=projected_rows.size()==1?projected_rows.front():mx::concatenate(projected_rows,0);
+ if(trace_arithmetic)trace_record(trace_prefix+"attn_grouped",projected);
  next.window_=mx::slice(all_window,{std::max(0,all_window.shape(0)-128),0},{all_window.shape(0),512});
  auto result=output_.forward(projected);
+ if(trace_arithmetic)trace_record(trace_prefix+"attn_linear",result);
  if(runtime_layer_finite_checks_enabled()){
   auto ok=mx::logical_and(mx::all(mx::isfinite(result)),mx::all(mx::isfinite(next.window_)));
   mx::eval(result,next.window_,ok);if(!ok.item<bool>())throw std::runtime_error("nonfinite compressed attention output/state");
@@ -299,8 +313,9 @@ mx::array ReusedLayerReference::forward(const mx::array& x,ReusedLayerState& sta
   auto finite=mx::all(mx::isfinite(x));mx::eval(finite);if(!finite.item<bool>())throw std::runtime_error("nonfinite reuse layer input");
  }
  auto qr=rms_norm_reference(qa_.forward(x),qnorm_,1e-20f);
- const bool trace_arithmetic=active_trace_sink()&&(layer_==3||layer_==4);
- const std::string trace_prefix="encoder.layer"+std::to_string(layer_)+".";
+ const bool trace_arithmetic=active_trace_sink()&&(layer_==3||layer_==4||layer_==21);
+ const std::string trace_prefix=(layer_<20?"encoder.layer":"decoder.layer")+
+  std::to_string(layer_)+".";
  if(trace_arithmetic)trace_record(trace_prefix+"attn_qr",qr);
  std::vector<std::int32_t> selected;
  if(is_index_source_){
@@ -349,8 +364,9 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
  auto q=compressed_rope_reference(mx::reshape(qb_.forward(qr),{x.shape(0),64,512}),positions);
  auto kv=linear_activation_reference(compressed_rope_reference(
   rms_norm_reference(kv_.forward(x),kvnorm_,1e-20f),positions)).decoded;
- const bool trace_arithmetic=active_trace_sink()&&(layer_==3||layer_==4);
- const std::string trace_prefix="encoder.layer"+std::to_string(layer_)+".";
+ const bool trace_arithmetic=active_trace_sink()&&(layer_==3||layer_==4||layer_==21);
+ const std::string trace_prefix=(layer_<20?"encoder.layer":"decoder.layer")+
+  std::to_string(layer_)+".";
  if(trace_arithmetic){trace_record(trace_prefix+"attn_qr",qr);trace_record(trace_prefix+"attn_q",q);
   trace_record(trace_prefix+"attn_kv",kv);}
  auto next=state;std::vector<mx::array> projected_rows;projected_rows.reserve(x.shape(0));

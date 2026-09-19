@@ -779,6 +779,17 @@ publication/window/position state were bit exact; exit status and swap were
 zero. This closes the bounded producer/reuse boundary only. The unchanged
 40-layer localization remains the next semantic gate.
 
+The clean 40-layer localization
+`attention/fixed-tile-layer-localization-20260919-145317-84992` confirmed the
+correction across layers 0--19: every recorded stage there was bit exact, and
+the former layer-3 core and layer-4 gate failures disappeared. The first
+remaining difference is layer 20 attention output (RMS `0.000536897`, below
+the gate); layer 21 attention output is the first gate failure at RMS
+`0.013216`. The run was clean at `ba03593`, exited zero, and used no swap. The
+next diagnostic adds the same qr/q/kv/core/inverse-RoPE/grouped/linear trace to
+decoder layers 20 and 21 and reports layer-20 mismatching token widths. It
+changes no production arithmetic and remains a localization run.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```

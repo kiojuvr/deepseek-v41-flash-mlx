@@ -909,6 +909,16 @@ producer, first reuse, and publication/window/position state for both chunks.
 It exited zero with zero swap. This qualifies the two-layer boundary, not the
 40-layer backbone or full-path performance.
 
+The subsequent clean localization
+`attention/fixed-tile-layer-localization-20260919-145317-84992` made layers
+0--19 bit exact at every recorded stage. This removes the original encoder
+failure rather than merely lowering it. A separate decoder-boundary residual
+starts at layer 20 attention output (RMS `0.000536897`) and first crosses the
+gate at layer 21 attention output (RMS `0.013216`). Decoder layers 20 and 21
+now receive the same internal arithmetic trace used for layers 3 and 4, plus
+layer-20 mismatch-token selected widths. This diagnostic does not change the
+fixed schedule or qualify the full backbone.
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \
