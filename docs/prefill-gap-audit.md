@@ -753,6 +753,16 @@ barrier before Steel result stores. That barrier is restored without changing
 the fixed device work list or its dispatch count. The next long action is the
 unchanged localization gate, not a performance measurement.
 
+The clean gate rerun
+`attention/fixed-tile-layer-localization-20260919-141217-82333` was numerically
+unchanged, so the missing barrier was not the source of the two values. The
+next candidate retains that official synchronization and removes the other
+known width-one deviation: padded partial `ldc` and partition stride. A fourth
+fixed device class emits exact `[partitions,64,1]` partial storage for selected
+width one, while widths 2--32 remain in the existing fixed class. This costs a
+constant two Metal operations per layer and does not reintroduce 17,910 shape
+groups, token loops, or selected-width readbacks.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```

@@ -886,6 +886,17 @@ same three-class device work list; it adds no dispatch, materialization,
 readback, or host token loop. Full-layer semantics remain unqualified until the
 same official localization runner is reviewed.
 
+Clean rerun `attention/fixed-tile-layer-localization-20260919-141217-82333`
+at `dad4989` produced values identical to the pre-barrier trace. The official
+synchronization is retained for source fidelity, but synchronization alone is
+not the numerical correction. The remaining layout difference is now bounded:
+official width-one Steel writes `[16,64,1]` partials with `ldc=1` and partition
+stride 64, whereas the first indirect class wrote into a padded
+`[16,64,64]` tile. Width one is split into a fourth fixed device class which
+preserves the official partial layout exactly. Tokens remain selected by
+device metadata; this adds a constant producer/accumulator pair per layer, not
+a shape-count loop or host readback. Widths 2--32 retain the existing class.
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \

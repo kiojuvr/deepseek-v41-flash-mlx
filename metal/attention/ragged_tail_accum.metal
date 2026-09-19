@@ -10,9 +10,11 @@ const int columns = selected & 63;
 const int column = int(element) & 63;
 float value = -metal::numeric_limits<float>::infinity();
 if (columns >= MIN_WIDTH && columns <= MAX_WIDTH && column < columns) {
-    const size_t base = (size_t(token) * PARTITIONS * 64 * 64) + element;
+    const int row = int(element) >> 6;
+    const size_t base = size_t(token) * PARTITIONS * 64 * PARTIAL_COLUMNS +
+        size_t(row) * PARTIAL_COLUMNS + column;
     value = 0.0f;
     for (int split = 0; split < PARTITIONS; ++split)
-        value += partial[base + size_t(split) * 64 * 64];
+        value += partial[base + size_t(split) * 64 * PARTIAL_COLUMNS];
 }
 scores[size_t(token) * 64 * 64 + element] = value;

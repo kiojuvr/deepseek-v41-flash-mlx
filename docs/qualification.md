@@ -1117,6 +1117,13 @@ layer 3 coreをbit-exactにし、native width-one AV置換は2差を残した。
 barrierを欠いていた。device work-list、dispatch数、materialization、host loopを変えずに公式と
 同じ同期を復元した。次は同じ40-layer localizationを再実行し、結果を読むまでpromotionしない。
 
+clean rerun `attention/fixed-tile-layer-localization-20260919-141217-82333`はbarrier追加前と
+全数値が同一であり、同期単独の原因仮説をrejectした。公式同期は保持する。残る既知の差はwidth-oneの
+partial layoutで、公式は`[16,64,1]`、`ldc=1`、partition stride 64だが、初期candidateは
+`[16,64,64]`へpaddingしていた。width oneを4番目のfixed device classへ分離し、公式partial layoutを
+そのまま使用する。width 2–32は従来classを維持し、追加はlayerあたり固定producer/accumulator各1回、
+host loop/readbackなし。このcandidateも同じ40-layer localizationの結果確認まで未qualified。
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \
