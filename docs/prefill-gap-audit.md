@@ -790,6 +790,13 @@ next diagnostic adds the same qr/q/kv/core/inverse-RoPE/grouped/linear trace to
 decoder layers 20 and 21 and reports layer-20 mismatching token widths. It
 changes no production arithmetic and remains a localization run.
 
+The first instrumented attempt
+`attention/fixed-tile-layer-localization-20260919-145833-85349` stopped before
+the new inner-stage reports because the reporter still used an encoder-only
+trace prefix for layer 20. Its preceding layer 0--20 aggregate values repeated
+the clean run, but the attempt is failed and carries no new semantic result.
+The reporter now selects encoder/decoder ownership from the layer number.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```

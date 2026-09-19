@@ -1141,6 +1141,11 @@ attn-out RMS `0.013216`が最初のgate failureだった。revisionはclean `ba0
 次の同一runnerはproduction arithmeticを変えず、decoder layer 20/21の
 qr/q/kv/core/inverse-RoPE/grouped/linearとlayer 20 mismatch-token selected widthを記録する。
 
+最初のinstrumented run `attention/fixed-tile-layer-localization-20260919-145833-85349`は、
+layer 20 reporterがencoder prefixを固定参照したため新規inner-stage出力前に停止した。直前までの
+aggregate値は前runを再現したが、このfailed runから新しいsemantic結論は出さない。reporterは
+layer ownershipに応じてencoder/decoder prefixを選択するよう修正した。
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \

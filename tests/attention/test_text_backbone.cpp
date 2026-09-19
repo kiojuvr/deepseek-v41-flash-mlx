@@ -134,7 +134,8 @@ int main(int argc,char** argv){try{
    dsv41::set_active_trace_sink(nullptr);
    int first_layer=-1;std::string first_stage;float first_rms=0.0f;
    auto report_stage=[&](int layer,const std::string& stage,const std::string& reference_stage=""){
-    const std::string prefix="encoder.layer"+std::to_string(layer)+".";
+    const std::string prefix=(layer<20?"encoder.layer":"decoder.layer")+
+     std::to_string(layer)+".";
     const auto& candidate=actual_trace.at(prefix+stage);
     const auto& reference=expected_trace.at(prefix+(reference_stage.empty()?stage:reference_stage));
     if(candidate.shape()!=reference.shape()||candidate.dtype()!=reference.dtype())
