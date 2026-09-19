@@ -927,6 +927,20 @@ layer 21 crossed the gate. The next diagnostic independently substitutes the
 native scalar width-one QK and AV at this same layer-20 input. It remains an
 attribution graph and does not add a production host loop.
 
+The completed substitution run
+`attention/fixed-tile-layer-localization-20260919-152549-86166` left the
+layer-20 core unchanged for both native width-one QK and native width-one AV:
+each retained RMS `4.03974e-05`, maximum error `0.00390625`, and 1,425 BF16
+differences. The width-one kernels are therefore excluded. Token 0's only live
+local row is fixed slot 127 and its only selected pooled row is slot 128, so
+the compact serial operation reduces two adjacent logical rows while the
+fixed schedule combines them across two 64-row online-softmax blocks. A short
+synthetic sparse-boundary fixture reproduces this class of difference (RMS
+`9.87334e-05`, maximum `0.00390625`, 30 BF16 differences), whereas the prior
+all-live 129-to-640 fixture remains bit exact. The next trace substitutes a
+single compact two-row reduction for token 0 only. This is attribution-only;
+production arithmetic and enablement remain unchanged.
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \

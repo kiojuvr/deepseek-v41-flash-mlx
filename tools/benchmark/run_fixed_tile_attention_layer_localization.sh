@@ -15,7 +15,7 @@ checkpoint=${CHECKPOINT:-/Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-
 printf '%s\n' \
  'scope=one 128-token official 40-layer oracle/candidate chunk; compare attn-in/out, post-attn, ffn-in, MoE-out, hidden, and pre-mix after every layer' \
  'resources=allow 3 minutes; budget 240 GB Unified Memory; substantial read-only checkpoint expert reads; no swap expected' \
- 'result=reports first layer/stage crossing RMS 0.002 plus layer 3/4 and 20/21 arithmetic attribution; layers 3 and 20 report mismatch selected widths and separate native-width-one QK/AV substitutions; final state equality is intentionally not asserted after semantic divergence; diagnostic only, not qualification or performance' \
+ 'result=reports first layer/stage crossing RMS 0.002 plus layer 3/4 and 20/21 arithmetic attribution; layers 3 and 20 report mismatch selected widths and separate native-width-one QK/AV substitutions; layer 20 also substitutes a compact two-live-row token-0 reduction to attribute fixed-block online-softmax topology; final state equality is intentionally not asserted after semantic divergence; diagnostic only, not qualification or performance' \
  'logs=artifacts/attention/fixed-tile-layer-localization-<timestamp>-<pid>/{test.log,resource.log,identity.txt,tracked.patch,exit-code.txt}' \
  'failure=retain the failed directory; do not promote or run 2K' \
  'resume=unsupported; rerun this script for fresh model/request state' > "$run_dir/config.txt"
@@ -41,8 +41,8 @@ cmd=(env DSV41_RUNTIME_LAYER_FINITE_CHECKS=0 DSV41_RUNTIME_PACKED_EXPERT_BANK=0 
  DSV41_RUNTIME_CHUNK_ATTENTION=0 DSV41_RUNTIME_BATCHED_SPLITK_QK=1 \
  DSV41_RUNTIME_PACKED_CHUNK_ATTENTION=0 DSV41_RUNTIME_WIDE_ATTENTION=0 \
  DSV41_RUNTIME_FIXED_TILE_ATTENTION=1 \
- DSV41_RUNTIME_RAGGED_TAIL_QK=${DSV41_RUNTIME_RAGGED_TAIL_QK:-0} \
- DSV41_RUNTIME_RAGGED_TAIL_AV=${DSV41_RUNTIME_RAGGED_TAIL_AV:-0} \
+ DSV41_RUNTIME_RAGGED_TAIL_QK=${DSV41_RUNTIME_RAGGED_TAIL_QK:-1} \
+ DSV41_RUNTIME_RAGGED_TAIL_AV=${DSV41_RUNTIME_RAGGED_TAIL_AV:-1} \
  DSV41_CHECK_LAYER_MAJOR_BACKBONE=1 \
  DSV41_CHECK_FIXED_TILE_LAYER_LOCALIZATION=1 \
  build-mlx/dsv41-text-backbone-test "$checkpoint" artifacts/checkpoint/summary.json \

@@ -818,6 +818,18 @@ substitutes native scalar width-one QK and AV independently at layer 20, as was
 done for layer 3, to attribute the decoder producer residual without changing
 production arithmetic.
 
+The clean completed rerun
+`attention/fixed-tile-layer-localization-20260919-152549-86166` rejected both
+kernel-level hypotheses. Native width-one QK and native width-one AV
+substitution each reproduced the original layer-20 core result exactly (RMS
+`4.03974e-05`, maximum `0.00390625`, 1,425 mismatches). The remaining semantic
+difference is the fixed schedule's online-softmax topology: token 0 places its
+single live local row at slot 127 and single pooled row at slot 128, hence in
+separate 64-row blocks. A bounded synthetic fixture with only those two slots
+valid differs from its compact two-row form at RMS `9.87334e-05`, while the
+all-live 129-row padding case stays exact. The next diagnostic substitutes the
+compact form for token 0 in the trace only; it does not alter production.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```

@@ -176,6 +176,7 @@ int main(int argc,char** argv){try{
      for(const char* stage:{"attn_core_native_width1_qk","attn_core_native_width1_av"})
       report_stage(layer,stage,"attn_core");
     }
+    if(layer==20)report_stage(layer,"attn_core_compact_token0","attn_core");
     if(layer==3||layer==20){
      const std::string prefix=(layer<20?"encoder.layer":"decoder.layer")+std::to_string(layer)+".";
      const auto& candidate=actual_trace.at(prefix+"attn_core");

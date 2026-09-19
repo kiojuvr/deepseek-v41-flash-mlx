@@ -199,6 +199,23 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
      q,fixed_work,sink_,runtime_ragged_tail_av_enabled());
     trace_record(trace_prefix+"attn_core_native_width1_qk",diagnostic.native_qk);
     trace_record(trace_prefix+"attn_core_native_width1_av",diagnostic.native_av);
+    // The first request token owns one local row at slot 127 and one selected
+    // pooled row at slot 128.  Compact only those two live rows into one
+    // reduction block to distinguish fixed-schedule online-softmax topology
+    // from the already isolated width-one QK and AV kernels.
+    if(start==0&&h.shape(0)>1&&packed_rows.front().size()==1){
+     auto compact_rows=mx::concatenate({
+      mx::slice(fixed_work.ordered,{0,127,0},{1,128,512}),
+      mx::slice(fixed_work.ordered,{0,128,0},{1,129,512})},1);
+     auto compact_valid=mx::concatenate({
+      mx::slice(fixed_work.valid,{0,127},{1,128}),
+      mx::slice(fixed_work.valid,{0,128},{1,129})},1);
+     auto compact_first=swa_attention_masked_chunk(
+      mx::slice(q,{0,0,0},{1,64,512}),compact_rows,sink_,compact_valid);
+     auto compact_candidate=mx::concatenate({compact_first,
+      mx::slice(fixed_output,{1,0,0},{h.shape(0),64,512})},0);
+     trace_record(trace_prefix+"attn_core_compact_token0",compact_candidate);
+    }
    }
    if(runtime_fixed_tile_attention_diagnostics_enabled()){
     const auto production_telemetry=read_attention_telemetry();

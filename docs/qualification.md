@@ -1159,6 +1159,15 @@ widthは1。layer 21は継承した入力差を増幅してgateを超えた。�
 native scalar width-one QK/AVを別々に置換し、production arithmeticを変えずにdecoder producer残差を
 attributionする。
 
+clean completed run `attention/fixed-tile-layer-localization-20260919-152549-86166`では、layer 20の
+native width-one QK置換とAV置換はいずれも元のcore値（RMS `4.03974e-05`、max `0.00390625`、
+1,425 BF16差）を変えなかった。したがって残差はwidth-one kernelではない。token 0の有効行はlocal
+slot 127とpooled slot 128の2行だけであり、serial oracleではcompactな2行、fixed scheduleでは別々の
+64-row blockとしてonline-softmax合成される。短いsynthetic fixtureでもこのsparse境界だけでRMS
+`9.87334e-05`、max `0.00390625`、30 BF16差を再現し、全129行有効のpadding fixtureはbit-exactのまま。
+次のtraceはtoken 0だけcompact 2-row reductionへ置換してattributionする。production arithmeticと
+fixed-tile enablementは変更しない。
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \

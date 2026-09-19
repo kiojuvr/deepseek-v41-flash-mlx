@@ -216,6 +216,18 @@ int main(int argc,char** argv){try{
   auto padded_valid=mx::concatenate({exact_valid,mx::zeros({1,511},mx::bool_)},1);
   rms_report(dsv41::swa_attention_masked_chunk(exact_q,padded_kv,sink,padded_valid),
              exact_out,"fixed-tile 129-to-640 padding diagnostic");
+  // Request token zero has exactly two live rows, but the fixed work list
+  // places them on opposite sides of the 128-row local/pooled boundary.
+  // Keep this sparse topology distinct from the all-live 129-row padding
+  // diagnostic above: it exercises online-softmax combination across blocks.
+  auto sparse_ids=mx::arange(640,mx::int32);
+  auto sparse_valid=mx::expand_dims(mx::logical_or(
+   mx::equal(sparse_ids,mx::array(127)),mx::equal(sparse_ids,mx::array(128))),0);
+  auto compact_kv=mx::slice(padded_kv,{0,127,0},{1,129,512});
+  auto sparse_out=dsv41::swa_attention_masked_chunk(exact_q,padded_kv,sink,sparse_valid);
+  auto compact_out=dsv41::swa_attention_masked_chunk(
+   exact_q,compact_kv,sink,mx::ones({1,2},mx::bool_));
+  rms_report(sparse_out,compact_out,"fixed-tile sparse boundary topology diagnostic");
   for(int live:{63,64,65,128}){
    auto full_valid=mx::broadcast_to(mx::greater_equal(mx::arange(128,mx::int32),mx::array(128-live)),{2,128});
    auto full_candidate=dsv41::swa_attention_masked_chunk(q,kv,sink,full_valid);
