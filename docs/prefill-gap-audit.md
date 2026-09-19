@@ -884,3 +884,19 @@ and peak footprint was 166,793,032,328 bytes. The 172.25-second wall includes
 both oracle and candidate and is not a performance observation. This closes
 the production full-path gate and authorizes the prepared 2K measurement while
 leaving the runtime default disabled pending review.
+
+The isolated production measurement
+`context-ladder/32k-run-20260919-203604-89428` completed cleanly at revision
+`8d015a8`, produced next token 339, and used no swap. Prefill was 43.229745
+seconds / 47.7218 tok/s, an 11.32% wall reduction and 12.77% throughput gain
+against the comparable packed exact-shape run at 48.749250 seconds / 42.3186
+tok/s. Batched QK calls fell from 112,248 to 6,460 and AV batches from 131,418
+to 6,460; scalar QK and AV calls were zero. Peak MLX allocation remained
+effectively flat at 304,385,559,523 bytes. This is sufficient to retain the
+architecture as the production full-path candidate, but the single observation
+does not satisfy the repeated-performance contract. Two warmups and at least
+five alternating warm pairs are prepared in a resumable sequential runner:
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_paired_qualification.sh
+```

@@ -1001,3 +1001,26 @@ calls. Peak MLX allocation was 158,284,371,083 bytes, maximum RSS was
 172.25-second oracle-plus-candidate wall is a correctness-gate cost, not a
 performance value. The isolated 2K production measurement is now authorized;
 the runtime default remains off until that result is reviewed.
+
+The reviewed isolated 2K production observation
+`context-ladder/32k-run-20260919-203604-89428` completed at clean revision
+`8d015a8`, with exit status zero, an empty tracked patch, next token 339, and
+no swap. Its 2,063-token prefill took 43.229745 seconds (47.7218 tok/s), down
+5.519506 seconds or 11.32% from the comparable packed exact-shape result's
+48.749250 seconds (42.3186 tok/s). Fixed topology reduced batched QK calls from
+112,248 to 6,460 and AV batches from 131,418 to 6,460, with zero scalar QK or
+AV calls. Peak MLX allocation was essentially unchanged at 304,385,559,523
+bytes; maximum RSS was 275,054,755,840 bytes and peak footprint was
+310,843,160,624 bytes. The one-token decode was 0.319738 seconds, but one sample
+does not establish a decode regression or improvement.
+
+This accepts the fixed-tile schedule as the faster production full-path
+candidate, not as a statistically qualified default. The performance contract
+requires at least five alternating warm pairs and regression review. A
+resumable runner performs two warmups followed by the required pairs; it is a
+60--120 minute, sequential, read-only validation and is not launched
+automatically:
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_paired_qualification.sh
+```

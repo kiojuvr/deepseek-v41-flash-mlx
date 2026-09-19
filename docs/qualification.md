@@ -1222,6 +1222,25 @@ packed/wide calls 0、scalar QK calls 0。peak MLX 158,284,371,083 bytes、最�
 両方実行するcorrectness gate wallでありperformance値ではない。この結果でproduction full-path
 gateを閉じ、上記2K measurementを解禁する。測定結果をreviewするまではruntime defaultを0に保つ。
 
+isolated 2K production observation
+`context-ladder/32k-run-20260919-203604-89428`をreview済み。clean `8d015a8`、tracked patch
+0 bytes、exit 0、next token 339、swap 0。2,063-token prefillは43.229745秒 / 47.7218 tok/sで、
+比較可能なpacked exact-shape runの48.749250秒 / 42.3186 tok/sから5.519506秒（11.32%）短縮、
+throughputは12.77%上昇した。batched QKは112,248から6,460（94.24%減）、AV batchは
+131,418から6,460（95.08%減）、scalar QK/AVは0。peak MLXは304,385,559,523 bytes、最大RSS
+275,054,755,840 bytes、peak footprint 310,843,160,624 bytes、decode 1 tokenは0.319738秒だった。
+memoryは比較runと実質同じで、decode単発値からregression/improvementは判定しない。
+
+これはfixed-tile scheduleをより速いproduction full-path candidateとしてacceptする単回観測であり、
+performance hard gateやruntime default変更には不足する。次は2 warmups後にbaseline/candidate順を交互に
+最低5組測る。既定12 process、60--120分、逐次実行のためpeak Unified Memory上限340 GB、aggregate
+logical checkpoint read約3.5 TB、checkpoint read-only、swapなしを要求する。各childは独立しており、
+失敗時はrootを保持し、同じ`DSV41_PAIRED_RUN_DIR`でexit-0 childを検証・skipしてresumeできる。
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_paired_qualification.sh
+```
+
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh

@@ -122,8 +122,8 @@ inline bool runtime_wide_attention_enabled() {
 
 // Qualified Phase-4 full-path candidate: one dense [tokens,512] device plan,
 // ten fixed 64-row tiles, and one device-selected request-boundary graph
-// replace request-dependent shape groups. It stays opt-in until its isolated
-// 2K production measurement is reviewed.
+// replace request-dependent shape groups. It stays opt-in until its repeated
+// paired 2K performance gate is reviewed.
 inline bool runtime_fixed_tile_attention_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_FIXED_TILE_ATTENTION");
  if(value==nullptr||std::string_view(value)=="0") return false;
@@ -159,7 +159,8 @@ inline bool runtime_ragged_tail_av_enabled() {
 
 // Own prefill at the request boundary and execute it as a transactional
 // layer-major sweep.  Decode remains on the one-token reference schedule.
-// This is independently opt-in until the 2K full-path result is reviewed.
+// This remains independently opt-in until repeated full-path performance and
+// longer-context qualification are reviewed.
 inline bool runtime_layer_sweep_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_LAYER_SWEEP");
  if(value==nullptr||std::string_view(value)=="0") return false;
