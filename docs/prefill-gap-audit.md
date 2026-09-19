@@ -847,3 +847,28 @@ bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
 ```
+
+The clean production-boundary rerun
+`attention/fixed-tile-layer-localization-20260919-201526-88363` passed at
+revision `40ddbb6` with an empty tracked patch, exit status zero, and no swap.
+All production stages in all 40 layers were bit exact, the first-failure marker
+was absent, and final persistent state equality was asserted. This closes the
+localization gate and promotes fixed-tile attention to the production
+full-path candidate. It does not enable the runtime default or constitute a
+performance result.
+
+The next gate and measurement are deliberately separate. The two-chunk
+full-backbone run must first pass logits, continuation, route/state/publication,
+hash, and invalid-request atomicity with the qualified ragged QK/AV paths. Its
+review then authorizes one 2,063-token transactional sweep plus one reference
+decode. The measurement is expected to take 5--10 minutes, use at most 340 GB
+Unified Memory, read about 289 GB of checkpoint data without writing it, retain
+failure logs, and restart from fresh state rather than resume.
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_backbone_check.sh
+```
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_prefill_measurement.sh
+```

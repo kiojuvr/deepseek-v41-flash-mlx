@@ -115,6 +115,9 @@ int main(int argc,char** argv) { try {
  const bool sweep=mode=="sweep";
  if((layer_major||sweep)&&(!dsv41::runtime_packed_expert_bank_enabled()||dsv41::runtime_group_selected_experts_enabled()))
   throw std::runtime_error("layer-major execution requires packed bank enabled and selected grouping disabled");
+ if(dsv41::runtime_fixed_tile_attention_enabled()&&
+    (!dsv41::runtime_ragged_tail_qk_enabled()||!dsv41::runtime_ragged_tail_av_enabled()))
+  throw std::runtime_error("fixed-tile production measurement requires qualified ragged QK and AV");
  const double wall_budget=nonnegative_environment_seconds("DSV41_CONTEXT_WALL_BUDGET_SECONDS");
  const double projected_wall_limit=
   nonnegative_environment_seconds("DSV41_CONTEXT_PROJECTED_WALL_LIMIT_SECONDS");
@@ -147,6 +150,8 @@ int main(int argc,char** argv) { try {
   {"packed_chunk_attention",dsv41::runtime_packed_chunk_attention_enabled()},
   {"wide_attention",dsv41::runtime_wide_attention_enabled()},
   {"fixed_tile_attention",dsv41::runtime_fixed_tile_attention_enabled()},
+  {"ragged_tail_qk",dsv41::runtime_ragged_tail_qk_enabled()},
+  {"ragged_tail_av",dsv41::runtime_ragged_tail_av_enabled()},
   {"layer_sweep",dsv41::runtime_layer_sweep_enabled()},
   {"batched_dense_qmm",dsv41::runtime_batched_dense_qmm_enabled()},
   {"mlx_cache_limit_bytes",dsv41::runtime_mlx_cache_limit_bytes()},

@@ -962,3 +962,29 @@ bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
 ```
+
+The clean production-boundary rerun
+`attention/fixed-tile-layer-localization-20260919-201526-88363` closes the
+remaining 40-layer arithmetic gate. At revision `40ddbb6`, with an empty
+tracked patch and exit status zero, every production stage in layers 0--39 was
+bit exact, no RMS gate failed, and final persistent state equality was
+asserted. The nonzero layer-20 native-width-one attribution values are retained
+diagnostics for the rejected topology; the selected production core and its
+request-boundary graph were exact. This promotes the fixed-tile schedule from
+localization to the production full-path candidate, while leaving its default
+off pending the isolated 2K wall review.
+
+Promotion is completed in two ordered runs. First, the existing full-backbone
+gate exercises two 128-token chunks, logits/continuation, publication hashes,
+route ties, and invalid-request atomicity with ragged QK and AV explicitly
+enabled. Only after that artifact passes and is reviewed may the 2,063-token
+transactional production measurement run. The latter is a single observation,
+not repeated performance qualification.
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_backbone_check.sh
+```
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_prefill_measurement.sh
+```

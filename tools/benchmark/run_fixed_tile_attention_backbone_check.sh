@@ -13,10 +13,10 @@ trap finish EXIT
 echo "Logs: $run_dir"
 checkpoint=${CHECKPOINT:-/Volumes/KIOXIA-PRO-1/models/deepseek-ai/DeepSeek-V4.1-Flash}
 printf '%s\n' \
- 'scope=40 layers; 2x128 token-serial oracle chunks vs one dense-plan, fixed 10x64-row attention schedule per compressed layer chunk; official checkpoint' \
+ 'scope=40 layers; 2x128 token-serial oracle chunks vs one dense-plan fixed-tile attention schedule per compressed layer chunk; official checkpoint' \
  'resources=allow 5 minutes; budget 240 GB Unified Memory; approximately 578 GB logical read-only checkpoint expert reads; no swap expected' \
  'gate=relative RMS <0.002 hidden/pre-mix/logits; logits argmax, route ties, persistent state/publication/hash and invalid-request atomicity exact' \
- 'topology=one [tokens,512] device plan and one packed materialization per layer chunk; exactly ten 64-row QK/online-softmax/BF16-PV/AV tiles; zero scalar QK/AV' \
+ 'topology=one [tokens,512] device plan and one packed materialization per layer chunk; ten 64-row tiles plus one request-boundary two-row graph selected on device; zero scalar QK/AV' \
  'logs=artifacts/attention/fixed-tile-backbone-<timestamp>-<pid>/{test.log,resource.log,identity.txt,tracked.patch,exit-code.txt}' \
  'failure=retain the failed run directory; do not promote or run the 2K measurement' \
  'resume=unsupported; rerun this script for fresh model/request state' > "$run_dir/config.txt"
@@ -45,7 +45,8 @@ cmd=(env DSV41_RUNTIME_LAYER_FINITE_CHECKS=0 DSV41_RUNTIME_PACKED_EXPERT_BANK=0 
  DSV41_RUNTIME_GROUP_SELECTED_EXPERTS=0 DSV41_RUNTIME_INDEX_DIAGNOSTICS=1 \
  DSV41_RUNTIME_CHUNK_ATTENTION=0 DSV41_RUNTIME_BATCHED_SPLITK_QK=1 \
  DSV41_RUNTIME_PACKED_CHUNK_ATTENTION=0 DSV41_RUNTIME_WIDE_ATTENTION=0 \
- DSV41_RUNTIME_FIXED_TILE_ATTENTION=1 \
+ DSV41_RUNTIME_FIXED_TILE_ATTENTION=1 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
+ DSV41_RUNTIME_RAGGED_TAIL_AV=1 \
  DSV41_CHECK_LAYER_MAJOR_BACKBONE=1 DSV41_CHECK_CHUNK_ATTENTION_BACKBONE=1 \
  build-mlx/dsv41-text-backbone-test "$checkpoint" artifacts/checkpoint/summary.json \
  artifacts/engram/metadata.json)

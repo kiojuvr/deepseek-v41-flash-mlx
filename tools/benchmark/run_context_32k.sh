@@ -32,6 +32,8 @@ export DSV41_RUNTIME_BATCHED_SPLITK_QK=${DSV41_RUNTIME_BATCHED_SPLITK_QK:-0}
 export DSV41_RUNTIME_PACKED_CHUNK_ATTENTION=${DSV41_RUNTIME_PACKED_CHUNK_ATTENTION:-0}
 export DSV41_RUNTIME_WIDE_ATTENTION=${DSV41_RUNTIME_WIDE_ATTENTION:-0}
 export DSV41_RUNTIME_FIXED_TILE_ATTENTION=${DSV41_RUNTIME_FIXED_TILE_ATTENTION:-0}
+export DSV41_RUNTIME_RAGGED_TAIL_QK=${DSV41_RUNTIME_RAGGED_TAIL_QK:-0}
+export DSV41_RUNTIME_RAGGED_TAIL_AV=${DSV41_RUNTIME_RAGGED_TAIL_AV:-0}
 export DSV41_RUNTIME_LAYER_SWEEP=${DSV41_RUNTIME_LAYER_SWEEP:-0}
 export DSV41_RUNTIME_BATCHED_DENSE_QMM=${DSV41_RUNTIME_BATCHED_DENSE_QMM:-0}
 export DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES=${DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES:-0}
@@ -71,6 +73,8 @@ printf '%s\n' "checkpoint=$checkpoint" "context=$context" "base_prefill=$((prefi
  "packed_chunk_attention=$DSV41_RUNTIME_PACKED_CHUNK_ATTENTION" \
  "wide_attention=$DSV41_RUNTIME_WIDE_ATTENTION" \
  "fixed_tile_attention=$DSV41_RUNTIME_FIXED_TILE_ATTENTION" \
+ "ragged_tail_qk=$DSV41_RUNTIME_RAGGED_TAIL_QK" \
+ "ragged_tail_av=$DSV41_RUNTIME_RAGGED_TAIL_AV" \
  "layer_sweep=$DSV41_RUNTIME_LAYER_SWEEP" \
  "batched_dense_qmm=$DSV41_RUNTIME_BATCHED_DENSE_QMM" \
  "mlx_cache_limit_bytes=$DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES" \
@@ -88,6 +92,7 @@ shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp 
  tools/benchmark/run_batched_splitk_qk_prefill_measurement.sh \
  tools/benchmark/run_batched_splitk_qk_component_profile.sh \
  tools/benchmark/run_packed_attention_prefill_measurement.sh \
+ tools/benchmark/run_fixed_tile_attention_prefill_measurement.sh \
  tools/benchmark/run_fixed_tile_attention_backbone_check.sh \
  tools/benchmark/run_fixed_tile_attention_isolation_check.sh \
  tools/benchmark/run_fixed_tile_attention_layer_localization.sh \
@@ -108,6 +113,10 @@ shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp 
  src/attention/packed_chunk_attention.hpp.in metal/attention/packed_chunk_attention.metal \
  src/attention/wide_chunk_attention.hpp.in metal/attention/wide_chunk_attention.metal \
  src/attention/packed_attention_worklist.hpp.in metal/attention/packed_attention_worklist.metal \
+ src/attention/ragged_tail_qk.hpp.in metal/attention/ragged_tail_qk.metal \
+ metal/attention/ragged_tail_accum.metal src/attention/ragged_width_one_qk.hpp.in \
+ metal/attention/ragged_width_one_qk.metal metal/attention/gemv_header.metal \
+ src/attention/ragged_tail_av.hpp.in metal/attention/ragged_tail_av.metal \
  metal/attention/steel_attention_header.metal \
  src/attention/index_key.cpp src/attention/index_query.cpp src/attention/shared_attention.cpp src/cache/global_kv.cpp \
  include/dsv41/moe.hpp src/moe/reference.cpp src/moe/expert_bank.cpp \

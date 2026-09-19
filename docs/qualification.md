@@ -1186,6 +1186,32 @@ bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 bash tools/benchmark/run_fixed_tile_attention_isolation_check.sh
 ```
 
+clean production-boundary rerun
+`attention/fixed-tile-layer-localization-20260919-201526-88363`をreview済み。
+revision `40ddbb6`、tracked patch 0 bytes、exit 0、swap 0。layers 0--39の
+production stageはすべてrelative RMS/max/bit mismatchが0、
+`first_gate_failure_layer=-1`、final persistent stateもexactだった。layer 20の
+native-width-one attribution差はreject済み診断graphの値であり、実際に選択されるproduction coreと
+request-boundary graphはbit-exact。この結果でlocalization gateを閉じ、fixed-tile scheduleを
+production full-path candidateへ昇格する。ただし2K wall reviewまではruntime defaultを0に保つ。
+
+次は順序付きでfull-backbone gateと2K測定を行う。前者は2x128 chunk、logits/continuation、route ties、
+persistent state/publication/hash、invalid-request atomicityをragged QK/AV有効のproduction構成で確認する。
+5分程度、Unified Memory上限240 GB、約578 GB logical read-only checkpoint reads、resumeなし。
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_backbone_check.sh
+```
+
+そのartifactをpassとしてreviewした後だけ、2,063-token transactional sweep + 1 decodeを測る。
+5--10分、Unified Memory上限340 GB、約289 GB one-time read-only checkpoint reads、resumeなし。
+結果はcanonical `artifacts/context-ladder/32k-run-日時-PID/`へ保存する。単回runなので反復performance、
+32K、256K qualificationにはしない。
+
+```sh
+bash tools/benchmark/run_fixed_tile_attention_prefill_measurement.sh
+```
+
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh

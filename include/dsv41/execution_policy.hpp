@@ -120,10 +120,10 @@ inline bool runtime_wide_attention_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_WIDE_ATTENTION must be 0 or 1");
 }
 
-// Phase-4 arithmetic bridge: one dense [tokens,512] device plan and ten
-// fixed 64-row tiles replace request-dependent shape groups.  It deliberately
-// keeps the already-qualified split-K QK/BF16-PV reductions while the rejected
-// row-serial fused reduction remains diagnostic-only.
+// Qualified Phase-4 full-path candidate: one dense [tokens,512] device plan,
+// ten fixed 64-row tiles, and one device-selected request-boundary graph
+// replace request-dependent shape groups. It stays opt-in until its isolated
+// 2K production measurement is reviewed.
 inline bool runtime_fixed_tile_attention_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_FIXED_TILE_ATTENTION");
  if(value==nullptr||std::string_view(value)=="0") return false;
@@ -140,8 +140,9 @@ inline bool runtime_fixed_tile_attention_diagnostics_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_FIXED_TILE_ATTENTION_DIAGNOSTICS must be 0 or 1");
 }
 
-// Phase-4 fixed-topology correction: preserve native Steel short-N QK
-// reductions through three device-side width classes without host grouping.
+// Qualified fixed-topology corrections preserve native short-N reductions
+// through device-side width classes without host grouping. Production
+// fixed-tile measurement requires both QK and AV switches.
 inline bool runtime_ragged_tail_qk_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_RAGGED_TAIL_QK");
  if(value==nullptr||std::string_view(value)=="0") return false;
