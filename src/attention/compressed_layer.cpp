@@ -169,7 +169,6 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
    if(trace_arithmetic)trace_record(trace_prefix+"attn_inverse_rope",o);
    auto projected=mx::matmul(mx::reshape(o,{8,1,4096}),mx::transpose(grouped_,{0,2,1}));
    auto projected_row=mx::reshape(projected,{1,8192});
-   if(trace_arithmetic)trace_record(trace_prefix+"attn_grouped",projected_row);
    projected_rows.push_back(projected_row);
   }
   next.window_=window;next.publication_=publication;

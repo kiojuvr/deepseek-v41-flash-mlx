@@ -797,6 +797,16 @@ trace prefix for layer 20. Its preceding layer 0--20 aggregate values repeated
 the clean run, but the attempt is failed and carries no new semantic result.
 The reporter now selects encoder/decoder ownership from the layer number.
 
+The corrected-prefix attempt
+`attention/fixed-tile-layer-localization-20260919-150155-85601` reached the new
+layer-20 core boundary. qr, q, and kv were bit exact; attention core first
+differed at RMS `4.03974e-05` with 1,425 BF16 mismatches, and inverse RoPE
+preserved the same difference. The run then stopped because the serial trace
+recorded `attn_grouped` both per token and at the common exit, doubling only
+the oracle shape. That duplicate observation is removed. The failed run does
+not qualify the remaining stages, but it confines the decoder residual to the
+attention core rather than its projections.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```

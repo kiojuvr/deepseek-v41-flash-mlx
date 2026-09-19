@@ -1146,6 +1146,12 @@ layer 20 reporterがencoder prefixを固定参照したため新規inner-stage�
 aggregate値は前runを再現したが、このfailed runから新しいsemantic結論は出さない。reporterは
 layer ownershipに応じてencoder/decoder prefixを選択するよう修正した。
 
+prefix修正後のrun `attention/fixed-tile-layer-localization-20260919-150155-85601`はlayer 20
+coreまで到達した。qr/q/kvはbit-exact、attn coreでRMS `4.03974e-05`、1,425 BF16差が初めて発生し、
+inverse RoPEでも同じ差だった。その後serial oracleだけが`attn_grouped`をtoken内と共通出口で二重記録し、
+shape mismatchで停止した。重複観測は除去した。このfailed runは後段をqualifyしないが、decoder残差を
+projection前のattention coreへ限定する。
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \
