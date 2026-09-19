@@ -872,3 +872,15 @@ bash tools/benchmark/run_fixed_tile_attention_backbone_check.sh
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_prefill_measurement.sh
 ```
+
+The production full-backbone run
+`attention/fixed-tile-backbone-20260919-203130-89172` passed at clean revision
+`1b26648` with an empty tracked patch, exit status zero, and no swap. Hidden,
+pre-mix, and logits were bit exact in both 128-token chunks; route ties,
+persistent state/publication/hash, continuation, and invalid-token atomicity
+were exact. Telemetry showed 76 fixed-tile operations, 760 batched split-K QK
+calls, and zero scalar QK calls. Peak MLX allocation was 158,284,371,083 bytes
+and peak footprint was 166,793,032,328 bytes. The 172.25-second wall includes
+both oracle and candidate and is not a performance observation. This closes
+the production full-path gate and authorizes the prepared 2K measurement while
+leaving the runtime default disabled pending review.

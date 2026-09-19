@@ -1212,6 +1212,16 @@ bash tools/benchmark/run_fixed_tile_attention_backbone_check.sh
 bash tools/benchmark/run_fixed_tile_attention_prefill_measurement.sh
 ```
 
+production full-backbone artifact
+`attention/fixed-tile-backbone-20260919-203130-89172`をreview済み。clean
+`1b26648`、tracked patch 0 bytes、exit 0、swap 0。2つの128-token chunkでhidden、pre-mix、
+logitsがbitwise exact、route ties、persistent state/publication/hash、continuation、
+invalid-token atomicityもexactだった。fixed-tile calls 76、batched split-K QK calls 760、
+packed/wide calls 0、scalar QK calls 0。peak MLX 158,284,371,083 bytes、最大RSS
+160,446,562,304 bytes、peak footprint 166,793,032,328 bytes。172.25秒はoracleとcandidateを
+両方実行するcorrectness gate wallでありperformance値ではない。この結果でproduction full-path
+gateを閉じ、上記2K measurementを解禁する。測定結果をreviewするまではruntime defaultを0に保つ。
+
 ```sh
 cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
 bash tools/benchmark/run_omlx_prefill_dispatch_audit.sh

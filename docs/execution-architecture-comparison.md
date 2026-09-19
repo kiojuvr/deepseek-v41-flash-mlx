@@ -988,3 +988,16 @@ bash tools/benchmark/run_fixed_tile_attention_backbone_check.sh
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_prefill_measurement.sh
 ```
+
+The production full-backbone artifact
+`attention/fixed-tile-backbone-20260919-203130-89172` passed cleanly at
+revision `1b26648`, with an empty tracked patch, exit status zero, and no swap.
+Both 128-token chunks were bit exact for hidden state, pre-mix, and logits;
+route ties, persistent state/publication/hash, continuation, and invalid-token
+atomicity were exact. The selected topology recorded 76 fixed-tile operations,
+760 batched split-K QK calls, zero packed/wide operations, and zero scalar QK
+calls. Peak MLX allocation was 158,284,371,083 bytes, maximum RSS was
+160,446,562,304 bytes, and peak footprint was 166,793,032,328 bytes. Its
+172.25-second oracle-plus-candidate wall is a correctness-gate cost, not a
+performance value. The isolated 2K production measurement is now authorized;
+the runtime default remains off until that result is reviewed.
