@@ -830,6 +830,16 @@ valid differs from its compact two-row form at RMS `9.87334e-05`, while the
 all-live 129-row padding case stays exact. The next diagnostic substitutes the
 compact form for token 0 in the trace only; it does not alter production.
 
+The follow-up trace
+`attention/fixed-tile-layer-localization-20260919-195319-87353` made that
+compact token-0 candidate bit exact. The original core, native-QK candidate,
+and native-AV candidate remained unchanged, so the block-combination topology
+is now confirmed rather than inferred. The production candidate expresses the
+correction as one fixed two-row request-boundary graph selected from device
+metadata only when width one is valid. It performs no width readback and no
+host token loop. A short token-zero boundary fixture is bit exact; the next
+40-layer localization is still required before promotion.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```

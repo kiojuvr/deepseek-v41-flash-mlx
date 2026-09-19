@@ -163,7 +163,7 @@ PackedAttentionWorkList swa_packed_attention_work_list(const mx::array& local,
                                 fixed_window?1:0},mx::int32)},
                     {{tokens,rows,512},{tokens,rows},{tokens}},{mx::bfloat16,mx::bool_,mx::int32},
                     {512,rows,tokens},{32,1,1},{},std::nullopt,false,mx::Device::gpu);
- return {result[0],result[1],result[2]};
+ return {result[0],result[1],result[2],fixed_window&&start==0};
 }
 mx::array swa_fixed_tile_attention_chunk(const mx::array& q,const mx::array& local,
  const mx::array& pooled_values,const mx::array& pooled_scales,const mx::array& topk,
@@ -207,6 +207,23 @@ mx::array swa_attention_masked_reference(const mx::array& q,const mx::array& kv,
  return mx::astype(mx::divide(accumulated,denominator),mx::bfloat16);
 }
 namespace {
+mx::array swa_attention_request_boundary_pair(const mx::array& q,const mx::array& kv,
+ const mx::array& sink,const mx::array& valid){
+ auto qf=mx::reshape(mx::astype(q,mx::float32),{64,512});
+ auto mask=mx::reshape(valid,{2});
+ auto keys=mx::where(mx::expand_dims(mask,-1),
+  mx::reshape(mx::astype(kv,mx::float32),{2,512}),mx::array(0.0f));
+ auto scores=mx::multiply(mx::matmul(qf,mx::transpose(keys)),
+                          mx::array(float(std::pow(512.0,-0.5))));
+ scores=mx::where(mask,scores,mx::array(-std::numeric_limits<float>::infinity()));
+ auto maximum=mx::maximum(mx::full({64,1},-1e30f,mx::float32),mx::max(scores,-1,true));
+ auto exponent=mx::exp(mx::subtract(scores,maximum));
+ auto denominator=mx::add(mx::sum(exponent,-1,true),
+  mx::exp(mx::subtract(mx::expand_dims(sink,-1),maximum)));
+ auto rounded=mx::astype(mx::astype(exponent,mx::bfloat16),mx::float32);
+ return mx::expand_dims(mx::astype(mx::divide(mx::matmul(rounded,keys),denominator),
+                                    mx::bfloat16),0);
+}
 mx::array swa_attention_masked_chunk_impl(const mx::array& q,const mx::array& kv,
  const mx::array& sink,const mx::array& valid,const mx::array* tail_widths,bool ragged_av,
  bool native_width_one_qk=false,bool native_width_one_av=false){
@@ -330,7 +347,25 @@ mx::array swa_attention_masked_chunk(const mx::array& q,const mx::array& kv,
 }
 mx::array swa_attention_fixed_tile_core(const mx::array& q,
  const PackedAttentionWorkList& work,const mx::array& sink,bool ragged_av){
- return swa_attention_masked_chunk_impl(q,work.ordered,sink,work.valid,&work.widths,ragged_av);
+ auto fixed=swa_attention_masked_chunk_impl(q,work.ordered,sink,work.valid,&work.widths,ragged_av);
+ if(!work.request_boundary)return fixed;
+ // At the request boundary token zero has one local row in slot 127.  Once
+ // pooled attention is available its sole selected row is slot 128.  The
+ // token-serial contract reduces those two logical rows together; treating
+ // them as separate fixed 64-row blocks changes online-softmax rounding.
+ // Compute this one constant boundary class and select it on device only when
+ // the work-list width is one.  There is no selected-width readback or token
+ // loop, and every non-boundary token retains the ten fixed tiles.
+ auto compact=swa_attention_request_boundary_pair(
+  mx::slice(q,{0,0,0},{1,64,512}),
+  mx::slice(work.ordered,{0,127,0},{1,129,512}),sink,
+  mx::slice(work.valid,{0,127},{1,129}));
+ auto use_compact=mx::reshape(mx::logical_and(
+  mx::equal(mx::slice(work.widths,{0},{1}),mx::array(1,mx::int32)),
+  mx::slice(work.valid,{0,128},{1,129})),{1,1,1});
+ auto first=mx::where(use_compact,compact,mx::slice(fixed,{0,0,0},{1,64,512}));
+ if(q.shape(0)==1)return first;
+ return mx::concatenate({first,mx::slice(fixed,{1,0,0},{q.shape(0),64,512})},0);
 }
 FixedTileWidthOneDiagnostics swa_attention_fixed_tile_width_one_diagnostics(
  const mx::array& q,const PackedAttentionWorkList& work,const mx::array& sink,bool ragged_av){

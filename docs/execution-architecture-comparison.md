@@ -941,6 +941,18 @@ all-live 129-to-640 fixture remains bit exact. The next trace substitutes a
 single compact two-row reduction for token 0 only. This is attribution-only;
 production arithmetic and enablement remain unchanged.
 
+That compact attribution was confirmed by
+`attention/fixed-tile-layer-localization-20260919-195319-87353`: the layer-20
+`attn_core_compact_token0` candidate was bit exact while the unchanged fixed
+core and both native width-one substitutions retained all 1,425 differences.
+The production candidate now carries request-boundary status as host-known
+work-list metadata and adds one constant `[64,2]` QK/softmax/AV graph. A device
+predicate selects it only when token 0 has selected width one and its pooled
+row is valid. No selected-width readback or host token loop is introduced;
+tokens 1--127 keep the ten-tile schedule. The bounded token-zero fixture is
+bit exact. Full-layer semantics remain gated on the next official localization
+run, and fixed-tile attention remains disabled meanwhile.
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \

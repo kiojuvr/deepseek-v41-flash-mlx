@@ -160,6 +160,23 @@ int main(int argc,char** argv){try{
   rms_report(candidate,mx::concatenate(reference,0),"packed fused attention pooled fixture");
   wide=dsv41::swa_wide_attention_chunk(q,local,pooled.packed,pooled.scales,selected,sink,8,4);
   rms_report(wide,mx::concatenate(reference,0),"wide fused attention pooled fixture");
+  auto boundary_plan=mx::concatenate({selected,mx::broadcast_to(
+   mx::array(-1,mx::int32),{2,511})},1);
+  auto boundary_work=dsv41::swa_packed_attention_work_list(
+   local,pooled.packed,pooled.scales,boundary_plan,0,1,512,true);
+  reference.clear();
+  for(int token=0;token<2;++token){
+   auto ordered=mx::concatenate({mx::slice(local,{0,0},{token+1,512}),pooled.decoded},0);
+   reference.push_back(mx::expand_dims(dsv41::swa_attention_masked_reference(
+    mx::reshape(mx::slice(q,{token,0,0},{token+1,64,512}),{64,512}),ordered,sink,
+    mx::ones({ordered.shape(0)},mx::bool_)),0));
+  }
+  auto boundary_candidate=dsv41::swa_attention_fixed_tile_core(q,boundary_work,sink,true);
+  auto boundary_reference=mx::concatenate(reference,0);
+  equal(mx::slice(boundary_candidate,{0,0,0},{1,64,512}),
+        mx::slice(boundary_reference,{0,0,0},{1,64,512}),
+        "fixed-tile token-zero boundary class mismatch");
+  rms_report(boundary_candidate,boundary_reference,"fixed-tile request-boundary fixture");
   auto class_source=mx::astype(mx::reshape(mx::sin(mx::arange(65*512,mx::float32)),{65,512}),mx::bfloat16);
   auto class_pooled=dsv41::kv_quant_reference(class_source,dsv41::KVQuantFormat::MainE4M3);
   auto class_local=mx::astype(mx::reshape(mx::cos(mx::arange(128*512,mx::float32)),{128,512}),mx::bfloat16);

@@ -198,10 +198,12 @@ int main(int argc,char** argv){try{
               <<" last_width="<<last_width.item<std::int32_t>()<<std::endl;
     }
    }
+   if(first_layer<0)full_state_same(actual_state,expected_state);
    std::cout<<"PASS: fixed-tile layer localization completed; first_gate_failure_layer="
             <<first_layer<<" first_gate_failure_stage="<<(first_layer<0?"none":first_stage)
             <<" first_gate_failure_rms="<<first_rms
-            <<"; final state equality intentionally not asserted after semantic divergence; diagnostic only"<<std::endl;
+            <<(first_layer<0?"; final state equality asserted":"; final state equality not asserted after semantic divergence")
+            <<"; diagnostic only"<<std::endl;
    return 0;
   }
   if(std::getenv("DSV41_CHECK_LAYER_SWEEP_BACKBONE")){

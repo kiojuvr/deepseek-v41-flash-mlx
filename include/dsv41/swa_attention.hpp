@@ -4,6 +4,7 @@
 namespace dsv41 {
 struct PackedAttentionWorkList {
  mlx::core::array ordered,valid,widths;
+ bool request_boundary=false;
 };
 struct AttentionTailDiagnostics {
  mlx::core::array padded_qk,padded_av;

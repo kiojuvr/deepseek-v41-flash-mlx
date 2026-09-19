@@ -1168,6 +1168,14 @@ slot 127とpooled slot 128の2行だけであり、serial oracleではcompactな
 次のtraceはtoken 0だけcompact 2-row reductionへ置換してattributionする。production arithmeticと
 fixed-tile enablementは変更しない。
 
+follow-up `attention/fixed-tile-layer-localization-20260919-195319-87353`では、layer 20の
+`attn_core_compact_token0`がRMS/max/bit mismatchすべて0となり、元coreとnative QK/AV置換は
+1,425差のままだった。原因はblock間online-softmax合成順序で確定した。production候補は
+request-boundaryをhost-known work-list metadataとして保持し、固定`[64,2]` QK/softmax/AV graphを1個だけ
+追加する。width 1かつpooled row有効の判定はdevice上で行い、selected-width readbackとhost token loopは
+追加しない。token 1–127は従来の10 tile scheduleを維持する。短いtoken-zero fixtureはbit-exactだが、
+次の40-layer localization確認までfixed-tile attentionは未qualified・disabledのままである。
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \
