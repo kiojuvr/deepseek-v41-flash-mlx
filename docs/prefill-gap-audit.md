@@ -807,6 +807,17 @@ the oracle shape. That duplicate observation is removed. The failed run does
 not qualify the remaining stages, but it confines the decoder residual to the
 attention core rather than its projections.
 
+The complete decoder trace
+`attention/fixed-tile-layer-localization-20260919-151442-85887` confirmed that
+boundary. Layer 20 qr/q/kv were bit exact; core RMS was `4.03974e-05` with
+1,425 BF16 mismatches, inverse RoPE preserved it, grouped projection raised it
+to `0.000159245`, and output linear to `0.000536897`. Exactly one core token
+differed: token 0 with selected width one. Layer 21 then amplified inherited
+input differences and crossed the gate. The next unchanged-run diagnostic
+substitutes native scalar width-one QK and AV independently at layer 20, as was
+done for layer 3, to attribute the decoder producer residual without changing
+production arithmetic.
+
 ```sh
 bash tools/benchmark/run_fixed_tile_attention_layer_localization.sh
 ```

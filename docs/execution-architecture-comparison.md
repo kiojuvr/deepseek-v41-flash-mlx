@@ -919,6 +919,14 @@ now receive the same internal arithmetic trace used for layers 3 and 4, plus
 layer-20 mismatch-token selected widths. This diagnostic does not change the
 fixed schedule or qualify the full backbone.
 
+The completed trace `attention/fixed-tile-layer-localization-20260919-151442-85887`
+found one originating decoder token: layer 20 token 0, selected width one.
+Layer-20 qr/q/kv were exact and the first difference was the attention core
+(RMS `4.03974e-05`, 1,425 BF16 values); projection stages amplified it before
+layer 21 crossed the gate. The next diagnostic independently substitutes the
+native scalar width-one QK and AV at this same layer-20 input. It remains an
+attribution graph and does not add a production host loop.
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \

@@ -194,6 +194,12 @@ mx::array CompressedLayerReference::forward_chunk(const mx::array& h,CompressedL
     q,fixed_work,sink_,runtime_ragged_tail_av_enabled()):
     swa_attention_masked_chunk(q,fixed_work.ordered,sink_,fixed_work.valid);
    attention_groups.push_back(fixed_output);
+   if(trace_arithmetic&&runtime_ragged_tail_qk_enabled()){
+    auto diagnostic=swa_attention_fixed_tile_width_one_diagnostics(
+     q,fixed_work,sink_,runtime_ragged_tail_av_enabled());
+    trace_record(trace_prefix+"attn_core_native_width1_qk",diagnostic.native_qk);
+    trace_record(trace_prefix+"attn_core_native_width1_av",diagnostic.native_av);
+   }
    if(runtime_fixed_tile_attention_diagnostics_enabled()){
     const auto production_telemetry=read_attention_telemetry();
     std::vector<mx::array> exact_outputs,content_outputs,qk_padded_outputs,av_padded_outputs;

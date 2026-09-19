@@ -1152,6 +1152,13 @@ inverse RoPEでも同じ差だった。その後serial oracleだけが`attn_grou
 shape mismatchで停止した。重複観測は除去した。このfailed runは後段をqualifyしないが、decoder残差を
 projection前のattention coreへ限定する。
 
+complete decoder trace `attention/fixed-tile-layer-localization-20260919-151442-85887`では、
+layer 20 qr/q/kvがbit-exact、core RMS `4.03974e-05`・1,425 BF16差、inverse RoPEは同じ差、
+grouped RMS `0.000159245`、linear RMS `0.000536897`だった。core差はtoken 0の1件だけでselected
+widthは1。layer 21は継承した入力差を増幅してgateを超えた。次の同一runnerはlayer 20実入力で
+native scalar width-one QK/AVを別々に置換し、production arithmeticを変えずにdecoder producer残差を
+attributionする。
+
 ```sh
 DSV41_RUNTIME_RAGGED_TAIL_QK=1 \
 DSV41_RUNTIME_RAGGED_TAIL_AV=1 \

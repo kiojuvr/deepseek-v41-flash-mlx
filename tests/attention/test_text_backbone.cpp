@@ -172,7 +172,7 @@ int main(int argc,char** argv){try{
      for(const char* stage:{"attn_qr","attn_q","attn_kv","attn_core",
                             "attn_inverse_rope","attn_grouped","attn_linear"})
      report_stage(layer,stage);
-    if(layer==3){
+    if(layer==3||layer==20){
      for(const char* stage:{"attn_core_native_width1_qk","attn_core_native_width1_av"})
       report_stage(layer,stage,"attn_core");
     }
