@@ -13,15 +13,15 @@ GenerationResult TextGenerationReference::generate(std::span<const std::uint32_t
   throw std::runtime_error("generation requires a finite nonnegative temperature");
  if(const auto limit=runtime_effective_mlx_cache_limit_bytes(prompt.size()+max_new_tokens);limit)
   mx::set_cache_limit(limit);
+ const bool sweep=runtime_layer_sweep_enabled();
+ if(sweep&&(!runtime_packed_expert_bank_enabled()||runtime_group_selected_experts_enabled()))
+  throw std::runtime_error(
+   "layer sweep requires packed expert bank enabled and selected grouping disabled");
  std::optional<TextBackboneState> state;
  std::optional<mx::array> last;
  std::uint64_t rng=config.seed;
  return run_generation_loop(prompt.size(),max_new_tokens,stop_ids,control,[&]{
   state.emplace(metadata_);
-  const bool sweep=runtime_layer_sweep_enabled();
-  if(sweep&&(!runtime_packed_expert_bank_enabled()||runtime_group_selected_experts_enabled()))
-   throw std::runtime_error(
-    "layer sweep requires packed expert bank enabled and selected grouping disabled");
   std::optional<BlockResult> prefill;
   // The oracle keeps its 128-token request schedule. The opt-in sweep can hold
   // one 16K encoder-only frontier and finish it with a later >=8K sweep, then returns to
@@ -50,7 +50,8 @@ GenerationResult TextGenerationReference::generate(std::span<const std::uint32_t
  },[&]{return sample_reference(*last,config.temperature,rng);},
  [&](std::uint32_t token,std::uint64_t position){
   const std::array<std::uint32_t,1> one{token};
-  auto out=model_.forward(std::span<const std::uint32_t>(one),*state,position);
+  auto out=sweep?model_.forward_packed_sweep(one,*state,position):
+                 model_.forward(std::span<const std::uint32_t>(one),*state,position);
   auto step_logits=model_.logits(out);
   last=mx::slice(step_logits,{0,0},{1,129280});
  });

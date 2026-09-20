@@ -1,4 +1,6 @@
 #include "dsv41/text_decoder.hpp"
+#include "dsv41/sweep_telemetry.hpp"
+#include "dsv41/execution_policy.hpp"
 #include "dsv41/model_entry.hpp"
 #include "dsv41/layer_owner.hpp"
 #include "dsv41/runtime_profile.hpp"
@@ -56,13 +58,16 @@ BlockResult TextDecoderReference::forward_packed_sweep(const mx::array& h,const 
   throw std::runtime_error("invalid packed decoder sweep input/state");
  for(const auto& s:state.reuse)if(s.position()!=start)throw std::runtime_error("invalid packed decoder sweep reuse position");
  auto next=state;BlockResult out{h,pre};const std::size_t tokens=h.shape(0);
+ const bool defer_layers=runtime_defer_decode_layer_eval(tokens);
  auto tile_input=[&](std::size_t offset,std::size_t count){
   return BlockResult{
    mx::slice(out.hidden,{int(offset),0,0},{int(offset+count),4,5120}),
    mx::slice(out.pre_mix,{int(offset),0},{int(offset+count),4})};
  };
  auto materialize=[&](std::vector<mx::array>& hidden,std::vector<mx::array>& pre_mix){
-  out={mx::concatenate(hidden,0),mx::concatenate(pre_mix,0)};mx::eval(out.hidden,out.pre_mix);
+  out={mx::concatenate(hidden,0),mx::concatenate(pre_mix,0)};
+  if(!defer_layers)mx::eval(out.hidden,out.pre_mix);
+  record_sweep_layer(defer_layers);
  };
  auto run_producer=[&](int layer,const auto& block,auto& layer_state,
                        std::vector<SharedAttentionReference>& publications){
@@ -104,6 +109,7 @@ BlockResult TextDecoderReference::forward_packed_sweep(const mx::array& h,const 
  for(int layer=21;layer<40;++layer){
   const int slot=reuse_slot(layer);run_reuse(layer,*reuse_[slot],next.reuse[slot],publications);
  }
+ if(defer_layers){mx::eval(out.hidden,out.pre_mix);record_sweep_stack();}
  next.producer.publication()=publications.back();state=std::move(next);return out;
 }
 void TextDecoderReference::prepare_deferred_prefix(const mx::array& h,const mx::array& pre,

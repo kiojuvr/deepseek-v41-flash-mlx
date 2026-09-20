@@ -97,6 +97,44 @@ int main(int argc,char** argv){try{
  if(dsv41::sha256_text(raw)!=proof.at("fixture_sha256").at("metadata.json").get<std::string>())throw std::runtime_error("Engram metadata identity mismatch");
  std::cout<<"Loading full backbone layers 0..39 on-demand experts and Engram 1/14 mmap backing"<<std::endl;
  dsv41::TextBackboneReference model(c,metadata);
+ if(std::getenv("DSV41_CHECK_DECODE_STACK_GRAPH")){
+  if(!dsv41::runtime_resident_expert_atlas_enabled())throw std::runtime_error("decode graph gate requires resident atlas");
+  dsv41::TextBackboneState baseline(metadata),candidate(metadata);
+  std::vector<std::uint32_t> prompt(129);
+  for(std::size_t i=0;i<prompt.size();++i)prompt[i]=std::uint32_t((i*7919)%129263);
+  setenv("DSV41_RUNTIME_DECODE_STACK_GRAPH","0",1);
+  model.forward_packed_sweep(prompt,baseline,0);candidate=baseline;
+  for(std::uint64_t pos=129;pos<133;++pos){
+   const std::array<std::uint32_t,1> token{std::uint32_t(pos*17)};
+   setenv("DSV41_RUNTIME_DECODE_STACK_GRAPH","0",1);
+   auto expected=model.forward_packed_sweep(token,baseline,pos);
+   setenv("DSV41_RUNTIME_DECODE_STACK_GRAPH","1",1);
+   auto actual=model.forward_packed_sweep(token,candidate,pos);
+   same(actual.hidden,expected.hidden,"decode graph hidden");
+   same(actual.pre_mix,expected.pre_mix,"decode graph pre-mix");
+   same(model.logits(actual),model.logits(expected),"decode graph logits");
+   state_same(candidate,baseline);
+   if(candidate.revision()!=baseline.revision())throw std::runtime_error("decode graph revision mismatch");
+   auto publication_same=[&](const auto& a,const auto& b,int consumer){
+    const auto& p=*a.publication();const auto& q=*b.publication();
+    if(p.source_layer()!=q.source_layer()||p.index_source_layer()!=q.index_source_layer())
+     throw std::runtime_error("decode graph publication source mismatch");
+    bytes(p.device_indices(consumer,pos,128),q.device_indices(consumer,pos,128),"decode graph indices");
+    bytes(p.device_candidates(),q.device_candidates(),"decode graph candidates");
+   };
+   for(int i=0;i<3;++i)publication_same(candidate.encoder.producer[i],baseline.encoder.producer[i],3+6*i);
+   publication_same(candidate.decoder.producer,baseline.decoder.producer,39);
+  }
+  auto saved=candidate;const std::array<std::uint32_t,1> invalid{129264};bool rejected=false;
+  try{model.forward_packed_sweep(invalid,candidate,133);}catch(const std::exception&){rejected=true;}
+  if(!rejected||candidate.revision()!=saved.revision())throw std::runtime_error("decode graph invalid request atomicity");
+  state_same(candidate,saved);
+  auto ah=candidate.encoder.hash,bh=baseline.encoder.hash;
+  const std::array<std::uint32_t,1> suffix{42};
+  if(ah.append(suffix,{},133)!=bh.append(suffix,{},133))throw std::runtime_error("decode graph hash mismatch");
+  std::cout<<"PASS: decode stack graph hidden/pre-mix/logits/state/publication/hash/revision and invalid request atomicity; no performance qualification"<<std::endl;
+  return 0;
+ }
  if(std::getenv("DSV41_CHECK_LAYER_MAJOR_BACKBONE")){
   const bool compact_check=std::getenv("DSV41_CHECK_COMPACT_LAYER_MAJOR_BACKBONE")!=nullptr;
   const bool chunk_attention_check=std::getenv("DSV41_CHECK_CHUNK_ATTENTION_BACKBONE")!=nullptr;

@@ -4,6 +4,7 @@
 #include "dsv41/text_backbone.hpp"
 #include "dsv41/attention_telemetry.hpp"
 #include "dsv41/runtime_profile.hpp"
+#include "dsv41/sweep_telemetry.hpp"
 #include <mlx/mlx.h>
 #include <algorithm>
 #include <array>
@@ -189,6 +190,7 @@ int main(int argc,char** argv) { try {
   {"packed_expert_bank",dsv41::runtime_packed_expert_bank_enabled()},
   {"resident_expert_atlas",dsv41::runtime_resident_expert_atlas_enabled()},
   {"compact_expert_bank",dsv41::runtime_compact_expert_bank_enabled()},
+  {"grouped_expert_pipeline",dsv41::runtime_grouped_expert_pipeline_enabled()},
   {"route_diagnostics",dsv41::runtime_route_diagnostics_enabled()},
   {"index_diagnostics",dsv41::runtime_index_diagnostics_enabled()},
   {"chunk_attention",dsv41::runtime_chunk_attention_enabled()},
@@ -333,6 +335,7 @@ int main(int argc,char** argv) { try {
   {"teacher_continuation_seconds",teacher_seconds},
   {"teacher_continuation_tokens_per_second",teacher/teacher_seconds}};
 
+ const auto decode_profile_before=dsv41::read_runtime_profile();
  auto first_started=Clock::now();
  auto logits=model.logits(*last); mx::eval(logits); mx::synchronize();
  auto finite_logits=mx::all(mx::isfinite(logits)); mx::eval(finite_logits);
@@ -363,6 +366,9 @@ int main(int argc,char** argv) { try {
   {"max_seconds",maximum},
   {"generated_token_ids",generated},{"state_position",prefill+decode-1},{"next_position",context},
   {"memory",memory()}};
+ if(dsv41::runtime_component_profile_enabled())
+  report["phases"]["decode"]["runtime_component_profile"]=profile_delta(
+   decode_profile_before,dsv41::read_runtime_profile());
  if(dsv41::runtime_resident_expert_atlas_enabled()&&!dsv41::runtime_route_diagnostics_enabled()){
   const auto route_stats=dsv41::route_execution_stats();
   const auto expert_stats=dsv41::expert_bank_io_stats();
@@ -372,6 +378,12 @@ int main(int argc,char** argv) { try {
    throw std::runtime_error("resident route batch did not use expert-major execution");
  }
  report["route_tie_count"]=dsv41::route_tie_count();
+ const auto sweep_stats=dsv41::read_sweep_telemetry();
+ report["decode_stack_graph"]=dsv41::runtime_decode_stack_graph_enabled();
+ report["sweep_telemetry"]={{"layer_evaluations",sweep_stats.layer_evaluations},
+  {"deferred_layer_evaluations",sweep_stats.deferred_layer_evaluations},
+  {"decode_stack_evaluations",sweep_stats.decode_stack_evaluations},
+  {"engram_evaluations",sweep_stats.engram_evaluations}};
  report["packed_expert_bank_constructions"]=dsv41::packed_expert_bank_construction_count();
  report["packed_expert_bank_loaded_experts"]=dsv41::packed_expert_bank_loaded_expert_count();
  auto bank_io=dsv41::expert_bank_io_stats();
@@ -380,6 +392,8 @@ int main(int argc,char** argv) { try {
   {"qmm_rows_total",bank_io.qmm_rows_total},{"qmm_rows_max",bank_io.qmm_rows_max},
   {"expert_major_batches",bank_io.expert_major_batches},
   {"expert_major_assignments",bank_io.expert_major_assignments},
+  {"grouped_pipeline_batches",bank_io.grouped_pipeline_batches},
+  {"grouped_pipeline_assignments",bank_io.grouped_pipeline_assignments},
   {"read_seconds",bank_io.read_seconds},
   {"total_seconds",bank_io.total_seconds}};
  auto route_execution=dsv41::route_execution_stats();

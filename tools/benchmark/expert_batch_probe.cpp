@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstdlib>
 #include <set>
 #include <fstream>
 #include <iostream>
@@ -68,6 +69,27 @@ int main(int argc,char** argv){try{
  same(batch_result.routed,serial_result.routed,"batch routed");
  same(expert_major_result.accumulated,batch_result.accumulated,"expert-major accumulated");
  same(expert_major_result.routed,batch_result.routed,"expert-major routed");
+ auto x1=mx::slice(x,{0,0},{1,5120});
+ std::array<std::uint32_t,6> ids1_data{},slots1_data{};
+ std::copy_n(device_ids.begin(),6,ids1_data.begin());
+ std::copy_n(reduction_slots.begin(),6,slots1_data.begin());
+ auto ids1=mx::array(ids1_data.begin(),{1,6},mx::uint32);
+ auto lhs1=mx::zeros({1,6},mx::uint32);
+ auto slots1=mx::array(slots1_data.begin(),{1,6},mx::uint32);
+ auto weights1=mx::slice(weights,{0,0},{1,6});
+ if(setenv("DSV41_RUNTIME_GROUPED_EXPERT_PIPELINE","0",1)!=0)
+  throw std::runtime_error("cannot disable grouped expert pipeline");
+ auto pipeline_reference=bank.forward_batch_expert_major(x1,ids1,lhs1,slots1,weights1);
+ if(setenv("DSV41_RUNTIME_GROUPED_EXPERT_PIPELINE","1",1)!=0)
+  throw std::runtime_error("cannot enable grouped expert pipeline");
+ auto pipeline_candidate=bank.forward_batch_expert_major(x1,ids1,lhs1,slots1,weights1);
+ if(unsetenv("DSV41_RUNTIME_GROUPED_EXPERT_PIPELINE")!=0)
+  throw std::runtime_error("cannot clear grouped expert pipeline policy");
+ mx::eval(pipeline_reference.accumulated,pipeline_reference.routed,
+          pipeline_candidate.accumulated,pipeline_candidate.routed);mx::synchronize();
+ same(pipeline_candidate.accumulated,pipeline_reference.accumulated,
+      "grouped pipeline accumulated");
+ same(pipeline_candidate.routed,pipeline_reference.routed,"grouped pipeline routed");
  std::set<int> selected_set;
  for(const auto& token_ids:ids)selected_set.insert(token_ids.begin(),token_ids.end());
  std::vector<int> selected(selected_set.begin(),selected_set.end());
@@ -88,6 +110,7 @@ int main(int argc,char** argv){try{
  for(int round=0;round<5;++round)compact_times.push_back(timed(compact_run));
  J report={{"schema_version",1},{"status","probe_completed_requires_review"},{"layer",0},{"tokens",tokens},
   {"routes",tokens*6},{"accumulated_and_routed_bits","exact"},{"expert_major_bits","exact"},
+  {"grouped_pipeline_bits","exact"},
   {"expert_major_order","stable device argsort by expert; canonical expert-ID reduction order"},
   {"serial_median_seconds",median(serial_times)},
   {"batch_median_seconds",median(batch_times)},{"active_bytes",mx::get_active_memory()},

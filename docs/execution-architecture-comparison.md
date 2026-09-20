@@ -1,5 +1,10 @@
 # DeepSeek V4.1 Flash prefill execution architecture comparison
 
+2026-09-21 priority override: [64K production performance](64k-performance.md)
+is the primary milestone. Context qualification beyond 64K is paused. The active
+candidate transfers cross-layer decode graph scheduling from the pinned
+architectures; it remains opt-in and unqualified pending full-path measurement.
+
 Date: 2026-09-17
 
 This note compares execution architecture, not quantization quality or kernel
@@ -1261,3 +1266,108 @@ index diagnostics disabled. The fixed-tile measurement runner is now the
 canonical baseline runner; the packed exact-shape runner remains an explicit
 oracle/comparison fallback. This promotion does not qualify 32K, 256K, API,
 long-decode, or external-oMLX performance.
+
+### Cumulative-turn decode dispatch
+
+The first cumulative 32K session completed all four 8K turns but exposed
+1,008 index host readbacks: each turn's 63 state-advancing decode tokens used
+the old individual `forward` path at four index-source layers. The append
+prefill already retained the fixed-tile/device topology, and the count exactly
+matched `4 turns * 63 tokens * 4 layers`; this is a dispatch-boundary defect,
+not evidence for a new index kernel or cache policy.
+
+The production layer-sweep policy now applies the existing one-token
+`forward_packed_sweep` to decode in both native generation and cumulative
+qualification. This is the same device-resident route/index publication path
+already used by the canonical context ladder. Explicit reference policy keeps
+the individual path. Promotion remains pending a fresh 32K cumulative rerun
+with zero host readbacks and exact turn positions/generated IDs against the
+completed rejected attempt; 64K is not qualified by this change alone.
+
+The fresh 32K cumulative rerun closed that gate. All 256 generated IDs and
+turn positions were exact against the rejected run, while route and index host
+readbacks both fell to zero. Scalar QK/AV stayed zero, the 40 resident banks
+remained model-lifetime, process and system swap deltas were zero, and peak
+footprint was 324.86 GB. Append wall remained flat across the four turns;
+decode mean and p95 drifted only 0.85% and 0.53% from turn one to turn four.
+Aggregate decode time is now the largest cumulative-session wall component,
+but per-token late decode and append scaling do not show a new structural
+break. The unchanged production schedule therefore advances to the explicit
+64K cumulative gate before any new decode or cache-state candidate is opened.
+
+The reviewed 64K cumulative run preserved exact state and overlapping 32K
+generation, device-resident route/index publication, fixed-tile attention,
+zero scalar attention, zero swap, and a 324.75 GB peak footprint. It does not
+pass the performance gate: 1,713.57 of 3,003.07 session seconds were decode,
+while mean decode TPT changed only 0.82% from turn one to turn eight. Append
+wall rose 4.71%, so late-context attention scaling is not the current wall
+driver. Repeating this schedule at 128K would measure a known fixed decode
+cost rather than qualify an architecture.
+
+Pinned oMLX handles one to eight routed tokens with a dedicated grouped-expert
+primitive: one quantized input feeds unevaluated gate/up `GatherQMM` nodes,
+activation, and down projection in one native encoding pipeline. Pinned
+DwarfStar likewise separates a resident one-token decode graph, reuses decode
+scratch, and queues its layer loop across bounded command-buffer drains. The
+current runtime instead reuses its general packed-prefill graph for every
+advancing token. A short decode-local synchronized component profile is now
+the bounded decision gate. Its ratios will determine whether the first
+resident decode plan should collapse MoE encoding/materialization or command
+submission around the wider layer graph; no new attention kernel is justified
+by the cumulative trace itself.
+
+The bounded decode-local profile then attributed 90.56% of synchronized
+component wall to MoE, versus 7.01% to attention and 2.44% to post-MoE. The
+component sum explained 99.50% of layer wall. Its wrapper exit was a gate bug:
+`component_calls` counts one completed attention/MoE/post-MoE triplet per layer
+evaluation, not three individual components. All 280 expected layer/triplet
+calls and the raw result were complete, so no model rerun is needed.
+
+The first opt-in candidate therefore follows oMLX's unsorted one-to-eight-token
+branch without importing a new arithmetic kernel. It keeps the resident atlas
+and device route publication, but bypasses expert-major argsort, reordered
+takes, and inverse-sort for at most eight tokens. The existing canonical route
+order feeds the same three gathered QMMs and route reduction; wider prefill
+batches retain expert-major grouping. A one-layer official-weight probe found
+canonical, expert-major, and token-serial accumulated/routed output bit exact.
+Production remains unchanged pending a fresh-process single-pair full-path
+wall and generation comparison.
+
+That single pair rejected the unsorted branch. Generation, state, topology,
+memory, and swap remained exact, but advancing decode mean rose from 3.30839
+to 3.35916 seconds (+1.53%) and only two of seven tokens won. Prefill also rose
+0.57%. The opt-in implementation and runner were removed without repetition;
+assignment sorting is not the measured MoE wall driver.
+
+The next bounded oMLX transfer shares one official FP8-roundtripped hidden
+input between routed gate/up and shared-expert gate/up for resident one-to-eight
+token execution. The current path redundantly produces that identical input
+three times. Projection, activation, down projection, route reduction, and
+wider prefill topology stay unchanged. A one-layer official-weight probe found
+the shared-input and independently quantized shared-expert outputs bit exact.
+The candidate remains opt-in pending one fresh-process full-path pair.
+
+The shared-input pair also failed to improve decode: advancing mean rose from
+3.35983 to 3.38522 seconds (+0.76%), with three of seven token wins. Exactness,
+topology, memory, and swap gates stayed closed. The implementation and runner
+were removed without repetition; redundant input roundtrips are not the MoE
+wall driver.
+
+The next transfer ports oMLX's native `GroupedExpert` primitive and MIT
+single-pass activation kernel, adapted to this runtime's existing FP8 scale
+floor and E4M3 tie behavior. For resident one-to-eight-token routed MoE, one
+primitive directly encodes gate/up GatherQMM, SwiGLU plus the official FP8
+roundtrip, and down GatherQMM while retaining temporary ownership. Route
+sorting/reduction and the shared expert remain unchanged. An official-weight
+one-layer probe found ordinary and grouped-pipeline accumulated/routed output
+bit exact. Production stays on the ordinary graph pending one full-path pair.
+
+The reviewed full-path pair retained exact generation, state, topology, 40
+resident banks, zero readbacks/scalar attention/swap, and identical peak MLX
+allocation. The candidate executed all 280 advancing-token layer batches.
+Advancing decode mean improved from 3.37207 to 3.35257 seconds (-0.58%), five
+of seven tokens won, and p95 improved 0.59%. This is too small for promotion
+from one pair, but its internally consistent direction admits an alternating
+five-pair gate instead of rejection. The candidate remains opt-in and no
+long-context claim is made until that distribution and every raw log are
+reviewed.

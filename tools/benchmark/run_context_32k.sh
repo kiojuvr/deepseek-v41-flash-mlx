@@ -25,6 +25,7 @@ export DSV41_RUNTIME_PACKED_EXPERT_BANK=${DSV41_RUNTIME_PACKED_EXPERT_BANK:-1}
 export DSV41_RUNTIME_GROUP_SELECTED_EXPERTS=${DSV41_RUNTIME_GROUP_SELECTED_EXPERTS:-0}
 export DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS=${DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS:-1}
 export DSV41_RUNTIME_COMPACT_EXPERT_BANK=${DSV41_RUNTIME_COMPACT_EXPERT_BANK:-0}
+export DSV41_RUNTIME_GROUPED_EXPERT_PIPELINE=${DSV41_RUNTIME_GROUPED_EXPERT_PIPELINE:-0}
 export DSV41_RUNTIME_ROUTE_DIAGNOSTICS=${DSV41_RUNTIME_ROUTE_DIAGNOSTICS:-0}
 export DSV41_RUNTIME_INDEX_DIAGNOSTICS=${DSV41_RUNTIME_INDEX_DIAGNOSTICS:-0}
 export DSV41_RUNTIME_CHUNK_ATTENTION=${DSV41_RUNTIME_CHUNK_ATTENTION:-0}
@@ -70,6 +71,7 @@ printf '%s\n' "checkpoint=$checkpoint" "context=$context" "base_prefill=$((prefi
  "group_selected_experts=$DSV41_RUNTIME_GROUP_SELECTED_EXPERTS" \
  "resident_expert_atlas=$DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS" \
  "compact_expert_bank=$DSV41_RUNTIME_COMPACT_EXPERT_BANK" \
+ "grouped_expert_pipeline=$DSV41_RUNTIME_GROUPED_EXPERT_PIPELINE" \
  "route_diagnostics=$DSV41_RUNTIME_ROUTE_DIAGNOSTICS" \
  "index_diagnostics=$DSV41_RUNTIME_INDEX_DIAGNOSTICS" \
  "chunk_attention=$DSV41_RUNTIME_CHUNK_ATTENTION" \
@@ -110,6 +112,9 @@ shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp 
  tools/benchmark/run_deferred_suffix_backbone_check.sh \
  tools/benchmark/run_deferred_decoder_context_candidate.sh \
  tools/benchmark/run_deferred_decoder_paired_qualification.sh \
+ tools/benchmark/run_decode_component_profile.sh \
+ tools/benchmark/run_grouped_expert_pipeline_candidate.sh \
+ tools/benchmark/run_grouped_expert_pipeline_paired_qualification.sh \
  tools/benchmark/summarize_long_context_regimes.py \
  tools/benchmark/run_layer_sweep_component_profile.sh \
  tools/benchmark/run_layer_component_profile.sh \
@@ -135,7 +140,8 @@ shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp 
  src/attention/ragged_tail_av.hpp.in metal/attention/ragged_tail_av.metal \
  metal/attention/steel_attention_header.metal \
  src/attention/index_key.cpp src/attention/index_query.cpp src/attention/shared_attention.cpp src/cache/global_kv.cpp \
- include/dsv41/moe.hpp src/moe/reference.cpp src/moe/expert_bank.cpp \
+ include/dsv41/moe.hpp include/dsv41/moe_pipeline.hpp src/moe/reference.cpp \
+ src/moe/expert_bank.cpp src/moe/grouped_expert_pipeline.cpp \
  metal/moe/route_select.metal metal/moe/route_reduce.metal \
  include/dsv41/sampling.hpp src/model/sampling.cpp \
  "$run_dir/prompt.txt" "$pattern" tools/reference/expand_token_pattern.py \

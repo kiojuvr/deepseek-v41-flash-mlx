@@ -1,5 +1,10 @@
 # Qualification contract
 
+Current priority (2026-09-21): practical 64K production performance. The
+128K / 200K / 256K cumulative ladder is paused. See
+[64K performance](64k-performance.md) for the frozen baseline and active
+structural candidate. This supersedes historical next-stage recommendations.
+
 状態: M1の[checkpoint atlas / integrity検証](checkpoint-atlas.md)が完了。本runtimeのnumerical / performance qualificationは未達。2026-09-13にユーザー報告のomlx v0.7.0.dev2を外部性能baselineとして採用した。同条件の比較runは未実行。[改訂計画](omlx-baseline.md)を適用する。
 
 2026-09-14時点で、修正版native pathはencoder 0..19、decoder 20..39、Engram、final collapse/norm/headを接続し、実token IDからlogitsまでの継続・fork/reset・不正token契約を通過した。layer-0 MoEの独立CPU比較は、expert出力のBF16 cast境界とexpert ID昇順加算を合わせた後、59要素の局所差（最大 `0.0009765625`）まで縮小している。M2は公式CUDAとのbit一致ではなく、[MLX reference着地点](correctness.md)に定義したcanonical referenceとnative pathの同一backend exactnessを判定する。長文qualification、API接続、公式実装との差分資料はM3以降の独立gateとして保持する。
@@ -1671,3 +1676,218 @@ no-environment production defaultはいずれも4 token `361 362 1990 295`、nex
 contractは完了した。両policyはno-environment production defaultであり、明示的
 `DSV41_RUNTIME_DEFERRED_DECODER=0`と`DSV41_RUNTIME_DEFERRED_DECODER_CLEAR_CACHE=0`はfull-decoder
 comparison/oracle fallbackとして残る。16K以下はschedule条件により従来のfull decoderを維持する。
+
+### Cumulative session and 64K entry gate (2026-09-20)
+
+既存context-ladderは単一prompt、teacher continuation、連続decodeの測定であり、複数のagent-style turnを
+同一persistent stateへ累積するworkloadを代替しない。専用runnerは各turnを追記prefillと64-token greedy
+decodeに分け、最後の生成tokenを次turnの入力先頭でcommitする。これにより各turn境界で全persistent stateの
+position、revision、生成列、追記wall、first/tail decode TPT、attention/index topology、MLX memoryを記録する。
+session終了後はstate reset前後とidle allocator cache clear後のmemoryも記録する。cache clearは測定終了後だけで、
+session中のproduction lifecycleを変更しない。
+
+次のstage-resumable runnerをユーザーが実行する。長時間runなのでagentは自動起動しない。
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_cumulative_long_context_qualification.sh
+```
+
+scopeは8,128 deterministic fixture token + 64 decode tokenを1 turnとして、32Kを4 turn、64Kを8 turnで累積する。
+1 modelずつ逐次実行し、checkpointはread-only、Unified Memory上限340 GB、想定25--75分。
+rootは`artifacts/context-ladder/cumulative-long-日時-PID/`。失敗時は表示rootを
+`DSV41_CUMULATIVE_QUAL_DIR`へ渡すと完了stageをskipし、失敗stageだけfresh processで再実行する。
+partial session stateはresumeしない。集約`summary.json`はgateを機械検査するがqualificationを宣言しない。
+各result/resource/config/identityを読み、exact position、finite output、
+40 resident banks、host diagnostic/scalar attention 0、swap 0、peak footprint上限、turn後半のTPT drift、
+compression/decompression、reset/cache-clear recoveryを確認するまで32K/64Kをpassと呼ばない。
+runnerは既定で32K後に停止する。32K artifactをreviewし、支配項とhard gateを確認した後だけ、同じrootへ
+`DSV41_CUMULATIVE_ENABLE_64K=1`を追加して64Kを明示的にadmitする。
+
+各追記は前turnの未commit最終tokenを含めても8,129 tokenであり、production pending CEDの
+16K begin + 8K以上resume条件を満たさない。このworkloadでdeferred chunkが0なのは期待値で、agent turnを
+跨いで未公開decoder transactionを保持しないatomicity契約を守る。支配項が単一large promptと変わる場合にだけ、
+oMLX/DwarfStarのbounded replay、cache-state scheduling、decoder suffix構造を再確認して次candidateを選ぶ。
+
+最初の32K cumulative attempt
+`context-ladder/cumulative-long-20260920-201224-10109/32k-cumulative/attempt-001`は、4 turnすべてを
+next position 8,192 / 16,384 / 24,576 / 32,768まで完走し、swap 0、peak footprint
+324,998,613,360 bytesだったが、終了時topology gateでrejectした。各turnの63 state-advancing decode tokenが
+4 index-source layerで252回、合計1,008回のhost readbackを行っていた。追記prefill側のscalar QK/AVは0で、
+readback数はdecode geometryと正確に一致する。原因はcumulative runnerがdecodeに個別`forward`を使ったこと、
+およびnative generation APIにも同じ旧decode dispatchが残っていたことである。
+
+gateは緩めない。production layer-sweep有効時のdecodeを1-token `forward_packed_sweep`へ統一し、device route/index
+publicationを維持する。明示reference policyでは従来の個別`forward`を保持する。変更後は同じrootを指定して
+32K stageをfresh rerunする。runnerは完走済みattempt-001のturn positionと全256 generated token IDを
+新attemptと比較し、相違時はcompletion markerを作らない。32K review後にのみ64Kへ進む。
+
+```sh
+DSV41_CUMULATIVE_QUAL_DIR=artifacts/context-ladder/cumulative-long-20260920-201224-10109 \
+bash tools/benchmark/run_cumulative_long_context_qualification.sh
+```
+
+fresh rerun `32k-cumulative/attempt-002`をreviewした。exit 0、revision `37bb734`、実行時tracked patchは
+現在と同じSHA-256 `14a19273c75d31d700a6629d5a9b0f15651b66b86d2d4cac641037cbc69864a2`で、全identityも一致した。
+turn endは8,192 / 16,384 / 24,576 / 32,768、最終state position 32,767、revision 260。
+attempt-001との全256 generated token IDとturn positionはSHA-256
+`4be06ab1fc37d0751430db1777276b7067e80456c08035114db46e48f7ce8e9a`でexactに一致した。
+
+全turnでroute/index host readback 0、scalar QK/AV 0。fixed-tile call 9,728、batched split-K QK / AVは
+各97,280、device route batch 20,320、resident bank construction 40を保持した。process swapは0、system
+swapin/out増分も0。peak MLXは305,920,050,683 bytes、peak footprintは324,862,118,400 bytesで340 GB内。
+compression/decompression増分は2,334,736 / 2,310,189だった。session終了時のstate resetでactive
+35,278,771 bytes、idle-cache clearで16,992,706,677 bytesを回収した。
+
+appendは各8,128/8,129 tokenで159.839 / 157.410 / 158.303 / 160.295秒と平坦。decode meanは
+3.3126→3.3408秒（turn 1→4で+0.85%）、p95は3.4807→3.4991秒（+0.53%）でlate-context driftは小さい。
+全256 decode mean/p95/p99/maxは3.3316 / 3.4991 / 3.5427 / 3.5734秒。session wall 1,488.788秒のうち
+append合計は635.847秒、decodeは約852.9秒で、累積workloadの総wall支配項はdecodeへ移った。ただし
+token単位TPTとappend wallにcontext依存の急増がなく、memory/swap/state gateも閉じたため、新candidateを
+挟まず同じproduction scheduleの64K cumulative測定へ進む。32K cumulative entry gateをpassとするが、
+単一large-prompt 32K、API、外部oMLX、64K以上のqualificationは含まない。
+
+```sh
+DSV41_CUMULATIVE_ENABLE_64K=1 \
+DSV41_CUMULATIVE_QUAL_DIR=artifacts/context-ladder/cumulative-long-20260920-201224-10109 \
+bash tools/benchmark/run_cumulative_long_context_qualification.sh
+```
+
+64K cumulative artifact `64k-cumulative/attempt-001`も全raw logをreviewした。exit 0、revision
+`37bb734`、実行時tracked patchとidentityは一致した。8 turnはnext position 8,192から65,536までexact、最終state
+position 65,535、revision 520。先行32K runと重なる最初の4 turnはgenerated token IDとpositionがexactに一致した。
+route/index host readback、scalar QK/AV、process/system swap deltaはいずれも0で、40 resident banks、fixed-tile
+19,456 calls、batched split-K QK / AV各194,560を保持した。peak MLXは305,951,311,355 bytes、peak footprintは
+324,747,444,312 bytesで340 GB内。compression/decompression増分は2,319,110 / 2,291,378、session後の
+state resetとidle-cache clearはactive 64,376,755 bytes / cache 17,165,828,829 bytesを回収した。
+
+ただしperformance gateは閉じない。session wall 3,003.068秒の内訳はappend 1,289.451秒（42.94%）、decode
+1,713.574秒（57.06%）。turn 1→8のappendは158.952→166.445秒（+4.71%）、decode meanは
+3.3300→3.3575秒（+0.82%）、p95は3.4621→3.5179秒（+1.61%）で、late-context attentionの急増ではない。
+支配項はcontextにほぼ依存しない1-token full-stack decodeであり、全512 tokenのmean/p95/p99/maxは
+3.3468 / 3.5067 / 3.5375 / 3.5924秒だった。従って64Kはcorrectness/state/memory entry gateをpassするが、
+production performance qualificationはfailとする。128Kへ同じscheduleを外挿して長時間runを追加しない。
+
+固定oMLXの1--8 token分岐は量子化入力を共有し、gate/up/activation/downのunevaluated nodeを一つのnative
+grouped-expert primitive内で順次encodeする。DwarfStarも1-token resident decode graphとallocation-free scratchを
+別に持ち、layer loopを少数のcommand-buffer境界でqueueする。現行runtimeは1 tokenにも汎用packed-prefill pathを
+再利用する。次candidateをMoEまたはattentionへ決め打ちする前に、7 state-advancing tokenだけを同期component
+profileし、decode内の支配比率を固定する。これは数分のfresh-model測定なのでagentは自動起動しない。
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_decode_component_profile.sh
+```
+
+scopeは2,063-token prefill + 8 greedy token、1 model、3--8分、最大340 GB、checkpoint read-only。
+rootは`artifacts/context-ladder/decode-component-profile-日時-PID/`。component同期はproduction TPTを摂動するため、
+wallの絶対値でなくattention/MoE/post-MoE比率だけをcandidate選択に使う。失敗artifactは保持し、partial stateは
+resumeせず、新rootでfresh rerunする。
+
+decode component artifact
+`context-ladder/decode-component-profile-20260921-041241-12411`をreviewした。model measurementはexit相当0で
+resultをatomicに完了し、revision `37bb734`、実行時tracked patch SHA-256
+`e46f988ea51b342b3aed66bef70ecae7246b2235023d16b12f22da2447ac521a`とidentityが一致した。wrapperの最終exit 1は
+`component_calls`を3 components × 280 layer calls = 840と誤解したpost-run gate defectである。telemetryは
+PostMoE完了時にcomponent tripletを1回だけcountするため正値は280。全40 layerがlayer/component各7 callsで揃い、
+result、resource、config、identityは完全なのでmodel rerunは不要と判断した。runner gateを280へ修正した。
+
+生成列は`339 3465 2595 4731 79316 88287 3395 361`、state position 2,070、next position 2,071。
+40 banks、route/index readback 0、scalar QK/AV 0、process swap 0、system swapin/out delta 0。peak MLXは
+304,385,608,675 bytes、peak footprintは311,910,578,920 bytes。compression/decompression deltaは
+2,044,949 / 2,042,442だった。7 advancing decode wallは23.8750秒、mean 3.4107秒。
+
+同期component合計23.4260秒の内訳はMoE 21.2138秒（90.56%）、attention 1.6414秒（7.01%）、post-MoE
+0.5709秒（2.44%）。layer wallとの差は0.1167秒（0.50%）だけで、attributionはdecode wallを十分説明する。
+支配項はMoEと確定し、attention candidateは開かない。
+
+最初のbounded candidateは固定oMLXの1--8 token unsorted branchに対応する。resident atlasは維持し、1--8 tokenだけ
+expert-major argsort/take/inverse-sortを省き、device-authoritative canonical route orderを既存3 gather-QMMへ直接渡す。
+9--128 tokenとproduction defaultは変更しない。one-layer official-weight 128-token probeではcanonical batch、
+expert-major batch、token-serialのaccumulated/routedがbit exactだった。
+
+single-pair artifact `context-ladder/short-token-moe-20260921-043112-13382`を全raw logまでreviewした。rootと両stageは
+exit 0、revision `37bb734`、tracked patch SHA-256
+`70538273348d145fd2dcf099ce83da473f3f79003f21f28219d1805424d472ec`。identity差は同一hashのprompt path名だけで、
+build/source identityは一致した。生成列`339 3465 2595 4731 79316 88287 3395 361`、state position 2,070、
+next position 2,071、40 banks、route/index readback 0、scalar QK/AV 0はexact。candidateは予定どおり280 canonical
+batches、baselineは0。process/system swap deltaは0、peak footprintは310,844,504,376 / 310,840,113,224 bytes、
+peak MLX差は49,152 bytesだけだった。
+
+しかし7 advancing decode meanは3.308394→3.359160秒、+0.050766秒 / +1.53%退行し、token winは2/7。
+prefillも43.388728→43.636646秒（+0.57%）で改善根拠がない。単回reject contractを満たすため反復せずrejectし、
+opt-in runtimeとrunnerを撤去した。expert-major sortingはMoE wallの支配要因ではない。
+
+次はoMLXがrouted/shared両branchへ行う入力FP8量子化共有を移植する。現行は同じhiddenをrouted bankで1回、shared
+gate/upで各1回、合計3回roundtripする。candidateはresident 1--8 tokenだけ1回のofficial FP8 roundtripを共有し、
+projection、SwiGLU、down、reduction topologyは変更しない。one-layer official-weight 128-token probeでは独立量子化と
+共有量子化がbit exactだった。次のsingle pairはrejectまたは反復gateへのadmitにだけ使う。
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_shared_moe_input_candidate.sh
+```
+
+scopeはbaseline/candidate各fresh model、各2,063-token prefill + 8 greedy token。逐次2 process、4--10分、各最大
+340 GB、checkpoint read-only、swap 0。rootは`artifacts/context-ladder/shared-moe-input-日時-PID/`。
+生成列/state/topologyをpair間exactとし、candidateは280 shared-input batchesを要求する。失敗stageは保持し、表示rootを
+`DSV41_SHARED_MOE_DIR`へ渡せばrevision/patch/source identityが一致する完了stageだけをskipする。
+
+single-pair artifact `context-ladder/shared-moe-input-20260921-044135-14254`を全raw logまでreviewした。root/両stageは
+exit 0、revision `37bb734`、tracked patch SHA-256
+`669817d2fbf4d49dccd560e6a56f5f9ac924d471d95a8e0aa48e4f199513e327`。identity差は同一hashのprompt pathだけ。
+生成列/state/topologyはexact、candidateは280 shared-input batches、readback/scalar attention/swap deltaは0。
+peak MLXは両方304,385,379,299 bytes、peak footprintは310,865,115,160 / 310,845,995,128 bytesだった。
+
+advancing decode meanは3.359825→3.385216秒、+0.025391秒 / +0.76%退行し、token winは3/7。candidateが作用しない
+prefillの43.665518→43.488432秒（-0.41%）はrun noiseで、decode反復をadmitする証拠にならない。反復せずrejectし、
+共有input runtimeとrunnerを撤去した。入力FP8 roundtrip回数はMoE wallの支配要因ではない。
+
+次は固定oMLXのnative `GroupedExpert` primitiveとMIT activation kernelを移植し、現行checkpointの既存FP8 scale/rounding
+へ適応した。resident 1--8 tokenだけ、routed gate/up `GatherQMM`、SwiGLU + exact FP8 roundtrip、down
+`GatherQMM`を一つのGPU primitiveが直接encodeする。route sort/reductionとshared expertは変更しない。one-layer
+official-weight probeではordinary graphとcandidateのaccumulated/routedがbit exactだった。次のsingle pairはこの
+encoding/materialization境界をrejectまたは反復gateへadmitするだけで、promotionには使わない。
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_grouped_expert_pipeline_candidate.sh
+```
+
+scopeはbaseline/candidate各fresh model、各2,063-token prefill + 8 greedy token。逐次2 process、4--10分、各最大
+340 GB、checkpoint read-only、swap 0。rootは`artifacts/context-ladder/grouped-expert-pipeline-日時-PID/`。
+生成列/state/topologyはpair間exact、candidateは280 grouped-pipeline batchesを要求する。失敗stageは保持し、表示rootを
+`DSV41_GROUPED_PIPELINE_DIR`へ渡せばrevision/patch/source identityが一致する完了stageだけをskipする。
+
+single-pair artifact `context-ladder/grouped-expert-pipeline-20260921-045425-15260`を全raw logまでreviewした。
+root/両stageはexit 0、revision `37bb734`、tracked patch SHA-256
+`e0df7cf855d88f260c5ce5cb96dd4868bdd099d7921e21e543b9386909d286e3`。identity差は同一hashのprompt pathだけで、
+生成列`339 3465 2595 4731 79316 88287 3395 361`、state position 2,070、next position 2,071はexact。
+40 banks、route/index readback 0、scalar QK/AV 0、candidateの280 pipeline batchesも予定どおりだった。
+process/system swap deltaは0。peak MLXは両方304,385,559,523 bytes、peak footprintは
+310,876,813,264 / 310,881,007,664 bytesで340 GB内。baseline/candidateのcompression deltaは
+1,997,359 / 1,970,779、decompression deltaは1,995,303 / 1,969,378だった。
+
+7 advancing decode meanは3.372073から3.352570秒へ19.503 ms / 0.58%改善し、token winは5/7、p95も
+3.453554から3.433244秒へ20.311 ms / 0.59%改善した。prefillはcandidateが作用しないため43.535091から
+43.644287秒への差を性能判断に使わない。効果は小さくsingle pairではpromotion不能だが、mean/p95とtoken majorityが
+同方向なのでrejectせずbounded paired gateへadmitする。production defaultはOFFのまま維持する。
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_grouped_expert_pipeline_paired_qualification.sh
+```
+
+defaultはwarmup 2 run後に順序を交互化した5 baseline/candidate pairをfresh modelで逐次実行する。所要20--45分、
+各process最大340 GB、checkpoint read-only、swap 0。rootは
+`artifacts/context-ladder/grouped-expert-pipeline-paired-日時-PID/`。失敗stageを保持し、表示rootを
+`DSV41_GROUPED_PIPELINE_PAIRED_DIR`へ渡すとrevision/patch/source identityが一致する完了stageだけをskipする。
+全raw logをreviewするまでperformance qualificationまたはpromotionを宣言しない。
+## Current priority override — 2026-09-21
+
+The primary milestone is practical 64K production runtime performance. The
+128K / 200K / 256K cumulative ladder is paused. Historical recommendations above
+to advance context length are superseded by [64K performance](64k-performance.md),
+which freezes the baseline, records scaling evidence and the next structural
+candidate. Correctness alone cannot complete this milestone; candidate rejection
+returns to the next dominant 64K bottleneck.

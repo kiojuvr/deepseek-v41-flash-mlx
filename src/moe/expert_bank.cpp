@@ -1,6 +1,7 @@
 #include "dsv41/moe.hpp"
 #include "dsv41/execution_policy.hpp"
 #include "dsv41/layer_owner.hpp"
+#include "dsv41/moe_pipeline.hpp"
 #include "route_reduce.hpp"
 #include <algorithm>
 #include <array>
@@ -284,9 +285,12 @@ GroupedExpertBatchResult PackedExpertBank::forward_batch_expert_major(const mx::
     reduction_slots.dtype()!=mx::uint32||reduction_slots.shape()!=mx::Shape({tokens,6})||
     route_weights.dtype()!=mx::float32||route_weights.shape()!=mx::Shape({tokens,6}))
   throw std::runtime_error("invalid expert-major batch input");
+ const bool grouped_pipeline=runtime_grouped_expert_pipeline_enabled()&&tokens<=8;
  {
   std::lock_guard lock(io_stats_mutex());
   ++io_stats().expert_major_batches;io_stats().expert_major_assignments+=assignments;
+  if(grouped_pipeline){++io_stats().grouped_pipeline_batches;
+   io_stats().grouped_pipeline_assignments+=assignments;}
  }
  auto flat_rhs=mx::reshape(expert_ids,{assignments});
  auto flat_lhs=mx::reshape(lhs_ids,{assignments});
@@ -301,18 +305,25 @@ GroupedExpertBatchResult PackedExpertBank::forward_batch_expert_major(const mx::
  auto first_input=linear_activation_reference(x).decoded;
  auto gate=gather(mx::reshape(first_input,{tokens,1,5120}),w1_,s1_,lhs);
  auto up=gather(mx::reshape(first_input,{tokens,1,5120}),w3_,s3_,lhs);
- auto g=mx::clip(mx::astype(gate,mx::float32),mx::array(-1e30f),mx::array(10.0f));
- auto u=mx::clip(mx::astype(up,mx::float32),mx::array(-10.0f),mx::array(10.0f));
- auto activation=mx::astype(mx::multiply(mx::multiply(g,mx::sigmoid(g)),u),mx::bfloat16);
- auto flat_activation=mx::reshape(activation,{assignments,2304});
- std::vector<mx::array> decoded_parts;
- const int assignment_chunk=int(runtime_expert_assignment_chunk());
- for(int offset=0;offset<assignments;offset+=assignment_chunk){
-  int end=std::min(offset+assignment_chunk,assignments);
-  decoded_parts.push_back(linear_activation_reference(mx::slice(flat_activation,{offset,0},{end,2304})).decoded);
+ mx::array activation=grouped_pipeline?fused_swiglu_fp8_roundtrip(gate,up):[&]{
+  auto g=mx::clip(mx::astype(gate,mx::float32),mx::array(-1e30f),mx::array(10.0f));
+  auto u=mx::clip(mx::astype(up,mx::float32),mx::array(-10.0f),mx::array(10.0f));
+  return mx::astype(mx::multiply(mx::multiply(g,mx::sigmoid(g)),u),mx::bfloat16);
+ }();
+ mx::array down_input=activation;
+ if(!grouped_pipeline){
+  auto flat_activation=mx::reshape(activation,{assignments,2304});
+  std::vector<mx::array> decoded_parts;
+  const int assignment_chunk=int(runtime_expert_assignment_chunk());
+  for(int offset=0;offset<assignments;offset+=assignment_chunk){
+   int end=std::min(offset+assignment_chunk,assignments);
+   decoded_parts.push_back(linear_activation_reference(
+    mx::slice(flat_activation,{offset,0},{end,2304})).decoded);
+  }
+  down_input=decoded_parts.size()==1?decoded_parts.front():mx::concatenate(decoded_parts,0);
  }
- auto down_input=decoded_parts.size()==1?decoded_parts.front():mx::concatenate(decoded_parts,0);
  auto down=gather(mx::reshape(down_input,{assignments,1,2304}),w2_,s2_,mx::arange(assignments,mx::uint32));
+ if(grouped_pipeline)down=grouped_expert_pipeline(gate,up,activation,down);
  auto weighted=mx::astype(mx::multiply(mx::astype(down,mx::float32),
   mx::reshape(sorted_weights,{assignments,1,1})),mx::bfloat16);
  auto inverse=mx::argsort(order);

@@ -1,4 +1,5 @@
 #include "dsv41/text_encoder.hpp"
+#include "dsv41/sweep_telemetry.hpp"
 #include "dsv41/layer_owner.hpp"
 #include "dsv41/execution_policy.hpp"
 #include "dsv41/runtime_profile.hpp"
@@ -84,8 +85,11 @@ BlockResult TextEncoderReference::forward_packed_sweep(std::span<const std::uint
   auto entry=entry_.forward(tile);entry_hidden.push_back(entry.hidden);entry_pre.push_back(entry.pre_mix);
  }
  BlockResult out{mx::concatenate(entry_hidden,0),mx::concatenate(entry_pre,0)};
+ const bool defer_layers=runtime_defer_decode_layer_eval(ids.size());
  auto materialize=[&](std::vector<mx::array>& hidden,std::vector<mx::array>& pre){
-  out={mx::concatenate(hidden,0),mx::concatenate(pre,0)};mx::eval(out.hidden,out.pre_mix);
+  out={mx::concatenate(hidden,0),mx::concatenate(pre,0)};
+  if(!defer_layers)mx::eval(out.hidden,out.pre_mix);
+  record_sweep_layer(defer_layers);
  };
  auto tile_input=[&](std::size_t offset,std::size_t count){
   return BlockResult{
@@ -102,7 +106,8 @@ BlockResult TextEncoderReference::forward_packed_sweep(std::span<const std::uint
    auto input=mx::slice(out.hidden,{int(offset),0,0},{int(offset+count),4,5120});
    hidden.push_back(layer.forward(input,rows).output);
   }
-  out.hidden=mx::concatenate(hidden,0);mx::eval(out.hidden);
+  out.hidden=mx::concatenate(hidden,0);
+  if(!defer_layers){mx::eval(out.hidden);record_sweep_engram();}
  };
  auto run_plain=[&](int layer,const auto& block,auto& layer_state){
   auto started=runtime_profile_start();std::vector<mx::array> hidden,pre;
@@ -162,6 +167,8 @@ BlockResult TextEncoderReference::forward_packed_sweep(std::span<const std::uint
   }
   next.producer[slot].publication()=publications.back();
  }
+ // Evaluate before publication even for callers using the encoder directly.
+ if(defer_layers){mx::eval(out.hidden,out.pre_mix);record_sweep_stack();}
  state=std::move(next);return out;
 }
 TextEncoderReference::TextEncoderReference(WeightCatalog& c,std::shared_ptr<const EngramMetadata> m,

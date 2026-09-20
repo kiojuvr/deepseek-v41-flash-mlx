@@ -14,6 +14,8 @@ constexpr const char* kVariables[] = {
     "DSV41_RUNTIME_GROUP_SELECTED_EXPERTS",
     "DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS",
     "DSV41_RUNTIME_COMPACT_EXPERT_BANK",
+    "DSV41_RUNTIME_GROUPED_EXPERT_PIPELINE",
+    "DSV41_RUNTIME_DECODE_STACK_GRAPH",
     "DSV41_RUNTIME_ROUTE_DIAGNOSTICS",
     "DSV41_RUNTIME_INDEX_DIAGNOSTICS",
     "DSV41_RUNTIME_CHUNK_ATTENTION",
@@ -61,6 +63,7 @@ void check_production_defaults() {
   require(!dsv41::runtime_group_selected_experts_enabled(), "group-selected banks must be off");
   require(dsv41::runtime_resident_expert_atlas_enabled(), "resident expert atlas must be on");
   require(!dsv41::runtime_compact_expert_bank_enabled(), "compact expert bank must be off");
+  require(!dsv41::runtime_grouped_expert_pipeline_enabled(), "grouped pipeline candidate must be off");
   require(!dsv41::runtime_route_diagnostics_enabled(), "route diagnostics must be off");
   require(!dsv41::runtime_index_diagnostics_enabled(), "index diagnostics must be off");
   require(!dsv41::runtime_chunk_attention_enabled(), "legacy chunk attention must be off");
@@ -93,6 +96,7 @@ void check_reference_overrides() {
   set_policy("DSV41_RUNTIME_LAYER_FINITE_CHECKS", "1");
   set_policy("DSV41_RUNTIME_PACKED_EXPERT_BANK", "0");
   set_policy("DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS", "0");
+  set_policy("DSV41_RUNTIME_GROUPED_EXPERT_PIPELINE", "1");
   set_policy("DSV41_RUNTIME_INDEX_DIAGNOSTICS", "1");
   set_policy("DSV41_RUNTIME_BATCHED_SPLITK_QK", "0");
   set_policy("DSV41_RUNTIME_FIXED_TILE_ATTENTION", "0");
@@ -107,6 +111,7 @@ void check_reference_overrides() {
   require(dsv41::runtime_layer_finite_checks_enabled(), "finite override failed");
   require(!dsv41::runtime_packed_expert_bank_enabled(), "packed-bank override failed");
   require(!dsv41::runtime_resident_expert_atlas_enabled(), "resident-atlas override failed");
+  require(dsv41::runtime_grouped_expert_pipeline_enabled(), "grouped pipeline override failed");
   require(dsv41::runtime_index_diagnostics_enabled(), "index-diagnostics override failed");
   require(!dsv41::runtime_batched_splitk_qk_enabled(), "split-K override failed");
   require(!dsv41::runtime_fixed_tile_attention_enabled(), "fixed-tile override failed");
@@ -131,6 +136,19 @@ void check_reference_overrides() {
 }
 
 void check_deferred_decoder_geometry() {
+  require(!dsv41::runtime_decode_stack_graph_enabled(), "decode graph default must be off");
+  set_policy("DSV41_RUNTIME_DECODE_STACK_GRAPH", "1");
+  set_policy("DSV41_RUNTIME_PACKED_EXPERT_BANK", "1");
+  set_policy("DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS", "1");
+  require(dsv41::runtime_defer_decode_layer_eval(1), "resident decode must defer");
+  require(!dsv41::runtime_defer_decode_layer_eval(2), "prefill must retain boundaries");
+  set_policy("DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS", "0");
+  require(!dsv41::runtime_defer_decode_layer_eval(1), "nonresident must retain boundaries");
+  set_policy("DSV41_RUNTIME_DECODE_STACK_GRAPH", "invalid");
+  bool invalid_graph=false;
+  try{(void)dsv41::runtime_decode_stack_graph_enabled();}catch(const std::runtime_error&){invalid_graph=true;}
+  require(invalid_graph,"invalid graph policy must fail");
+  set_policy("DSV41_RUNTIME_DECODE_STACK_GRAPH", "0");
   require(dsv41::deferred_decoder_suffix_rows(20) == 2414,
           "layer 20 decoder suffix must include all downstream raw dependencies");
   require(dsv41::deferred_decoder_suffix_rows(39) == 1,

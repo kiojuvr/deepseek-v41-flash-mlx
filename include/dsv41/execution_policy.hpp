@@ -53,6 +53,16 @@ inline bool runtime_compact_expert_bank_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_COMPACT_EXPERT_BANK must be 0 or 1");
 }
 
+// oMLX-derived short-token native encoding pipeline. It owns routed gate/up,
+// exact FP8 SwiGLU roundtrip, and down GatherQMM without nested lazy graph
+// evaluation. Production remains on the qualified ordinary graph.
+inline bool runtime_grouped_expert_pipeline_enabled() {
+ const char* value=std::getenv("DSV41_RUNTIME_GROUPED_EXPERT_PIPELINE");
+ if(value==nullptr||std::string_view(value)=="0") return false;
+ if(std::string_view(value)=="1") return true;
+ throw std::runtime_error("DSV41_RUNTIME_GROUPED_EXPERT_PIPELINE must be 0 or 1");
+}
+
 // Copy route IDs/boundaries to the host only for qualification diagnostics.
 // Non-resident paths still require host IDs for compact-bank construction;
 // the full resident production path leaves this disabled.
@@ -156,8 +166,7 @@ inline bool runtime_ragged_tail_av_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_RAGGED_TAIL_AV must be 0 or 1");
 }
 
-// Own prefill at the request boundary and execute it as a transactional
-// layer-major sweep. Decode remains on the one-token reference schedule.
+// Own prefill and device-authoritative one-token decode at the request boundary.
 inline bool runtime_layer_sweep_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_LAYER_SWEEP");
  if(value==nullptr||std::string_view(value)=="1") return true;
@@ -172,6 +181,21 @@ inline bool runtime_deferred_decoder_enabled() {
  if(value==nullptr||std::string_view(value)=="1") return true;
  if(std::string_view(value)=="0") return false;
  throw std::runtime_error("DSV41_RUNTIME_DEFERRED_DECODER must be 0 or 1");
+}
+
+// Candidate: retain a lazy resident decode graph across each encoder/decoder
+// stack, then evaluate before publishing its private state. Wider sweeps keep
+// their bounded layer materialization. This changes scheduling, not arithmetic.
+inline bool runtime_decode_stack_graph_enabled() {
+ const char* value=std::getenv("DSV41_RUNTIME_DECODE_STACK_GRAPH");
+ if(value==nullptr||std::string_view(value)=="0")return false;
+ if(std::string_view(value)=="1")return true;
+ throw std::runtime_error("DSV41_RUNTIME_DECODE_STACK_GRAPH must be 0 or 1");
+}
+inline bool runtime_defer_decode_layer_eval(std::size_t tokens) {
+ return runtime_decode_stack_graph_enabled()&&tokens==1&&
+        runtime_resident_expert_atlas_enabled()&&runtime_packed_expert_bank_enabled()&&
+        !runtime_group_selected_experts_enabled()&&!runtime_compact_expert_bank_enabled();
 }
 
 // Discard only idle MLX allocator buffers after publishing a completed pending

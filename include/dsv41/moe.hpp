@@ -21,6 +21,7 @@ struct RouteUnionStats {
 struct ExpertBankIoStats {
  std::size_t constructions=0, read_calls=0, qmm_dispatches=0, qmm_rows_total=0, qmm_rows_max=0;
  std::size_t expert_major_batches=0,expert_major_assignments=0;
+ std::size_t grouped_pipeline_batches=0,grouped_pipeline_assignments=0;
  double read_seconds=0.0, total_seconds=0.0;
 };
 struct RouteExecutionStats { std::size_t device_batches=0,diagnostic_readbacks=0; };
