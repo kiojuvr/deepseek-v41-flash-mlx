@@ -165,23 +165,22 @@ inline bool runtime_layer_sweep_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_LAYER_SWEEP must be 0 or 1");
 }
 
-// Qualified CED candidate. Prompts shorter than the 8192-token boundary retain
-// the ordinary packed sweep. Default promotion still requires the reviewed
-// continued-prefill non-regression gate.
+// Qualified pending CED schedule. Prompts that cannot complete a private 16K
+// encoder frontier with a later >=8K sweep retain the ordinary packed sweep.
 inline bool runtime_deferred_decoder_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_DEFERRED_DECODER");
- if(value==nullptr||std::string_view(value)=="0") return false;
- if(std::string_view(value)=="1") return true;
+ if(value==nullptr||std::string_view(value)=="1") return true;
+ if(std::string_view(value)=="0") return false;
  throw std::runtime_error("DSV41_RUNTIME_DEFERRED_DECODER must be 0 or 1");
 }
 
-// Transition probe: discard only idle MLX allocator buffers after publishing
-// a completed pending decoder. Live model and persistent request tensors remain
-// owned by MLX. Disabled until continued-prefill wall and footprint are reviewed.
+// Discard only idle MLX allocator buffers after publishing a completed pending
+// decoder. This prevents suffix-shape buffers from perturbing the next full
+// continuation; live model and persistent request tensors remain owned by MLX.
 inline bool runtime_deferred_decoder_clear_cache_enabled() {
  const char* value=std::getenv("DSV41_RUNTIME_DEFERRED_DECODER_CLEAR_CACHE");
- if(value==nullptr||std::string_view(value)=="0")return false;
- if(std::string_view(value)=="1")return true;
+ if(value==nullptr||std::string_view(value)=="1")return true;
+ if(std::string_view(value)=="0")return false;
  throw std::runtime_error("DSV41_RUNTIME_DEFERRED_DECODER_CLEAR_CACHE must be 0 or 1");
 }
 

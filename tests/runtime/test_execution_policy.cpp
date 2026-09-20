@@ -73,10 +73,10 @@ void check_production_defaults() {
   require(dsv41::runtime_ragged_tail_qk_enabled(), "ragged QK must be on");
   require(dsv41::runtime_ragged_tail_av_enabled(), "ragged AV must be on");
   require(dsv41::runtime_layer_sweep_enabled(), "layer sweep must be on");
-  require(!dsv41::runtime_deferred_decoder_enabled(),
-          "deferred decoder must remain opt-in until continuation non-regression");
-  require(!dsv41::runtime_deferred_decoder_clear_cache_enabled(),
-          "deferred decoder cache normalization must remain candidate-only");
+  require(dsv41::runtime_deferred_decoder_enabled(),
+          "qualified pending deferred decoder must be on");
+  require(dsv41::runtime_deferred_decoder_clear_cache_enabled(),
+          "qualified deferred decoder cache normalization must be on");
   require(!dsv41::runtime_batched_dense_qmm_enabled(), "batched dense QMM must be off");
   require(dsv41::runtime_mlx_cache_limit_bytes() == 0, "MLX cache limit must remain automatic");
   require(dsv41::runtime_long_context_cache_limit_bytes() == 17179869184ull,
@@ -99,8 +99,8 @@ void check_reference_overrides() {
   set_policy("DSV41_RUNTIME_RAGGED_TAIL_QK", "0");
   set_policy("DSV41_RUNTIME_RAGGED_TAIL_AV", "0");
   set_policy("DSV41_RUNTIME_LAYER_SWEEP", "0");
-  set_policy("DSV41_RUNTIME_DEFERRED_DECODER", "1");
-  set_policy("DSV41_RUNTIME_DEFERRED_DECODER_CLEAR_CACHE", "1");
+  set_policy("DSV41_RUNTIME_DEFERRED_DECODER", "0");
+  set_policy("DSV41_RUNTIME_DEFERRED_DECODER_CLEAR_CACHE", "0");
   set_policy("DSV41_RUNTIME_EXPERT_IO_THREADS", "1");
   set_policy("DSV41_RUNTIME_LONG_CONTEXT_CACHE_LIMIT_BYTES", "17179869184");
 
@@ -113,9 +113,9 @@ void check_reference_overrides() {
   require(!dsv41::runtime_ragged_tail_qk_enabled(), "ragged-QK override failed");
   require(!dsv41::runtime_ragged_tail_av_enabled(), "ragged-AV override failed");
   require(!dsv41::runtime_layer_sweep_enabled(), "layer-sweep override failed");
-  require(dsv41::runtime_deferred_decoder_enabled(), "deferred-decoder candidate override failed");
-  require(dsv41::runtime_deferred_decoder_clear_cache_enabled(),
-          "deferred-decoder cache-normalization override failed");
+  require(!dsv41::runtime_deferred_decoder_enabled(), "deferred-decoder fallback override failed");
+  require(!dsv41::runtime_deferred_decoder_clear_cache_enabled(),
+          "deferred-decoder cache-normalization fallback failed");
   require(dsv41::runtime_expert_io_threads() == 1, "expert-I/O override failed");
   require(dsv41::runtime_effective_mlx_cache_limit_bytes(8191) == 0,
           "short context must retain automatic cache policy");

@@ -553,6 +553,26 @@ layer or component work increase, the next bounded structural probe clears
 only idle MLX allocator buffers after atomic CED publication, testing whether
 the many suffix shapes leave an adverse cache composition for the next request.
 
+That probe identified allocator cache composition as the transition cost. In
+`context-ladder/deferred-pending-cache-paired-20260920-164151-6227`, clearing
+only idle MLX buffers once after atomic publication retained the 5/5 prefill
+win and reduced mean prefill by 40.25% (639.58 to 382.16 seconds). The same
+five pairs improved teacher continuation by 0.63%, decode mean/p95 by
+0.05%/0.54%, and process footprint by 0.14%, with identical MLX peak and zero
+swap. All generated tokens, state positions, topology counters, and identities
+matched. Pending CED plus this bounded transition is therefore the production
+default; explicit zero retains the full-decoder comparison/oracle schedule.
+Native API promotion remains conditional on the separate no-environment 24K
+generation gate.
+
+The gate `native-model-api/deferred-decoder-20260920-185438-8518` passed. The
+explicit full-decoder fallback and no-environment production schedule generated
+the same four tokens and next position, with identical recorded identities,
+zero swap, and lower production wall/footprint. Pending CED and its one-time
+idle-cache normalization are therefore promoted for the native generation API
+as well as the canonical context runner. Requests without a completable
+16K-plus-8K pair continue to take the unchanged full-decoder schedule.
+
 ## 2026-09-17 gap-audit checkpoint
 
 The production-shape lazy run

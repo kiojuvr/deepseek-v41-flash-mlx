@@ -1615,3 +1615,59 @@ bash tools/benchmark/run_deferred_pending_cache_transition_candidate.sh
 
 scopeは32K 1 process、8--15分、最大340 GB、checkpoint read-only。単回観測はこのtransitionをreject
 できるがpromotionには使わない。teacher改善がなければ削除し、あれば同じ5-pair contractを再適用する。
+
+cache-transition artifact `context-ladder/deferred-pending-cache-20260920-162259-6005`をreviewした。root/child
+exit 0、revision `2265b63`、tracked patchはempty、cache-clear設定1、CED transaction 1。生成16 token列、
+state position 32767、production topology、40 banks / 15,360 experts、zero readback、zero scalar QK/AV、
+swap 0を保持した。prefillは382.591689秒で、clearなしpaired candidate平均385.077299秒より0.65%短い。
+baseも300.654586秒で0.18%短い。teacherは81.937102秒となり、clearなし83.884870秒から2.32%改善し、
+baseline平均81.871496秒との差は0.08%まで縮小した。単回decode mean/p95は3.213733/3.521494秒で、
+paired baseline平均より0.63%/0.66%遅い。process peakは323,122,660,016 bytes、swap 0。
+
+この観測はcache composition仮説を棄却せず、単回ではpromotionもしない。同じwarmup + alternating 5-pair
+contractをcache normalization込みで再実行する。
+
+```sh
+bash tools/benchmark/run_deferred_pending_cache_paired_qualification.sh
+```
+
+scopeは12 sequential 32K processes、110--180分、最大340 GB、checkpoint read-only。candidateだけがatomic
+publication後にidle allocator cacheを一度clearする。中断時は表示rootを`DSV41_PENDING_PAIRED_DIR`へ渡して
+同じcommandを再実行し、revision/patch/config/result/resource検証済みchildだけをskipする。
+
+cache-normalized paired artifact
+`context-ladder/deferred-pending-cache-paired-20260920-164151-6227`をreviewした。rootとwarmupを含む12 childは
+exit 0、revision `2265b63`、同一tracked patch SHA-256
+`1d5353cb84a275223cb70d694f8310b2a8f5404ea3bb07d25c62692fe5a335ac`。baseline/candidateのcache-clear設定は
+0/1、CED countは0/1で、全runの生成列/state/topology、40 banks / 15,360 experts、zero readback、zero scalar
+QK/AV、swap 0、build/source identityが一致した。
+
+5 pair平均はprefill 639.584333→382.164674秒（40.25%短縮）、base
+557.767773→300.860958秒（46.06%短縮）でcandidate win 5/5。各pair改善40.15--40.39%はbaseline range
+2.244秒、candidate range 1.556秒を十分超える。teacherは81.816560→81.303716秒（0.63%改善）、decode
+mean/p95は3.203087/3.523623→3.201355/3.504421秒（0.05%/0.54%改善）。MLX peakは同一
+304,410,027,515 bytes、process footprint平均は0.14%減の322,869,491,157 bytes、swap 0だった。
+
+事前contractをpassしたためpending CEDとpost-publication idle-cache normalizationをproduction defaultへ昇格する。
+明示的な0はfull-decoder comparison/oracle fallbackとして保持する。native generation APIについてはdefault値を
+使用する24,576-token full-model gateを最後に実行し、fallbackとの生成列/next-position一致とresourceをreviewする。
+
+```sh
+bash tools/benchmark/run_deferred_decoder_native_api_check.sh
+```
+
+scopeは2 fresh official-model processes、12--25分、最大340 GB、checkpoint read-only。中断時は表示rootを
+`DSV41_CED_API_DIR`へ渡して再実行し、検証済みstageだけをskipする。API promotionはartifact reviewまで未確定。
+
+native API artifact `native-model-api/deferred-decoder-20260920-185438-8518`をreviewした。root、fallback、
+productionはexit 0、revision `2265b63`、同一tracked patch SHA-256
+`146a6d0e4a1141f66d2e2902c1063a41a0b3be8bf0f964fb045ef6cbe440981b`、同一identity SHA-256
+`97a3f4d08dec8d9763d378521cfa5cd6f585139c0f0b40cd378300b173290d4d`。明示full-decoder fallbackと
+no-environment production defaultはいずれも4 token `361 362 1990 295`、next position 24580、stopped falseで
+一致した。両stageともswap 0。wallはfallback 525.24秒、production 307.49秒、peak footprintは
+324,284,251,648→321,527,170,336 bytesだった。
+
+これでpending CED、atomic publication後のidle-cache normalization、native generation APIのpromotion
+contractは完了した。両policyはno-environment production defaultであり、明示的
+`DSV41_RUNTIME_DEFERRED_DECODER=0`と`DSV41_RUNTIME_DEFERRED_DECODER_CLEAR_CACHE=0`はfull-decoder
+comparison/oracle fallbackとして残る。16K以下はschedule条件により従来のfull decoderを維持する。
