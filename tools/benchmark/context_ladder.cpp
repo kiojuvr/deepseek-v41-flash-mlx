@@ -77,6 +77,47 @@ void evaluate(const dsv41::BlockResult& value) {
  if(!finite_hidden.item<bool>()||!finite_pre.item<bool>()) throw std::runtime_error("nonfinite backbone output");
 }
 
+J attention_delta(const dsv41::AttentionTelemetry& before,
+                  const dsv41::AttentionTelemetry& after) {
+#define DSV41_ATTN_DELTA(name) {#name,after.name-before.name}
+ return {DSV41_ATTN_DELTA(concat_calls),DSV41_ATTN_DELTA(concat_input_bytes),
+  DSV41_ATTN_DELTA(concat_output_bytes),DSV41_ATTN_DELTA(cumulative_bytes_copied),
+  DSV41_ATTN_DELTA(logical_tokens),DSV41_ATTN_DELTA(attention_rows),
+  DSV41_ATTN_DELTA(indexer_rows),DSV41_ATTN_DELTA(index_host_readbacks),
+  DSV41_ATTN_DELTA(token_serial_attention_calls),DSV41_ATTN_DELTA(chunk_attention_calls),
+  DSV41_ATTN_DELTA(packed_chunk_attention_calls),DSV41_ATTN_DELTA(wide_attention_calls),
+  DSV41_ATTN_DELTA(fixed_tile_attention_calls),
+  DSV41_ATTN_DELTA(chunk_batched_splitk_qk_calls),DSV41_ATTN_DELTA(chunk_scalar_qk_calls),
+  DSV41_ATTN_DELTA(chunk_scalar_av_calls),DSV41_ATTN_DELTA(chunk_av_batches)};
+#undef DSV41_ATTN_DELTA
+}
+
+J profile_delta(const dsv41::RuntimeProfileTelemetry& before,
+                const dsv41::RuntimeProfileTelemetry& after) {
+ double layer=0.0,attention=0.0,moe=0.0,post=0.0;
+ std::size_t layer_calls=0,component_calls=0;
+ J layers=J::array();
+ for(std::size_t i=0;i<40;++i){
+  const auto layer_delta=after.layer_seconds[i]-before.layer_seconds[i];
+  const auto attention_delta=after.attention_path_seconds[i]-before.attention_path_seconds[i];
+  const auto moe_delta=after.moe_path_seconds[i]-before.moe_path_seconds[i];
+  const auto post_delta=after.post_moe_seconds[i]-before.post_moe_seconds[i];
+  const auto layer_call_delta=after.layer_calls[i]-before.layer_calls[i];
+  const auto component_call_delta=after.component_calls[i]-before.component_calls[i];
+  layer+=layer_delta;attention+=attention_delta;moe+=moe_delta;post+=post_delta;
+  layer_calls+=layer_call_delta;component_calls+=component_call_delta;
+  layers.push_back({{"layer",i},{"layer_seconds",layer_delta},
+   {"attention_path_seconds",attention_delta},{"moe_path_seconds",moe_delta},
+   {"post_moe_seconds",post_delta},{"layer_calls",layer_call_delta},
+   {"component_calls",component_call_delta}});
+ }
+ return {{"measurement_semantics",
+   "GPU completion wall deltas with synchronization after attention, MoE, and post-MoE; perturbs lazy execution"},
+  {"layer_seconds",layer},{"attention_path_seconds",attention},{"moe_path_seconds",moe},
+  {"post_moe_seconds",post},{"layer_calls",layer_calls},{"component_calls",component_calls},
+  {"layers",std::move(layers)}};
+}
+
 class MetalDispatchCounterScope {
  public:
   MetalDispatchCounterScope() {
@@ -113,6 +154,9 @@ int main(int argc,char** argv) { try {
  if(mode!="individual"&&mode!="layer_major"&&mode!="sweep")throw std::runtime_error("invalid DSV41_CONTEXT_EXECUTION");
  const bool layer_major=mode=="layer_major";
  const bool sweep=mode=="sweep";
+ const bool deferred_decoder=dsv41::runtime_deferred_decoder_enabled();
+ if(deferred_decoder&&!sweep)
+  throw std::runtime_error("deferred decoder requires sweep execution");
  if((layer_major||sweep)&&(!dsv41::runtime_packed_expert_bank_enabled()||dsv41::runtime_group_selected_experts_enabled()))
   throw std::runtime_error("layer-major execution requires packed bank enabled and selected grouping disabled");
  if(dsv41::runtime_fixed_tile_attention_enabled()&&
@@ -121,11 +165,12 @@ int main(int argc,char** argv) { try {
  const double wall_budget=nonnegative_environment_seconds("DSV41_CONTEXT_WALL_BUDGET_SECONDS");
  const double projected_wall_limit=
   nonnegative_environment_seconds("DSV41_CONTEXT_PROJECTED_WALL_LIMIT_SECONDS");
+ const auto effective_cache_limit=dsv41::runtime_effective_mlx_cache_limit_bytes(context);
  auto ids=read_tokens(argv[4]);
  if(ids.size()!=prefill) throw std::runtime_error("token file length does not match prefill geometry");
 
  mx::set_default_device(mx::Device::gpu);
- if(const auto limit=dsv41::runtime_mlx_cache_limit_bytes();limit)mx::set_cache_limit(limit);
+ if(effective_cache_limit)mx::set_cache_limit(effective_cache_limit);
  auto proof=dsv41::read_json_file("artifacts/engram/fixture-provenance.json");
  std::ifstream meta_file(argv[3],std::ios::binary);
  std::string meta_text{std::istreambuf_iterator<char>(meta_file),{}};
@@ -135,7 +180,8 @@ int main(int argc,char** argv) { try {
  J report={{"schema_version",1},{"status","measurement_completed_requires_review"},
   {"scope","One native context-ladder measurement. No external oracle, cold-cache proof, acceptance threshold, or 256K qualification."},
   {"context_tokens",context},{"base_prefill_tokens",base},{"teacher_continuation_tokens",teacher},
-  {"tail_teacher_tokens",tail},{"decode_tokens",decode},{"prefill_chunk_tokens",sweep?prefill:128},
+  {"tail_teacher_tokens",tail},{"decode_tokens",decode},
+  {"prefill_chunk_tokens",deferred_decoder?dsv41::kDeferredDecoderMaxTokens:(sweep?4096:128)},
   {"wall_budget_seconds",wall_budget},{"projected_wall_limit_seconds",projected_wall_limit},
   {"layer_finite_checks",dsv41::runtime_layer_finite_checks_enabled()},
   {"execution",mode},{"bank_construction_included_in_prefill",
@@ -153,8 +199,11 @@ int main(int argc,char** argv) { try {
   {"ragged_tail_qk",dsv41::runtime_ragged_tail_qk_enabled()},
   {"ragged_tail_av",dsv41::runtime_ragged_tail_av_enabled()},
   {"layer_sweep",dsv41::runtime_layer_sweep_enabled()},
+  {"deferred_decoder",deferred_decoder},
   {"batched_dense_qmm",dsv41::runtime_batched_dense_qmm_enabled()},
   {"mlx_cache_limit_bytes",dsv41::runtime_mlx_cache_limit_bytes()},
+  {"long_context_cache_limit_bytes",dsv41::runtime_long_context_cache_limit_bytes()},
+  {"effective_mlx_cache_limit_bytes",effective_cache_limit},
   {"expert_assignment_chunk",dsv41::runtime_expert_assignment_chunk()},
   {"component_profile",dsv41::runtime_component_profile_enabled()},
   {"token_file",argv[4]},{"phases",J::object()}};
@@ -185,21 +234,35 @@ int main(int argc,char** argv) { try {
  std::optional<dsv41::BlockResult> last;
 
  auto feed=[&](std::size_t begin,std::size_t count,const char* label) {
-  auto phase=Clock::now(),interval=phase; std::size_t chunks=0,interval_begin=begin;
+  const auto attention_before=dsv41::read_attention_telemetry();
+  const auto profile_before=dsv41::read_runtime_profile();
+  auto phase=Clock::now(),interval=phase;
+  std::size_t chunks=0,deferred_chunks=0,interval_begin=begin;
+ std::optional<dsv41::DeferredDecoderTransaction> pending_decoder;
  for(std::size_t offset=begin;offset<begin+count;) {
    const auto constructions_before=dsv41::packed_expert_bank_construction_count();
    const auto experts_before=dsv41::packed_expert_bank_loaded_expert_count();
    const auto union_before=dsv41::route_union_stats();
-   const auto size=sweep?begin+count-offset:std::min<std::size_t>(128,begin+count-offset);
+   const auto step=dsv41::runtime_prefill_step(
+    begin+count-offset,sweep,deferred_decoder,pending_decoder.has_value());
+   const auto size=step.tokens;
    auto chunk_started=Clock::now();
    auto input=std::span(ids).subspan(offset,size);
-   last.emplace(sweep?model.forward_packed_sweep(input,state,offset):
-                layer_major?model.forward_packed_chunk(input,state,offset):model.forward(input,state,offset));
-   evaluate(*last); offset+=size; ++chunks;
+   bool has_output=true;
+   if(step.action==dsv41::RuntimePrefillStep::Action::BeginDeferredDecoder){
+    pending_decoder.emplace(model.begin_deferred_decoder(input,state,offset));
+    has_output=false;
+   }else if(step.action==dsv41::RuntimePrefillStep::Action::FinishDeferredDecoder){
+    last.emplace(model.finish_deferred_decoder(std::move(*pending_decoder),input,state));
+    pending_decoder.reset();
+    ++deferred_chunks;
+   }else last.emplace(sweep?model.forward_packed_sweep(input,state,offset):
+                     layer_major?model.forward_packed_chunk(input,state,offset):model.forward(input,state,offset));
+   if(has_output)evaluate(*last); offset+=size; ++chunks;
    if(dsv41::runtime_resident_expert_atlas_enabled()&&
       dsv41::packed_expert_bank_construction_count()!=constructions_before)
     throw std::runtime_error("resident expert atlas constructed a bank on the request path");
-   if(const auto limit=dsv41::runtime_mlx_cache_limit_bytes();limit) mx::set_cache_limit(limit);
+   if(effective_cache_limit)mx::set_cache_limit(effective_cache_limit);
    if(layer_major) {
     J chunk_point={{"event","chunk"},{"phase",label},{"position",offset},{"tokens",size},
      {"seconds",seconds(chunk_started)},{"memory",memory()},
@@ -212,7 +275,7 @@ int main(int argc,char** argv) { try {
      {"route_union_exact_reuses",dsv41::route_union_stats().exact_reuses-union_before.exact_reuses}};
     progress<<chunk_point.dump()<<'\n'<<std::flush;
    }
-   if(layer_major||chunks%8==0||offset==begin+count) {
+   if(layer_major||sweep||chunks%8==0||offset==begin+count) {
     const auto now=Clock::now();
     const double phase_wall=std::chrono::duration<double>(now-phase).count();
     const double interval_wall=std::chrono::duration<double>(now-interval).count();
@@ -238,11 +301,18 @@ int main(int argc,char** argv) { try {
      throw std::runtime_error("projected prefill wall exceeds limit; partial progress JSONL is preserved");
    }
   }
+  if(pending_decoder)throw std::runtime_error("phase ended with an unpublished decoder frontier");
   require_state_position(state,begin+count);
   const double wall=seconds(phase);
   report["phases"][label]={{"tokens",count},{"chunks",chunks},{"seconds",wall},
+                            {"deferred_decoder_chunks",deferred_chunks},
                             {"tokens_per_second",count/wall},{"end_position",begin+count},
-                            {"memory",memory()}};
+                            {"memory",memory()},
+                            {"attention_telemetry",attention_delta(attention_before,
+                              dsv41::read_attention_telemetry())}};
+  if(dsv41::runtime_component_profile_enabled())
+   report["phases"][label]["runtime_component_profile"]=profile_delta(
+    profile_before,dsv41::read_runtime_profile());
  };
 
  MetalDispatchCounterScope dispatch_counter_scope;

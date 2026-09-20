@@ -29,6 +29,10 @@ public:
  mlx::core::array forward_chunk(const mlx::core::array& input,CompressedLayerState& state,
                                 std::uint64_t start,
                                 std::vector<SharedAttentionReference>* publications) const;
+ // CED preparation for a skipped producer prefix: append the exact global
+ // cache and retain its raw window without evaluating query/output work.
+ void prepare_chunk(const mlx::core::array& input,CompressedLayerState& state,
+                    std::uint64_t start) const;
 private:
  int layer_,ratio_;
  PackedLinearReference qa_,qb_,kv_,output_;

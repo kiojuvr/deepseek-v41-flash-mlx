@@ -35,8 +35,11 @@ export DSV41_RUNTIME_FIXED_TILE_ATTENTION=${DSV41_RUNTIME_FIXED_TILE_ATTENTION:-
 export DSV41_RUNTIME_RAGGED_TAIL_QK=${DSV41_RUNTIME_RAGGED_TAIL_QK:-1}
 export DSV41_RUNTIME_RAGGED_TAIL_AV=${DSV41_RUNTIME_RAGGED_TAIL_AV:-1}
 export DSV41_RUNTIME_LAYER_SWEEP=${DSV41_RUNTIME_LAYER_SWEEP:-1}
+export DSV41_RUNTIME_DEFERRED_DECODER=${DSV41_RUNTIME_DEFERRED_DECODER:-0}
+export DSV41_RUNTIME_DEFERRED_DECODER_CLEAR_CACHE=${DSV41_RUNTIME_DEFERRED_DECODER_CLEAR_CACHE:-0}
 export DSV41_RUNTIME_BATCHED_DENSE_QMM=${DSV41_RUNTIME_BATCHED_DENSE_QMM:-0}
 export DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES=${DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES:-0}
+export DSV41_RUNTIME_LONG_CONTEXT_CACHE_LIMIT_BYTES=${DSV41_RUNTIME_LONG_CONTEXT_CACHE_LIMIT_BYTES:-17179869184}
 export DSV41_RUNTIME_EXPERT_IO_THREADS=${DSV41_RUNTIME_EXPERT_IO_THREADS:-4}
 export DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK=${DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK:-0}
 export DSV41_RUNTIME_COMPONENT_PROFILE=${DSV41_RUNTIME_COMPONENT_PROFILE:-0}
@@ -77,8 +80,11 @@ printf '%s\n' "checkpoint=$checkpoint" "context=$context" "base_prefill=$((prefi
  "ragged_tail_qk=$DSV41_RUNTIME_RAGGED_TAIL_QK" \
  "ragged_tail_av=$DSV41_RUNTIME_RAGGED_TAIL_AV" \
  "layer_sweep=$DSV41_RUNTIME_LAYER_SWEEP" \
+ "deferred_decoder=$DSV41_RUNTIME_DEFERRED_DECODER" \
+ "deferred_decoder_clear_cache=$DSV41_RUNTIME_DEFERRED_DECODER_CLEAR_CACHE" \
  "batched_dense_qmm=$DSV41_RUNTIME_BATCHED_DENSE_QMM" \
  "mlx_cache_limit_bytes=$DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES" \
+ "long_context_cache_limit_bytes=$DSV41_RUNTIME_LONG_CONTEXT_CACHE_LIMIT_BYTES" \
  "expert_io_threads=$DSV41_RUNTIME_EXPERT_IO_THREADS" \
  "expert_assignment_chunk=$DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK" \
  "component_profile=$DSV41_RUNTIME_COMPONENT_PROFILE" \
@@ -98,11 +104,19 @@ shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp 
  tools/benchmark/run_fixed_tile_attention_backbone_check.sh \
  tools/benchmark/run_fixed_tile_attention_isolation_check.sh \
  tools/benchmark/run_fixed_tile_attention_layer_localization.sh \
+ tools/benchmark/run_long_context_regime_measurements.sh \
+ tools/benchmark/run_long_context_cache_candidate.sh \
+ tools/benchmark/run_deferred_transaction_backbone_check.sh \
+ tools/benchmark/run_deferred_suffix_backbone_check.sh \
+ tools/benchmark/run_deferred_decoder_context_candidate.sh \
+ tools/benchmark/run_deferred_decoder_paired_qualification.sh \
+ tools/benchmark/summarize_long_context_regimes.py \
  tools/benchmark/run_layer_sweep_component_profile.sh \
  tools/benchmark/run_layer_component_profile.sh \
  tools/benchmark/run_resident_layer_component_profile.sh \
  tools/benchmark/run_shape_bucket_attention_profile.sh \
  include/dsv41/text_backbone.hpp include/dsv41/generation_loop.hpp include/dsv41/execution_policy.hpp \
+ include/dsv41/deferred_decoder_plan.hpp \
  include/dsv41/runtime_profile.hpp \
  include/dsv41/swa_layer.hpp include/dsv41/swa_attention.hpp include/dsv41/compressed_layer.hpp include/dsv41/reused_layer.hpp \
  include/dsv41/compressor.hpp include/dsv41/global_kv.hpp include/dsv41/index_key.hpp include/dsv41/index_query.hpp \

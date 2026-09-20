@@ -31,6 +31,7 @@ public:
                          std::uint64_t start,int tokens);
  const mlx::core::array& device_chunk_indices(int consumer_layer,
                          std::uint64_t start,int tokens) const;
+ bool chunk_plan_matches(int consumer_layer,std::uint64_t start,int tokens) const;
  // Index source republish: rows are +offset and sorted; candidates is the level-one mask.
  void republish(int index_source_layer,std::vector<std::int32_t> selected,
                 std::vector<std::uint8_t> candidates);

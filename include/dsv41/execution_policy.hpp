@@ -1,4 +1,7 @@
 #pragma once
+#include "dsv41/deferred_decoder_plan.hpp"
+#include <algorithm>
+#include <cstddef>
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
@@ -162,6 +165,54 @@ inline bool runtime_layer_sweep_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_LAYER_SWEEP must be 0 or 1");
 }
 
+// Qualified CED candidate. Prompts shorter than the 8192-token boundary retain
+// the ordinary packed sweep. Default promotion still requires the reviewed
+// continued-prefill non-regression gate.
+inline bool runtime_deferred_decoder_enabled() {
+ const char* value=std::getenv("DSV41_RUNTIME_DEFERRED_DECODER");
+ if(value==nullptr||std::string_view(value)=="0") return false;
+ if(std::string_view(value)=="1") return true;
+ throw std::runtime_error("DSV41_RUNTIME_DEFERRED_DECODER must be 0 or 1");
+}
+
+// Transition probe: discard only idle MLX allocator buffers after publishing
+// a completed pending decoder. Live model and persistent request tensors remain
+// owned by MLX. Disabled until continued-prefill wall and footprint are reviewed.
+inline bool runtime_deferred_decoder_clear_cache_enabled() {
+ const char* value=std::getenv("DSV41_RUNTIME_DEFERRED_DECODER_CLEAR_CACHE");
+ if(value==nullptr||std::string_view(value)=="0")return false;
+ if(std::string_view(value)=="1")return true;
+ throw std::runtime_error("DSV41_RUNTIME_DEFERRED_DECODER_CLEAR_CACHE must be 0 or 1");
+}
+
+inline constexpr std::size_t kDeferredDecoderMinTokens=8192;
+inline constexpr std::size_t kDeferredDecoderMaxTokens=16384;
+
+struct RuntimePrefillStep {
+ std::size_t tokens=0;
+ enum class Action { Full, BeginDeferredDecoder, FinishDeferredDecoder } action=Action::Full;
+};
+
+// One source of truth for the request-boundary schedule used by the benchmark
+// harness and the native generation API.
+inline RuntimePrefillStep runtime_prefill_step(std::size_t remaining,bool layer_sweep,
+                                                bool deferred_decoder,
+                                                bool decoder_pending=false) {
+ if(!remaining)throw std::runtime_error("prefill schedule requires remaining tokens");
+ if(decoder_pending){
+  if(!layer_sweep||!deferred_decoder||remaining<kDeferredDecoderMinTokens)
+   throw std::runtime_error("deferred decoder cannot finish on a short or reference sweep");
+  return {std::min(kDeferredDecoderMaxTokens,remaining),
+          RuntimePrefillStep::Action::FinishDeferredDecoder};
+ }
+ if(layer_sweep&&deferred_decoder&&
+    should_defer_decoder(std::min(kDeferredDecoderMaxTokens,remaining),
+                         remaining-std::min(kDeferredDecoderMaxTokens,remaining)))
+  return {kDeferredDecoderMaxTokens,RuntimePrefillStep::Action::BeginDeferredDecoder};
+ return {std::min(layer_sweep?std::size_t(4096):std::size_t(128),remaining),
+         RuntimePrefillStep::Action::Full};
+}
+
 // The reference schedule fixes every packed projection at M=1.  Optimized
 // prefill may submit the complete chunk to the same MLX QMM primitive; route,
 // state, logits and generation gates decide promotion rather than intermediate
@@ -181,6 +232,33 @@ inline std::size_t runtime_mlx_cache_limit_bytes() {
   if(consumed!=std::string_view(value).size())throw std::invalid_argument("trailing");
   return parsed;
  } catch(...) { throw std::runtime_error("DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES must be an integer byte count or 0"); }
+}
+
+// Long-context cache policy. The ordinary MLX cache setting remains untouched
+// until a request reaches the measured growth regime. The reviewed 2K/16K/32K
+// gate promotes 16 GiB as the production default;
+// an explicit zero retains the diagnostic unbounded-cache comparison path.
+inline std::size_t runtime_long_context_cache_limit_bytes() {
+ const char* value=std::getenv("DSV41_RUNTIME_LONG_CONTEXT_CACHE_LIMIT_BYTES");
+ if(value==nullptr||std::string_view(value).empty()) return 17179869184ull;
+ if(std::string_view(value)=="0")return 0;
+ try {
+  std::size_t consumed=0; auto parsed=std::stoull(value,&consumed);
+  if(consumed!=std::string_view(value).size())throw std::invalid_argument("trailing");
+  return parsed;
+ } catch(...) {
+  throw std::runtime_error(
+   "DSV41_RUNTIME_LONG_CONTEXT_CACHE_LIMIT_BYTES must be an integer byte count or 0");
+ }
+}
+
+inline constexpr std::size_t kLongContextCacheThresholdTokens=8192;
+
+inline std::size_t runtime_effective_mlx_cache_limit_bytes(std::size_t admitted_tokens) {
+ const auto explicit_limit=runtime_mlx_cache_limit_bytes();
+ if(explicit_limit)return explicit_limit;
+ return admitted_tokens>=kLongContextCacheThresholdTokens?
+  runtime_long_context_cache_limit_bytes():0;
 }
 
 inline std::size_t runtime_expert_io_threads() {

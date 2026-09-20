@@ -90,4 +90,12 @@ BlockResult ReusedBlockReference::forward_packed_chunk(const mx::array& h,const 
  publications=std::move(pending_publications);
  state=std::move(next);return result;
 }
+ReusedLayerState ReusedBlockReference::seed_packed_attention(const mx::array& h,const mx::array& pre,
+ std::uint64_t start) const{
+ if(h.dtype()!=mx::bfloat16||h.ndim()!=3||h.shape(0)<1||h.shape(0)>128||h.shape(1)!=4||h.shape(2)!=5120||
+    pre.dtype()!=mx::float32||pre.shape()!=mx::Shape({h.shape(0),4}))
+  throw std::runtime_error("invalid packed reused Block seed input");
+ auto input=rms_norm_reference(hc_pre_reference(h,pre),attn_norm_,1e-20f);
+ return attention_.seed_window(input,start);
+}
 }

@@ -2,6 +2,7 @@
 #include "dsv41/execution_policy.hpp"
 #include "dsv41/attention_telemetry.hpp"
 #include "dsv41/generation_loop.hpp"
+#include "dsv41/deferred_decoder_plan.hpp"
 #include <bit>
 #include <cstdlib>
 #include <iostream>
@@ -125,6 +126,101 @@ int main(int argc,char** argv){try{
    for(int i=0;i<3;++i)publication_same(a.encoder.producer[i],b.encoder.producer[i],3+6*i);
    publication_same(a.decoder.producer,b.decoder.producer,39);
   };
+  if(std::getenv("DSV41_CHECK_DEFERRED_PENDING")){
+   constexpr std::size_t first_count=16384,second_count=8192,total=first_count+second_count;
+   std::vector<std::uint32_t> input(total);for(std::size_t i=0;i<total;++i)
+    input[i]=std::uint32_t((i*7919)%129263);
+   dsv41::reset_route_tie_records();
+   std::optional<dsv41::BlockResult> expected;
+   dsv41::run_prefill_chunks(total,4096,[&](std::size_t offset,std::size_t count){
+    expected.emplace(packed.forward_packed_sweep(std::span(input).subspan(offset,count),
+                                                  expected_state,offset));
+   });
+   auto expected_ties=dsv41::route_tie_records();
+   dsv41::reset_route_tie_records();
+   auto initial=actual_state;const auto initial_revision=actual_state.revision();
+   auto transaction=packed.begin_deferred_decoder(std::span(input).first(first_count),actual_state,0);
+   if(!transaction.pending()||transaction.start()!=0||transaction.tokens()!=first_count)
+    throw std::runtime_error("invalid pending decoder transaction metadata");
+   full_state_same(actual_state,initial);
+   auto actual=packed.finish_deferred_decoder(std::move(transaction),
+    std::span(input).subspan(first_count,second_count),actual_state);
+   if(transaction.pending())throw std::runtime_error("finished pending decoder remained publishable");
+   if(actual_state.revision()!=initial_revision+1)
+    throw std::runtime_error("pending decoder finish revision mismatch");
+   dsv41::BlockResult expected_output{
+    mlx::core::slice(expected->hidden,{int(expected->hidden.shape(0))-1,0,0},
+                                      {int(expected->hidden.shape(0)),4,5120}),
+    mlx::core::slice(expected->pre_mix,{int(expected->pre_mix.shape(0))-1,0},
+                                       {int(expected->pre_mix.shape(0)),4})};
+   same(actual.hidden,expected_output.hidden,"pending decoder hidden");
+   same(actual.pre_mix,expected_output.pre_mix,"pending decoder pre-mix");
+   same(packed.logits(actual),packed.logits(expected_output),"pending decoder logits");
+   full_state_same(actual_state,expected_state);
+   expected_ties.erase(std::remove_if(expected_ties.begin(),expected_ties.end(),[&](const auto& tie){
+    return tie.layer>=20&&tie.token<first_count+
+     dsv41::deferred_decoder_span(second_count,std::size_t(tie.layer)).first;}),expected_ties.end());
+   auto actual_ties=dsv41::route_tie_records();
+   auto order=[](const auto& x,const auto& y){return std::tie(x.token,x.layer)<std::tie(y.token,y.layer);};
+   std::sort(actual_ties.begin(),actual_ties.end(),order);std::sort(expected_ties.begin(),expected_ties.end(),order);
+   ties_same(actual_ties,expected_ties,"pending decoder route ties");
+   bool reused=false;try{packed.finish_deferred_decoder(std::move(transaction),
+    std::span(input).subspan(first_count,second_count),actual_state);}catch(const std::exception&){reused=true;}
+   if(!reused)throw std::runtime_error("finished pending decoder transaction was reused");
+   std::cout<<"PASS: DwarfStar-style 16K encoder-only plus 8K exact decoder resume; "
+    <<"hidden/pre-mix/logits/state/publication/hash/route ties exact; source atomicity exact; "
+    <<"performance unqualified"<<std::endl;
+   return 0;
+  }
+  if(std::getenv("DSV41_CHECK_DEFERRED_TRANSACTION")||std::getenv("DSV41_CHECK_DEFERRED_SUFFIX")){
+   const bool suffix_check=std::getenv("DSV41_CHECK_DEFERRED_SUFFIX")!=nullptr;
+   const std::size_t count=suffix_check?2541:256;
+   std::vector<std::uint32_t> input(count);for(std::size_t i=0;i<count;++i)input[i]=std::uint32_t((i*7919)%129263);
+   dsv41::reset_route_tie_records();
+   auto expected=packed.forward_packed_sweep(input,expected_state,0);
+   auto expected_ties=dsv41::route_tie_records();
+   dsv41::reset_route_tie_records();
+   auto initial=actual_state;
+   const auto initial_revision=actual_state.revision();
+   auto transaction=packed.begin_deferred_prefill(input,actual_state,0);
+   if(!transaction.pending()||transaction.start()!=0||transaction.tokens()!=count)
+    throw std::runtime_error("invalid deferred transaction metadata");
+   full_state_same(actual_state,initial);
+   if(actual_state.revision()!=initial_revision)throw std::runtime_error("deferred encoder published a revision");
+   auto moved=std::move(transaction);
+   if(transaction.pending())throw std::runtime_error("moved deferred transaction retained ownership");
+   auto actual=packed.finish_deferred_prefill(std::move(moved),actual_state);
+   if(moved.pending())throw std::runtime_error("finished deferred transaction remained publishable");
+   if(actual_state.revision()!=initial_revision+1)throw std::runtime_error("deferred finish revision mismatch");
+   dsv41::BlockResult expected_output=expected;
+   if(suffix_check)expected_output={
+    mlx::core::slice(expected.hidden,{int(count-1),0,0},{int(count),4,5120}),
+    mlx::core::slice(expected.pre_mix,{int(count-1),0},{int(count),4})};
+   same(actual.hidden,expected_output.hidden,"deferred transaction hidden");
+   same(actual.pre_mix,expected_output.pre_mix,"deferred transaction pre-mix");
+   same(packed.logits(actual),packed.logits(expected_output),"deferred transaction logits");
+   full_state_same(actual_state,expected_state);
+   auto actual_ties=dsv41::route_tie_records();
+   if(suffix_check)expected_ties.erase(std::remove_if(expected_ties.begin(),expected_ties.end(),
+    [&](const auto& tie){return tie.layer>=20&&tie.token<
+     dsv41::deferred_decoder_span(count,std::size_t(tie.layer)).first;}),expected_ties.end());
+   auto order=[](const auto& x,const auto& y){return std::tie(x.token,x.layer)<std::tie(y.token,y.layer);};
+   std::sort(actual_ties.begin(),actual_ties.end(),order);std::sort(expected_ties.begin(),expected_ties.end(),order);
+   ties_same(actual_ties,expected_ties,"deferred transaction route ties");
+   bool reused=false;try{packed.finish_deferred_prefill(std::move(moved),actual_state);}
+   catch(const std::exception&){reused=true;}
+   if(!reused)throw std::runtime_error("finished deferred transaction was reused");
+   auto invalid=input;invalid[129]=129264;auto saved=actual_state;bool rejected=false;
+   try{(void)packed.begin_deferred_prefill(invalid,actual_state,256);}
+   catch(const std::exception&){rejected=true;}
+   if(!rejected)throw std::runtime_error("invalid deferred encoder token accepted");
+   full_state_same(saved,actual_state);
+   std::cout<<"PASS: deferred encoder transaction is unpublished until exact "
+    <<(suffix_check?"shrinking decoder suffix":"full decoder finish")<<"; "
+    <<"hidden/pre-mix/logits/state/publication/hash/route ties exact; discard/reuse/invalid atomicity exact; "
+    <<(suffix_check?"suffix performance unqualified":"decoder suffix and performance unqualified")<<std::endl;
+   return 0;
+  }
   if(std::getenv("DSV41_CHECK_FIXED_TILE_LAYER_LOCALIZATION")){
    std::vector<std::uint32_t> input(128);for(int i=0;i<128;++i)input[i]=std::uint32_t((i*7919)%129263);
    MemoryTraceSink expected_trace,actual_trace;

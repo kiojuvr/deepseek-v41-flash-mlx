@@ -11,6 +11,8 @@ public:
  BlockResult forward_packed_chunk(const mlx::core::array& hidden,const mlx::core::array& pre_mix,
                                   CompressedLayerState& state,std::uint64_t start,
                                   std::vector<SharedAttentionReference>* publications=nullptr) const;
+ void prepare_packed_attention(const mlx::core::array& hidden,const mlx::core::array& pre_mix,
+                               CompressedLayerState& state,std::uint64_t start) const;
  void release_packed_bank() const { moe_.release_packed_bank(); }
 private:
  int layer_;

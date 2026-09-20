@@ -75,6 +75,11 @@ const mx::array& SharedAttentionReference::device_chunk_indices(int layer,
   throw std::runtime_error("shared attention chunk plan mismatch");
  return device_chunk_rows_;
 }
+bool SharedAttentionReference::chunk_plan_matches(int layer,std::uint64_t start,int tokens) const{
+ return layer>=3&&layer<kBackboneLayers&&kv_source_for_layer(layer)==source_layer_&&
+  index_source_layer_==chunk_index_source_layer_&&start==chunk_start_&&tokens==chunk_tokens_&&
+  device_chunk_rows_.shape()==mx::Shape({tokens,512});
+}
 void SharedAttentionReference::republish(int index_source_layer,std::vector<std::int32_t> selected,
  std::vector<std::uint8_t> candidates){
  if(!is_index_source_layer(index_source_layer)||kv_source_for_layer(index_source_layer)!=source_layer_)

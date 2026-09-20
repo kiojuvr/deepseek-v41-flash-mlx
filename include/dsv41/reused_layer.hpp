@@ -26,6 +26,10 @@ public:
  mlx::core::array forward_chunk(const mlx::core::array& hidden,ReusedLayerState& state,
                          std::vector<SharedAttentionReference>& publications,
                          std::uint64_t start_position) const;
+ // Construct the exact bounded raw window immediately before a deferred
+ // suffix. Older rows cannot affect this layer's 128-row local attention.
+ ReusedLayerState seed_window(const mlx::core::array& hidden,
+                              std::uint64_t start_position) const;
 private:
  int layer_,ratio_;
  bool is_index_source_,uses_candidates_;

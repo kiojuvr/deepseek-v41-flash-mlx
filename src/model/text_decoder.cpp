@@ -2,6 +2,7 @@
 #include "dsv41/model_entry.hpp"
 #include "dsv41/layer_owner.hpp"
 #include "dsv41/runtime_profile.hpp"
+#include "dsv41/deferred_decoder_plan.hpp"
 #include <algorithm>
 #include <iterator>
 #include <stdexcept>
@@ -103,6 +104,111 @@ BlockResult TextDecoderReference::forward_packed_sweep(const mx::array& h,const 
  for(int layer=21;layer<40;++layer){
   const int slot=reuse_slot(layer);run_reuse(layer,*reuse_[slot],next.reuse[slot],publications);
  }
+ next.producer.publication()=publications.back();state=std::move(next);return out;
+}
+void TextDecoderReference::prepare_deferred_prefix(const mx::array& h,const mx::array& pre,
+ TextDecoderState& state,std::uint64_t start) const{
+ const std::size_t tokens=h.shape(0);
+ if(h.dtype()!=mx::bfloat16||h.ndim()!=3||tokens<1||tokens>16384||
+    h.shape(1)!=4||h.shape(2)!=5120||pre.dtype()!=mx::float32||
+    pre.shape()!=mx::Shape({h.shape(0),4})||state.producer.position()!=start||
+    start>=1048576||tokens>1048576-start)
+  throw std::runtime_error("invalid deferred decoder prefix input/state");
+ for(const auto& s:state.reuse)if(s.position()!=start)
+  throw std::runtime_error("invalid deferred decoder prefix reuse position");
+ auto next=state;
+ for(std::size_t off=0;off<tokens;off+=128){
+  const auto count=std::min<std::size_t>(128,tokens-off);
+  auto hidden=mx::slice(h,{int(off),0,0},{int(off+count),4,5120});
+  auto pre_mix=mx::slice(pre,{int(off),0},{int(off+count),4});
+  producer_->prepare_packed_attention(hidden,pre_mix,next.producer,start+off);
+ }
+ state=std::move(next);
+}
+BlockResult TextDecoderReference::forward_deferred_suffix(const mx::array& h,const mx::array& pre,
+ TextDecoderState& state,std::uint64_t start) const{
+ return forward_deferred_suffix_impl(h,pre,state,start,false);
+}
+BlockResult TextDecoderReference::resume_deferred_suffix(const mx::array& h,const mx::array& pre,
+ TextDecoderState& state,std::uint64_t start) const{
+ return forward_deferred_suffix_impl(h,pre,state,start,true);
+}
+BlockResult TextDecoderReference::forward_deferred_suffix_impl(const mx::array& h,const mx::array& pre,
+ TextDecoderState& state,std::uint64_t start,bool resume_prefix) const{
+ const std::size_t tokens=h.shape(0);
+ if(h.dtype()!=mx::bfloat16||h.ndim()!=3||tokens<deferred_decoder_suffix_rows(20)+kDecoderRawHistory||
+    h.shape(1)!=4||h.shape(2)!=5120||pre.dtype()!=mx::float32||
+    pre.shape()!=mx::Shape({h.shape(0),4})||state.producer.position()!=start||
+    start>=1048576||tokens>1048576-start)
+  throw std::runtime_error("invalid deferred decoder suffix input/state");
+ for(const auto& s:state.reuse)if((!resume_prefix&&s.position()!=start)||
+                                  (resume_prefix&&s.position()>=start))
+  throw std::runtime_error("invalid deferred decoder suffix reuse position");
+ auto next=state;
+ auto slice=[&](const BlockResult& value,std::size_t first,std::size_t count){
+  return BlockResult{
+   mx::slice(value.hidden,{int(first),0,0},{int(first+count),4,5120}),
+   mx::slice(value.pre_mix,{int(first),0},{int(first+count),4})};
+ };
+ auto materialize=[](std::vector<mx::array>& hidden,std::vector<mx::array>& pre_mix){
+  BlockResult value{hidden.size()==1?hidden.front():mx::concatenate(hidden,0),
+                    pre_mix.size()==1?pre_mix.front():mx::concatenate(pre_mix,0)};
+  mx::eval(value.hidden,value.pre_mix);return value;
+ };
+ const BlockResult encoded{h,pre};
+ const auto producer_span=deferred_decoder_span(tokens,20);
+ for(std::size_t off=0;off<producer_span.first;off+=128){
+  const auto count=std::min<std::size_t>(128,producer_span.first-off);
+  auto input=slice(encoded,off,count);
+  producer_->prepare_packed_attention(input.hidden,input.pre_mix,next.producer,start+off);
+ }
+ std::vector<SharedAttentionReference> publications;
+ std::vector<mx::array> hidden,pre_mix;
+ hidden.reserve((producer_span.rows+127)/128);pre_mix.reserve(hidden.capacity());
+ publications.reserve(producer_span.rows);
+ auto producer_started=runtime_profile_start();
+ try{
+  for(std::size_t off=producer_span.first;off<tokens;off+=128){
+   const auto count=std::min<std::size_t>(128,tokens-off);auto input=slice(encoded,off,count);
+   std::vector<SharedAttentionReference> part;
+   auto result=producer_->forward_packed_chunk(input.hidden,input.pre_mix,next.producer,start+off,&part);
+   hidden.push_back(result.hidden);pre_mix.push_back(result.pre_mix);
+   publications.insert(publications.end(),std::make_move_iterator(part.begin()),
+                        std::make_move_iterator(part.end()));
+  }
+ }catch(...){producer_->release_packed_bank();throw;}
+ producer_->release_packed_bank();
+ auto out=materialize(hidden,pre_mix);
+ record_runtime_layer(20,runtime_profile_elapsed(producer_started));
+ for(int layer=21;layer<40;++layer){
+  const auto span=deferred_decoder_span(tokens,layer);
+  if(out.hidden.shape(0)!=int(span.rows+kDecoderRawHistory)||
+     publications.size()!=span.rows+kDecoderRawHistory)
+   throw std::runtime_error("invalid deferred decoder dependency frontier");
+  const int slot=reuse_slot(layer);
+  auto warm=slice(out,0,kDecoderRawHistory);
+  next.reuse[slot]=reuse_[slot]->seed_packed_attention(
+   warm.hidden,warm.pre_mix,start+span.warm_first);
+  auto active=slice(out,kDecoderRawHistory,span.rows);
+  publications.erase(publications.begin(),publications.begin()+kDecoderRawHistory);
+  hidden.clear();pre_mix.clear();hidden.reserve((span.rows+127)/128);pre_mix.reserve(hidden.capacity());
+  auto layer_started=runtime_profile_start();
+  try{
+   for(std::size_t off=0;off<span.rows;off+=128){
+    const auto count=std::min<std::size_t>(128,span.rows-off);auto input=slice(active,off,count);
+    std::vector<SharedAttentionReference> part(publications.begin()+off,
+                                               publications.begin()+off+count);
+    auto result=reuse_[slot]->forward_packed_chunk(input.hidden,input.pre_mix,next.reuse[slot],
+                                                    part,start+span.first+off);
+    std::move(part.begin(),part.end(),publications.begin()+off);
+    hidden.push_back(result.hidden);pre_mix.push_back(result.pre_mix);
+   }
+  }catch(...){reuse_[slot]->release_packed_bank();throw;}
+  reuse_[slot]->release_packed_bank();out=materialize(hidden,pre_mix);
+  record_runtime_layer(layer,runtime_profile_elapsed(layer_started));
+ }
+ if(out.hidden.shape(0)!=1||publications.size()!=1)
+  throw std::runtime_error("deferred decoder did not collapse to one final row");
  next.producer.publication()=publications.back();state=std::move(next);return out;
 }
 BlockResult TextDecoderReference::forward(const mx::array& h,const mx::array& pre,TextDecoderState& state,std::uint64_t start,TraceSink* trace) const{

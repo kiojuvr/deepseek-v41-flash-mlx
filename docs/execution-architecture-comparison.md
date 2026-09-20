@@ -150,7 +150,7 @@ layer/chunk sweep is never publishable.
 | 2 | Chunk-wide mHC pre/post and state expansion | 38.743 s post-MoE, plus part of 9.678 s overhead | **Connected and full-backbone qualified:** two 128-token chunks match the token-serial oracle through logits/state/publication. |
 | 3 | Device route to expert-major work lists and grouped gate/up/down/reduce | Resident profile: 53.882 s MoE | **Schedule promoted, grouped tile candidate rejected:** device routes and stable expert-major assignment order are connected. Direct oMLX grouped MXFP4 dispatch was slower for the official 768-assignment shape, so the current gather-QMM schedule remains pending a better full-path candidate. |
 | 4 | Chunk-wide attention/index/publication with atomic frontier commit | Shape-bucket profile: 46.708 s attention (from 69.652 s) | **In progress:** device top-k/candidate arrays remain authoritative through publication and attention gather; equal-shape AV work is batched and host vectors are diagnostic-only. Scalar QK, residual token-serial attention, and chunk-atomic frontier commit remain. |
-| 5 | CED/deferred decoder and bounded replay | No 2K saving | Begin only after the 2K structural gates above. |
+| 5 | CED/deferred decoder and bounded replay | Immediate suffix primitive at 16K: 320.90 s to 221.35 s | **Outer schedule corrected, default blocked:** the primitive is exact and won 5/5, but it completed each suffix immediately. The opt-in path now follows ds4: private 16K encoder-only begin, then one exact resume only when >=8K remains. A 24K full-state gate precedes 32K measurement. |
 
 The prior full-resident experiment proved 40-bank reuse but built those banks
 during the first prefill chunk and experienced substantial VM compression.
@@ -361,6 +361,197 @@ Those results use different quantization and kernels and therefore cannot
 predict official-checkpoint throughput. They do establish that the scheduling,
 state-lifetime, and submission architecture is practical on the exact target
 hardware/model family.
+
+## Long-context transition after the fixed-tile baseline
+
+The production 16K/32K measurement now uses bounded 4,096-row transactions;
+the previous context harness accidentally passed an entire phase to the
+4,096-row sweep API and could not run the promoted production schedule. A
+stage-resumable runner records unprofiled production wall/decode/memory and a
+separate synchronized component attribution at both regimes. Per-phase
+attention invocation/copy deltas make base prefill, continued prefill, and the
+tail independently comparable. No long run has been claimed passed yet.
+
+The pinned DwarfStar source was re-read before introducing a local CED design.
+Its outer policy defers only a sweep of at least 16,384 rows when at least
+8,192 rows remain, never adding an encoder sweep merely to defer a short tail.
+During completion it publishes the full encoder compressed-key prefix, then
+evaluates a shrinking decoder suffix: layer `L` needs
+`1 + (39 - L) * 127` rows and exactly 127 preceding rows to warm its raw
+decoder window. A partial encoder-only sweep invalidates the graph and cannot
+be snapshotted; the reviewed recovery test requires exact state spans, logits,
+snapshot reload, following decode, and cancellation recovery. Pinned oMLX has
+no corresponding deferred-decoder path.
+
+That geometry is now represented by the checked
+`deferred_decoder_plan.hpp` helper, including the 16K/8K activation boundary,
+but it is not connected to production. Connection order is intentionally
+data-dependent:
+
+1. Review all four 16K/32K artifacts and identify the incremental wall owner.
+2. If decoder recomputation dominates, add a request-owned encoder-only
+   transaction across existing 4K microtiles, publish no session frontier,
+   and rebuild the exact per-layer decoder suffix before logits or snapshots.
+3. Add bounded replay/cancellation recovery and compare complete state,
+   publication, logits, snapshot reload, and following decode with the current
+   full-stack sweep. Only then measure wall.
+4. If attention/index/cache growth dominates instead, first remove the
+   measured cache/state scheduling amplification; retain the same atomic
+   frontier and use CED afterward.
+
+This starts the CED implementation at its invariant schedule rather than
+guessing a new numerical kernel. It does not promote deferred execution or
+reinterpret a component probe as long-context qualification.
+
+The completed four-stage observation
+`context-ladder/long-regime-20260919-221200-93567` changes that order. Attention
+remained 58.08%/57.25% and MoE 39.22%/40.17% at 16K/32K, so no new compute
+bucket became dominant. Production throughput declined from 51.04 to 46.60
+tok/s and the fixed 4,096-token continuation grew from 81.23 to 120.07
+seconds. More importantly, final MLX cache grew by 52.56 GB while active and
+peak MLX allocation were nearly flat. Process peak footprint grew by the same
+52.59 GB to 383.97 GB, violating the 340 GB hard budget despite zero swap.
+
+Therefore the first long-context structural correction is bounded allocator
+cache scheduling, not CED. An opt-in policy now applies a 16 GiB MLX cache cap
+only at an admitted context of at least 8,192 tokens; an explicit global cache
+limit still wins. The generation path evaluates prompt plus output reserve,
+and the context harness records requested and effective limits. The candidate
+remains disabled by default until its 2K/16K/32K runner proves the 2K baseline
+unchanged and brings 32K process footprint below budget without wall/decode or
+semantic regression. CED remains next after this memory-lifecycle gate because
+its deferred frontier cannot be safely evaluated under an already failed
+memory contract.
+
+The cache gate passed in
+`context-ladder/cache-candidate-20260920-011227-94806`. At 32K the 16 GiB cap
+reduced final allocator cache from 80.99 to 17.17 GB and process peak footprint
+from 383.97 to 323.26 GB. Prefill also fell from 702.90 to 639.08 seconds,
+the fixed 4,096-row continuation returned from 120.07 to 81.87 seconds, and
+decode p95 fell from an outlying 11.96 to 3.47 seconds. The 16K wall was flat,
+and the policy is inactive below 8,192 admitted tokens. The cache bound is now
+the production default; explicit zero retains the comparison path. The speed
+difference is a single observation and is not presented as repeated
+performance qualification.
+
+CED implementation now starts with ownership rather than arithmetic. A
+move-only deferred transaction runs the encoder into copied private session
+state, leaves the source frontier unchanged, and can publish only after the
+decoder completes. The first finish path intentionally runs the existing full
+decoder sweep. This provides the cancellation/discard/replay boundary needed
+by the DwarfStar algorithm before introducing its shrinking suffix. A prepared
+256-token full-backbone gate requires bit-exact outputs and complete persistent
+state/publication/hash equality, plus invalid/reused transaction rejection.
+
+That ownership gate passed in
+`prefill-gap/deferred-transaction-20260920-015305-96073`: complete outputs,
+state, publication, hash and executed route ties were bit exact, with zero
+swap and a 38.05 GB peak footprint. The next isolated slice now implements
+the pinned DwarfStar shrinking dependency schedule. Layer 20 prepares only
+the skipped prefix's global/index and raw-window state; each later layer seeds
+its bounded raw window from 127 predecessor rows before executing
+`1 + (39-L)*127` rows. Existing attention, mHC and MoE blocks remain the
+arithmetic implementation. This candidate is not connected to production
+until its 2,541-row full-state oracle gate passes.
+
+The first oracle attempt
+`prefill-gap/deferred-suffix-20260920-020506-96918` rejected before publication:
+layer 20's fixed-tile chunk plan began at row 127, while layer 21's suffix
+frontier shifted to row 254. The ordinary sweep optimization assumes aligned
+chunk boundaries and correctly rejected that reuse. The suffix path now
+repacks each publication's immutable device selections at a shifted boundary;
+it does not rerun index selection or read indices back to the host. The failed
+private transaction left the source frontier unchanged and the same gate must
+be rerun from fresh state.
+
+The corrected run `prefill-gap/deferred-suffix-20260920-021359-97264` passed:
+the final hidden/pre-mix/logits, complete persistent state/publication/hash,
+and every executed route tie matched the 2,541-row full decoder bit for bit.
+It used zero swap and a 73.76 GB peak footprint. CED is now connected only as
+an opt-in full-context candidate: a phase with at least 8,192 remaining rows
+owns at most 16,384 rows privately and commits through the exact suffix.
+Short phases and decode retain the production schedule. Default and API
+dispatch remain unchanged pending 2K/16K/32K review.
+
+The full-context candidate
+`context-ladder/deferred-decoder-candidate-20260920-022230-97711` passed its
+semantic and resource review. CED was inactive at 2K, executed once at 16K and
+twice at 32K. Against the cache-bounded production observation, prefill fell
+from 320.56 to 221.28 seconds at 16K (30.97%) and from 639.08 to 399.42 seconds
+at 32K (37.50%). Generated tokens, final positions, resident-bank topology and
+zero-readback/zero-swap contracts matched. Decode improved slightly; teacher
+continuation was 1.7--2.2% slower in the single observation. Peak process
+footprint remained below budget at 324.30/325.97 GB.
+
+This closes the full-context candidate gate but not repeated performance
+qualification. Five alternating warm 16K pairs now measure the same single
+CED transaction used twice by 32K. Default and generation-API promotion require
+a 5/5 candidate win beyond order variance with no teacher, decode, memory or
+swap regression.
+
+The paired run `context-ladder/deferred-decoder-paired-20260920-024600-98127`
+won all five pairs and reduced mean prefill from 320.90 to 221.35 seconds
+(31.02%). Decode improved slightly, MLX peak was identical, process footprint
+remained below budget, and every run used zero swap. It did not close the full
+contract: the separate 4,096-row teacher continuation regressed consistently
+from 81.42 to 82.49 seconds (1.31%). Its attention rows, indexer rows, fixed-tile
+calls, QK/AV batches, concat bytes, and final active/cache memory match the
+baseline, so topology counters do not explain the delta. CED therefore remains
+opt-in. The native generation entry point now uses the same bounded variable
+chunk schedule when opted in, while a synchronized phase-local component run
+attributes the continuation delta before any default promotion.
+
+The first synchronized attribution run
+`context-ladder/deferred-continuation-profile-20260920-052800-656` kept exact
+outputs/state/topology and zero swap. Under profiling synchronization the two
+teacher phases regressed by only 0.261 seconds in total. Attention was 0.089
+seconds faster and post-MoE 0.159 seconds faster; MoE alone was 0.514 seconds
+slower over the same 1,280 component calls. The harness now records these
+phase deltas per layer so the next bounded run can distinguish one cold suffix
+shape from process-wide allocator/cache state without reopening attention
+correctness or topology.
+
+The second layer-resolved run
+`context-ladder/deferred-continuation-profile-20260920-054723-1241` reversed the
+teacher result: CED was 0.457 seconds faster and the total MoE delta shrank to
++0.083 seconds. No layer-local extra call or stable hotspot survived profiling.
+Re-reading pinned ds4 exposed a structural issue instead: ds4 begins CED only
+for a 16K sweep with at least 8K still pending, keeps that encoder frontier
+unpublished, and completes the decoder on the next sweep. The local candidate
+had applied the exact suffix immediately to every >=8K chunk. Its exactness and
+speed observations remain valid for the suffix primitive, but not for ds4 CED
+dispatch. The opt-in scheduler now carries a private 16K producer frontier into
+one 8K--16K completing sweep; 16K and shorter requests retain the full decoder.
+
+The isolated pending gate
+`prefill-gap/deferred-pending-20260920-061215-1886` passed bit exactly against a
+24,576-row full sweep: final hidden/pre-mix/logits, all encoder and decoder
+persistent state/publication/hash, and executed route ties matched. Source
+revision atomicity and transaction reuse rejection passed with zero swap and a
+157.71 GB peak footprint. The next full-context candidate therefore requires
+zero CED transactions at 2K/16K and exactly one private-begin/resume pair at
+32K before any new performance conclusion.
+
+The production-topology observation
+`context-ladder/deferred-decoder-candidate-20260920-063643-2271` executed zero
+CED transactions at 2K/16K and exactly one at 32K. At 32K it reduced prefill
+from the cache-bounded 639.08 seconds to 385.45 seconds (39.69%), and the base
+phase from 557.21 to 301.41 seconds (45.91%). This is also faster than the
+399.42-second immediate-suffix candidate. Generated tokens/state/topology,
+decode, MLX peak and zero swap passed; process footprint was 326.44 GB. The
+single teacher continuation was 2.65% slower, so repeated 32K alternating pairs
+remain mandatory before default promotion.
+
+The five warm alternating 32K pairs in
+`context-ladder/deferred-pending-paired-20260920-121235-3691` confirmed the
+39.80% mean prefill improvement and a 5/5 win beyond order variance. Decode
+improved, MLX peak was identical, process footprint stayed below budget, and
+all semantic/topology/swap gates passed. They also confirmed a 2.46% teacher
+continuation regression in all five pairs. Default promotion is rejected under
+the predeclared contract. Because synchronized phase profiles showed no stable
+layer or component work increase, the next bounded structural probe clears
+only idle MLX allocator buffers after atomic CED publication, testing whether
+the many suffix shapes leave an adverse cache composition for the next request.
 
 ## 2026-09-17 gap-audit checkpoint
 

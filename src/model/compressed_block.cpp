@@ -92,4 +92,12 @@ BlockResult CompressedBlockReference::forward_packed_chunk(const mx::array& h,co
  if(publications)*publications=std::move(pending_publications);
  state=std::move(next);return result;
 }
+void CompressedBlockReference::prepare_packed_attention(const mx::array& h,const mx::array& pre,
+ CompressedLayerState& state,std::uint64_t start) const{
+ if(h.dtype()!=mx::bfloat16||h.ndim()!=3||h.shape(0)<1||h.shape(0)>128||h.shape(1)!=4||h.shape(2)!=5120||
+    pre.dtype()!=mx::float32||pre.shape()!=mx::Shape({h.shape(0),4})||state.position()!=start)
+  throw std::runtime_error("invalid packed compressed Block preparation input/state");
+ auto input=rms_norm_reference(hc_pre_reference(h,pre),attn_norm_,1e-20f);
+ attention_.prepare_chunk(input,state,start);
+}
 }

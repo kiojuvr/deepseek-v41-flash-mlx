@@ -13,6 +13,9 @@ public:
                                   ReusedLayerState& state,
                                   std::vector<SharedAttentionReference>& publications,
                                   std::uint64_t start) const;
+ ReusedLayerState seed_packed_attention(const mlx::core::array& hidden,
+                                        const mlx::core::array& pre_mix,
+                                        std::uint64_t start) const;
  void release_packed_bank() const { moe_.release_packed_bank(); }
 private:
  int layer_;

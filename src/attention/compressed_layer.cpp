@@ -113,6 +113,23 @@ CompressedLayerReference::CompressedLayerReference(WeightCatalog& c,int layer):l
  if(qa_.input_dims()!=5120||qa_.output_dims()!=1280||qb_.input_dims()!=1280||qb_.output_dims()!=32768||kv_.input_dims()!=5120||kv_.output_dims()!=512||output_.input_dims()!=8192||output_.output_dims()!=5120||qa_.bits()!=8||qb_.bits()!=8||kv_.bits()!=8||output_.bits()!=8)throw std::runtime_error("compressed projection layout mismatch");
  mx::eval(grouped_,sink_);
 }
+void CompressedLayerReference::prepare_chunk(const mx::array& h,CompressedLayerState& state,
+ std::uint64_t start) const{
+ if(h.dtype()!=mx::bfloat16||h.ndim()!=2||h.shape(0)<1||h.shape(0)>128||h.shape(1)!=5120||
+    state.position()!=start||start>=1048576||std::uint64_t(h.shape(0))>1048576-start)
+  throw std::runtime_error("invalid compressed attention preparation input/state");
+ std::vector<std::uint64_t> positions;positions.reserve(h.shape(0));
+ for(int i=0;i<h.shape(0);++i)positions.push_back(start+std::uint64_t(i));
+ auto kv=linear_activation_reference(compressed_rope_reference(
+  rms_norm_reference(kv_.forward(h),kvnorm_,1e-20f),positions)).decoded;
+ auto next=state;
+ producer_.append(h,next.global_,start);
+ auto window=mx::concatenate({state.window_,kv},0);
+ next.window_=mx::slice(window,{std::max(0,window.shape(0)-128),0},{window.shape(0),512});
+ next.publication_.reset();
+ mx::eval(next.window_);
+ state=std::move(next);
+}
 mx::array CompressedLayerReference::forward(const mx::array& h,CompressedLayerState& state,std::uint64_t start) const{
  return forward_chunk(h,state,start,nullptr);
 }
@@ -370,6 +387,20 @@ mx::array ReusedLayerReference::forward(const mx::array& x,ReusedLayerState& sta
  }
  state.window_=window;state.position_=pos+1;return y;
 }
+ReusedLayerState ReusedLayerReference::seed_window(const mx::array& x,std::uint64_t start) const{
+ if(x.dtype()!=mx::bfloat16||x.ndim()!=2||x.shape(0)<1||x.shape(0)>128||x.shape(1)!=5120||
+    start>=1048576||std::uint64_t(x.shape(0))>1048576-start)
+  throw std::runtime_error("invalid reused attention seed input");
+ std::vector<std::uint64_t> positions;positions.reserve(x.shape(0));
+ for(int i=0;i<x.shape(0);++i)positions.push_back(start+std::uint64_t(i));
+ auto kv=linear_activation_reference(compressed_rope_reference(
+  rms_norm_reference(kv_.forward(x),kvnorm_,1e-20f),positions)).decoded;
+ ReusedLayerState seeded;
+ seeded.window_=kv.shape(0)>128?mx::slice(kv,{kv.shape(0)-128,0},{kv.shape(0),512}):kv;
+ seeded.position_=start+x.shape(0);
+ mx::eval(seeded.window_);
+ return seeded;
+}
 mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerState& state,
  std::vector<SharedAttentionReference>& publications,std::uint64_t start) const{
  if(x.dtype()!=mx::bfloat16||x.ndim()!=2||x.shape(0)<1||x.shape(0)>128||x.shape(1)!=5120||
@@ -432,10 +463,16 @@ mx::array ReusedLayerReference::forward_chunk(const mx::array& x,ReusedLayerStat
   if(wide_chunk||fixed_tile){
    mx::array plan=mx::array(0);
    if(is_index_source_){
-    plan=dense_topk(selected_rows);
-    for(auto& publication:publications)
+   plan=dense_topk(selected_rows);
+   for(auto& publication:publications)
      publication.publish_chunk_plan(layer_,plan,start,x.shape(0));
-   }else plan=publications.front().device_chunk_indices(layer_,start,x.shape(0));
+   }else if(publications.front().chunk_plan_matches(layer_,start,x.shape(0)))
+    plan=publications.front().device_chunk_indices(layer_,start,x.shape(0));
+   else
+    // Deferred decoder suffixes shift the chunk frontier by 127 rows per
+    // layer. Repack immutable device selections at the new boundary without
+    // recomputing the index query or reading rows back to the host.
+    plan=dense_topk(selected_rows);
    if(wide_chunk)attention_groups.push_back(swa_wide_attention_chunk(q,all_window,pooled.main_bytes(),
     pooled.main_scales(),plan,sink_,start,ratio_));
    else{

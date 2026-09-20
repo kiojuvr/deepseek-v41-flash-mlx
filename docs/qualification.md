@@ -1318,3 +1318,300 @@ assignment chunk 256の診断 `context-ladder/32k-run-20260916-161056-21739` は
 active/cache/peakは11.39/8.42/14.92 GBで変化しなかった。これはassignment中間処理の小さな改善を示すが、
 このharness単体では外部parityを証明しないため、既定値は変更しない。512行chunkを同条件で測定し、
 さらに改善するか、またメモリ・parityに影響しないかを確認する。
+
+### Production 16K / 32K regime transition (2026-09-19)
+
+fixed-tile production default後の最初のlong-context harness監査で、`sweep` modeが各phaseの残り全tokenを
+一度に`forward_packed_sweep`へ渡し、4,096-token API上限を超えることを確認した。従来のcompact-only
+32K artifactはこのproduction scheduleより前の証拠であり、現production pathの16K / 32K測定を代替しない。
+harnessは各phaseを最大4,096 tokenのtransactionへ分割し、phaseごとのattention invocation/copy telemetryと、
+component profile時のAttention / MoE / post-MoE wall deltaを保存するよう修正した。2K production defaultや
+モデル演算は変更していない。
+
+長時間runは次のstage-resumable runnerをユーザーが実行する。agentは自動起動しない。
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_long_context_regime_measurements.sh
+```
+
+scopeはproduction wallと同期付きcomponent profileを16K、32Kで各1回、teacher continuation 4,096、
+tail 2,048、decode 16。1 modelずつ逐次実行し、Unified Memory上限340 GB、checkpoint read-only、
+総所要はcache/thermal条件により数十分〜数時間を見込む。rootは
+`artifacts/context-ladder/long-regime-日時-PID/`、各attemptのraw result/progress/resource/config/identityと
+集約`summary.json`を保持する。失敗attemptは削除せず、表示された同じrootを
+`DSV41_LONG_REGIME_DIR`へ渡して再実行すると完了stageをskipし、失敗stageだけfresh model stateから再開する。
+model state途中再開はしない。全4 resultとresource logをreviewするまで16K / 32Kをpassと呼ばない。
+
+測定前に最適化順を結果へ合わせて変更しないため、判断面を固定する。production wall/TPS、teacher
+continuation、decode mean/p95、peak bytes、Attention/MoE/post-MoE share、および16K→32Kの倍率を比較する。
+decoder workがcontextとともに主要増分ならCED/deferred decoderへ進み、attention/index/cache copyの増分が
+支配するならlong-context index/state/cache schedulingを先に閉じる。bounded replayはどちらの場合も
+partial encoder-only frontierを公開しない回復契約としてCED promotion前に必要である。
+
+4 stage artifact `context-ladder/long-regime-20260919-221200-93567`をreviewした。全childはexit 0、
+revision `6c33f77`、同一tracked patch SHA-256
+`6e311162dae777fce10b690fd7d718bbced3d9a4df9fcda5b759a30d024e0816`で、patchはこの測定を可能にした
+context分割/telemetry/CED geometry変更と現在の該当diffに一致した。production flags、40 resident banks、
+zero route/index readback、zero scalar QK/AV、state position、production/profile間の生成token列は一致し、
+全runでswap 0だった。clean commit artifactではないためrelease evidenceにはせず、次の構造判断に用いる。
+
+production prefillは16Kで320.690691秒 / 51.0398 tok/s、32Kで702.897563秒 / 46.5957 tok/s。
+32K/16K wall比2.1918、throughput比0.9129。teacher continuation 4,096は81.234402秒から
+120.067573秒へ47.8%増えた。component shareはAttention 58.08%→57.25%、MoE 39.22%→40.17%、
+post-MoE 2.69%→2.59%で、計算支配比率はregime間でほぼ不変だった。したがってこの結果だけを理由に
+decoder CEDを最初の変更とはしない。
+
+一方、final MLX cacheは28,428,571,508 bytesから80,989,539,136 bytesへ52.56 GB増え、process peak
+footprintも331,383,618,952 bytesから383,973,031,328 bytesへ同量増加した。32Kは340 GB予算を
+43.97 GB超過している。MLX peak allocation自体は304,393,348,603→304,410,027,515 bytesとほぼ一定で、
+active state増加ではなくreclaimされないallocator cacheが超過の直接原因である。decodeも16K mean/p95
+3.188/3.473秒から32K 4.372/11.964秒へ悪化し、32Kの最初2 stepに5.992/11.964秒stallがある。
+このartifactは32K動作観測を閉じるが、memory hard gate失敗のため32K qualificationはfailとする。
+
+次candidateはlong-context時だけ16 GiBのMLX allocator cache limitを適用する。通常の明示cache limitが
+最優先で、8,192 tokens未満と未指定時の既存production挙動は変えない。generation/API pathは
+prompt + output reserveで同じpolicyを選ぶ。defaultはcandidate reviewまで0（disabled）のままである。
+2K / 16K / 32Kを逐次比較する長時間runnerは次。
+
+```sh
+cd /Volumes/SDXC-512/deepseek-v41-flash-mlx
+bash tools/benchmark/run_long_context_cache_candidate.sh
+```
+
+scopeは2K production non-regression、16K/32K wall/decode/memory、1 modelずつ、checkpoint read-only、
+想定30--60分、340 GB hard budget。stage-level resumeのみで、失敗時は表示されたrootを
+`DSV41_CACHE_CANDIDATE_DIR`へ渡す。32K peak footprint、swap、token/state/topologyをreviewするまで
+cache policyをdefault化せず、CED実装へ進めない。
+
+cache candidate artifact `context-ladder/cache-candidate-20260920-011227-94806`をreviewした。2K / 16K /
+32Kはすべてexit 0、revision `6c33f77`、同一tracked patch SHA-256
+`ba5a7298cf0cdf7949e6f072198581f042b55f442abe32d78fc4d9db77d676b1`。各runは40 resident banks、
+route/index readback 0、fixed-tile/ragged QK/AV、scalar QK/AV 0、正しいstate positionと基準と同じ生成token列、
+swap 0を保持した。2Kではthreshold未満のためeffective limit 0で、prefill 43.329848秒、token 339、
+peak footprint 310,878,287,968 bytes。cache policyは実行経路を変更していない。
+
+16Kはprefill 320.555650秒でunbounded 320.690691秒と同等、teacher continuationも81.306422秒対
+81.234402秒だった。final cacheは28,428,571,508から17,157,254,412 bytes、peak footprintは
+331,383,618,952から323,197,894,024 bytesへ低下した。decode mean/p95は3.155/3.452秒で悪化なし。
+
+32Kはprefill 639.081491秒 / 51.2486 tok/sで、unbounded 702.897563秒 / 46.5957 tok/sから
+wall 9.08%短縮、throughput 9.99%増加。固定4,096-token continuationは120.067573→81.868415秒、
+decode mean/p95は4.372/11.964→3.162/3.468秒。final cacheは80,989,539,136→17,174,477,252 bytes、
+peak footprintは383,973,031,328→323,262,642,920 bytesへ60.71 GB低下し340 GB budget内へ戻った。
+これはsingle baseline/candidate観測なので9.08%を反復performance qualificationとは呼ばないが、memory
+hard gateを修復し、wall/decode regressionが観測されず、2K pathを変更しないlifecycle policyとして十分な
+昇格証拠である。8,192 tokens以上の16 GiB limitをproduction defaultへ昇格し、環境変数`0`を明示した
+unbounded pathを比較fallbackとして保持する。
+
+次のCED sliceはdecoder suffixそのものの前にatomic ownershipを接続する。
+`begin_deferred_prefill`は最大16,384-token encoder frontierをprivate stateへ作り、source sessionを変更しない。
+`finish_deferred_prefill`だけがdecoder成功後にstateをcommitし、失敗・破棄・reuseではsource frontierを
+publishしない。初版finishはfull decoder sweepを保持し、性能改善を主張しない。256-token full sweepとの
+bit/state gateは数分かかるため次のuser runnerで行う。
+
+```sh
+bash tools/benchmark/run_deferred_transaction_backbone_check.sh
+```
+
+scopeはhidden/pre-mix/logits、route ties、全persistent state/publication/hash、discard/reuse/invalid atomicity。
+5--10分、最大340 GB、checkpoint read-only、resumeなし。review通過後だけ、このtransaction内部へ
+`1 + (39-L)*127` decoder suffixとbounded replayを実装する。
+
+transaction gate artifact `prefill-gap/deferred-transaction-20260920-015305-96073`をreviewした。
+exit 0、revision `6c33f77`、tracked patch SHA-256
+`36e01d725051083d0e3f04269688604bf61eb76c97cde448ceeb45492c45e79e`で現在のgate差分と一致した。
+256-token full decoderとのhidden/pre-mix/logits、全persistent state/publication/hash、実行route tiesは
+bit-exactで、move/discard/reuse/invalid requestはsource stateを公開しなかった。swapは0、maximum resident
+set sizeは32,186,302,464 bytes、peak footprintは38,053,417,640 bytes。この結果でtransaction ownership
+gateをpassとし、exact suffix実装へ進む。
+
+最初のsuffix candidateはDwarfStarの固定実装と同じ依存境界を使う。layer 20はskipped prefixの
+global/index cacheと128-row raw windowだけを準備し、layer 21..39は直前127 input rowsからraw windowを
+seedする。実行行数はlayer `L`で`1 + (39-L)*127`、最終layerは1行になる。attention、mHC、MoEの
+演算は既存blockをそのまま呼び、production dispatchには未接続である。full decoderとの2,541-token
+state gateは次を実行する。
+
+```sh
+bash tools/benchmark/run_deferred_suffix_backbone_check.sh
+```
+
+scopeはfinal hidden/pre-mix/logits、実行対象route ties、全decoder persistent state/publication/hash。
+10--20分、最大340 GB、checkpoint read-only、resumeなし。failure artifactを保持しsource stateは非公開の
+ままとする。このgateのreview前にproduction context ladderへ接続しない。
+
+最初のsuffix gate `prefill-gap/deferred-suffix-20260920-020506-96918`はexit 1でrejectした。revisionと
+tracked patch SHA-256 `9c973877e4812d43036a8b52db3bad76680b0f2d1fec43f22fbbbc4b20fa4cfe`
+は実行時差分に一致し、swap 0、peak footprint 39,006,262,392 bytesだった。失敗は
+`shared attention chunk plan mismatch`で、layer 20がstart 127で公開した128-row planを、127行縮んだ
+layer 21のstart 254から再利用しようとしたことが原因。通常sweepの同一chunk境界という前提がCEDでは
+成立しない。各publicationのimmutable device selectionを新境界でdevice arrayへ再packするfallbackを追加した。
+index queryの再実行、host readback、model semanticsの変更はない。失敗transactionはsource stateを公開して
+おらず、同じrunnerをfresh stateで再実行する。
+
+修正後のartifact `prefill-gap/deferred-suffix-20260920-021359-97264`をreviewした。exit 0、revision
+`6c33f77`、tracked patch SHA-256
+`5ed8a6f333cab84188076dfb86afe0024b7de580dff805e59584501a8ceaa6d5`は実行時差分と一致した。
+2,541-token full decoderに対し、final hidden/pre-mix/logits、全persistent state/publication/hash、実行対象
+route tiesがbit-exact。discard/reuse/invalid atomicityも維持した。swap 0、maximum resident set size
+34,085,126,144 bytes、peak footprint 73,761,281,264 bytes。この結果でexact suffix primitiveをpassとする。
+
+production接続candidateは環境変数`DSV41_RUNTIME_DEFERRED_DECODER=1`でのみ有効。各phaseで8,192 tokens
+以上残る場合、最大16,384-token private encoder transactionを作りexact suffixでcommitする。2K、短い
+teacher tail、decodeは既存scheduleのまま。defaultはreviewまでOFFで、API defaultも未変更。full context
+measurementは次。
+
+```sh
+bash tools/benchmark/run_deferred_decoder_context_candidate.sh
+```
+
+scopeは2K inactive non-regression、16K/32K CED chunk count、wall/decode/memory、production topology、state、
+生成token、swap。1 modelずつ、20--45分、340 GB budget、checkpoint read-only。stage-level resumeのみで、
+失敗時は表示rootを`DSV41_CED_CANDIDATE_DIR`へ渡す。review後にのみdefault/APIへ接続する。
+
+candidate artifact `context-ladder/deferred-decoder-candidate-20260920-022230-97711`をreviewした。
+2K / 16K / 32Kはexit 0、revision `6c33f77`、同一tracked patch SHA-256
+`b5dfa512d978bc36c1a711573b1861a75915a02e4e01f93b38c3bd4467ef3feb`。40 resident banks、
+15,360 loaded experts、route/index host readback 0、scalar QK/AV 0、swap 0、正しいstate positionとbaselineと
+同じ生成token列を保持した。2KはCED chunk 0で43.815064秒、cache policyもinactive。16KはCED chunk 1、
+prefill 320.555650→221.277165秒（30.97%短縮）、32KはCED chunk 2、639.081491→399.417787秒
+（37.50%短縮）。teacher continuationは16K 81.306422→82.709436秒、32K 81.868415→83.694392秒で、
+decode mean/p95はそれぞれ3.155/3.452→3.123/3.415秒、3.162/3.468→3.138/3.429秒。
+peak MLX bytesは実質同一、process peak footprintは16K 324,303,503,712 bytes、32K
+325,972,182,832 bytesで340 GB budget内。semantic/memory/full-context candidate gateはpassとする。
+
+ただしperformance default promotionにはrun間変動を超える反復証拠が必要で、single observationの
+30.97%/37.50%をそのままqualificationとしない。32Kで2回使うものと同一のCED transactionを1回使う16Kで、
+各variant 1 warmup後に5 alternating pairsを実行する。
+
+```sh
+bash tools/benchmark/run_deferred_decoder_paired_qualification.sh
+```
+
+scopeは12 sequential 16K processes、想定60--100分、340 GB、checkpoint read-only。candidate win 5/5、
+run-order varianceを超えるprefill改善、teacher/decode/memory/swap regressionなしを要求する。失敗時はrootを
+`DSV41_CED_PAIRED_DIR`へ渡して完了childを検証skipする。通過後にdefaultとnative generation APIへ昇格する。
+
+paired artifact `context-ladder/deferred-decoder-paired-20260920-024600-98127`をreviewした。warmupを含む
+12 childとrootはすべてexit 0、revision `6c33f77`、同一tracked patch SHA-256
+`36216bd2312e4ea0ee28c81cb99977ea7004b805b7d0c34996c297598cca6066`だった。全測定で生成列、
+state position、40 banks / 15,360 experts、route/index readback 0、scalar QK/AV 0、swap 0を保持した。
+5 pairのprefill平均はbaseline 320.902721秒、candidate 221.347515秒で31.02%短縮、candidate win 5/5。
+baseline range 1.694135秒、candidate range 0.988108秒に対し各pairの改善は30.83--31.23%で、順序差を
+十分超える。decode meanは0.23%、p95は1.11%改善、MLX peakは両方304,393,348,603 bytes、process
+peak footprint平均はcandidateが0.43%増だが324.52 GBで340 GB内だった。
+
+ただしteacher continuationは5/5で遅く、平均81.420167→82.488852秒（1.31% regression）。candidate
+最良値もbaseline最悪値より遅いため、事前契約の「teacher regressionなし」をpass扱いしない。
+CED defaultはOFFのまま保持する。native generation APIには同じ可変chunk scheduleをopt-inで接続したが、
+default promotionとは呼ばない。phase telemetry上はteacherのattention row/indexer/call/concat topologyと
+active/cache memoryが一致しているため、次は同期component profileでattention / MoE / post-MoEのどこに
+差があるかを限定する。
+
+```sh
+bash tools/benchmark/run_deferred_decoder_continuation_profile.sh
+```
+
+scopeは16K baseline/CED各1 fresh process、phase-local component wall、生成/state/topology/memory/swap。
+15--30分、最大340 GB、checkpoint read-only。失敗または中断時は表示rootを
+`DSV41_CED_CONTINUATION_PROFILE_DIR`へ渡してexit-0 stageを検証skipする。原因を解消した後にteacher
+non-regressionを再確認し、それからdefaultを変更する。opt-in native APIのfull-model parity gateは
+`tools/benchmark/run_deferred_decoder_native_api_check.sh`として準備済みで、fallback/CEDの16K生成列と
+next positionを比較する。
+
+最初のcomponent artifact `context-ladder/deferred-continuation-profile-20260920-052800-656`をreviewした。
+root/baseline/candidateはexit 0、revision `6c33f77`、同一tracked patch SHA-256
+`0f1689308f1afedd5ae6fba8feab84c24c451a7fadc2307cf149bef898307931`。生成/state/topologyは一致し、
+swap 0、process peakはbaseline 322,416,572,944 bytes、candidate 321,979,252,392 bytesだった。
+同期profile下のteacher wall差は+0.261秒（0.32%）まで縮んだ。2 phase合計でAttentionはcandidateが
+0.089秒、post-MoEは0.159秒速い一方、MoEだけが0.514秒遅く、同一1,280 component callsで差を説明する。
+したがってattention topologyやCED state再構築を再調査せず、phase-local layer別MoE時間を次artifactに
+保存する。特定layerだけならCED suffixのshape warmup、全層ならallocator/cache/execution-stateとして扱う。
+
+layer別artifact `context-ladder/deferred-continuation-profile-20260920-054723-1241`もexit 0、revision
+`6c33f77`、同一tracked patch SHA-256
+`b1b15849312e2e20e619bca29a7405cd5bd50a60fd4ee485274acbc45b9baa6a`で、semantic/resource gateは
+cleanだった。このrunではcandidate teacherが0.457秒速く、MoE差は全40層合計+0.083秒に縮小した。
+最大のlayer 36 MoE差+0.129秒も同layer Attention -0.221秒に相殺され、2回の同期profile間で再現する
+layer局在や追加callはない。同期profileをさらに反復して1.31%のlazy wall差を説明する根拠はない。
+
+ここでpinned DwarfStar `8db1d1d`のouter dispatchを再照合し、より重要なschedule差を確認した。ds4は
+同じchunkのencoder後にsuffixを即完了しない。`count >= 16384`かつ`remaining-count >= 8192`のときだけ
+encoder-only frontierを非公開にし、次のsweepを`decoder_pending`としてexact suffixで完了する。repositoryの
+`should_defer_decoder()`はこの条件を表していたが、full-context候補は使用せず、各8K以上のchunkを即時
+suffix完了していた。これはexact decoder-suffix primitiveとしては合格だが、DwarfStar CED outer scheduleの
+qualificationではない。
+
+実装をpending/resumeへ更新した。新しいmove-only transactionは最初の16K encoder stateとlayer 20
+producer cache/windowだけをprivateに保持し、8K--16Kの次encoder sweep後に各decoder reuse layerを127-row
+warmupから再構築して一度だけpublishする。16K以下はfull decoderのままなので、旧16K paired resultは
+primitiveのperformance evidenceとして保持するがproduction CED promotionには使わない。最初のgateは次。
+
+```sh
+bash tools/benchmark/run_deferred_pending_backbone_check.sh
+```
+
+scopeは24,576-token full packed sweep対16K private encoder-only + 8K exact resume。hidden/pre-mix/logits、
+全persistent state/publication/hash、executed route ties、source atomicityをbit-exactで要求する。15--35分、
+最大340 GB、checkpoint read-only、resumeなし。review前はdefault OFFを維持する。
+
+pending gate artifact `prefill-gap/deferred-pending-20260920-061215-1886`をreviewした。exit 0、revision
+`6c33f77`、tracked patch SHA-256
+`8f74a89b96dcec73e85c3f32d370049aed8bde905ee8c42c612ddd695cc2cc53`。24,576-token full sweepに対し、
+16K private encoder-only + 8K resumeのfinal hidden/pre-mix/logits、全encoder/decoder persistent
+state/publication/hash、executed route tiesがbit-exactで、source revision atomicityとreuse rejectionもpass。
+swap 0、maximum resident set size 58,791,247,872 bytes、peak footprint 157,712,878,200 bytesだった。
+pending primitiveをpassとし、次はproduction topologyで2K/16K inactive、32K exactly one pending transactionを
+測定する。
+
+```sh
+bash tools/benchmark/run_deferred_decoder_context_candidate.sh
+```
+
+runnerは各stageでCED count 0/0/1、state、生成数、40 resident banks / 15,360 experts、zero readback、
+zero scalar QK/AV、swap、revision/patchを検証してからresume markerを作る。20--45分、最大340 GB、
+checkpoint read-only。失敗時は表示rootを`DSV41_CED_CANDIDATE_DIR`へ渡し、検証済みstageだけskipする。
+
+full-context artifact `context-ladder/deferred-decoder-candidate-20260920-063643-2271`をreviewした。rootと
+2K/16K/32K childはexit 0、revision `6c33f77`、同一tracked patch SHA-256
+`beca9c0ce6319a8de869e0ad791e1d266e13de4a4ad9d70afaebfe0a63a73407`。CED countは要求通り
+0/0/1。全stageで正しい生成列/state、40 banks / 15,360 experts、route/index readback 0、scalar QK/AV 0、
+swap 0を維持した。2K prefill 43.595390秒、16K 322.094514秒でinactive pathの範囲内。32Kは
+cache-bounded baseline 639.081491→385.448176秒（39.69%短縮）、baseだけでは
+557.213077→301.412038秒（45.91%短縮）。旧immediate-suffix候補399.417787秒よりも速い。
+decode mean/p95はbaseline比0.28%/0.56%改善、MLX peakは同じ304,410,027,515 bytes、process peak
+326,437,061,776 bytesで340 GB内だった。生成16 token列とstate position 32767もbaseline exact。
+
+単回teacher continuationは81.868415→84.036138秒（2.65%退行）なので、この観測だけでdefaultへ
+昇格しない。CEDが実際にactiveな32Kでwarmup後5 alternating pairsを実行する。
+
+```sh
+bash tools/benchmark/run_deferred_pending_paired_qualification.sh
+```
+
+scopeは12 sequential 32K processes、110--180分、最大340 GB、checkpoint read-only。candidate win 5/5、
+順序差を超えるprefill改善、teacher/decode/memory/swap non-regression、生成/state/topology exactを要求する。
+中断時は表示rootを`DSV41_PENDING_PAIRED_DIR`へ渡し、検証済みchildだけskipする。
+
+paired artifact `context-ladder/deferred-pending-paired-20260920-121235-3691`をreviewした。runnerの最初の
+pair directory作成不備はmodel外で修正し、既存3 childをrevision/patch/result/resourceから検証して同じrootで
+resumeした。最終的にrootと12 childはexit 0、revision `6c33f77`、同一tracked patch SHA-256
+`da650b19372d0d3817faf8dbc33b6005d057122333e4e5a5b5acb41a49b60be9`。candidateは全runで
+exactly one CED、baselineは0。生成/state/topology、40 banks / 15,360 experts、zero readback、zero scalar
+QK/AV、swap 0を保持した。
+
+5 pair平均はprefill 639.677212→385.077299秒（39.80%短縮）、base 557.805715→301.192429秒
+（46.00%短縮）、candidate win 5/5。各pair改善39.64--39.95%はbaseline range 1.732秒、candidate
+range 1.434秒を十分超える。decode mean/p95は1.11%/1.75%改善、MLX peakは同一
+304,410,027,515 bytes、process footprint平均は1.06%増の326.27 GBでbudget内。ただしteacherは
+81.871496→83.884870秒（2.46%退行）かつ5/5で遅いため、事前contractをpassしない。defaultはOFF。
+
+semantic work/call/stateがexactで同期profileでは差が消えることから、次のbounded candidateはCED commit後の
+idle MLX allocator cacheだけを一度clearする。live model/persistent stateは保持する。
+
+```sh
+bash tools/benchmark/run_deferred_pending_cache_transition_candidate.sh
+```
+
+scopeは32K 1 process、8--15分、最大340 GB、checkpoint read-only。単回観測はこのtransitionをreject
+できるがpromotionには使わない。teacher改善がなければ削除し、あれば同じ5-pair contractを再適用する。
