@@ -1,8 +1,11 @@
 #include "dsv41/mhc.hpp"
+#include "dsv41/execution_policy.hpp"
+#include "split_sinkhorn.hpp"
 #include <stdexcept>
 namespace dsv41 {
 namespace mx=mlx::core;
 namespace {
+std::size_t& fused_mhc_counter(){static std::size_t value=0;return value;}
 void check(bool ok,const char* message){if(!ok)throw std::runtime_error(message);}
 void hidden_shape(const mx::array& h){check(h.dtype()==mx::bfloat16&&h.ndim()==3&&h.shape(0)>0&&h.shape(0)<=128&&h.shape(1)==4&&h.shape(2)==5120,"mHC requires BF16 [1..128,4,5120]");}
 mx::array load(WeightCatalog& catalog,const std::string& name,const mx::Shape& shape){
@@ -12,6 +15,8 @@ mx::array load(WeightCatalog& catalog,const std::string& name,const mx::Shape& s
  return mx::array(values.begin(),shape,mx::float32);
 }
 }
+std::size_t fused_mhc_invocation_count(){return fused_mhc_counter();}
+void reset_fused_mhc_invocation_count(){fused_mhc_counter()=0;}
 HCReference::HCReference(WeightCatalog& catalog,int layer,const std::string& kind)
  :fn_(mx::array(0)),scale_(mx::array(0)),base_(mx::array(0)) {
  check(layer>=0&&layer<40&&(kind=="attn"||kind=="ffn"),"invalid mHC owner");
@@ -25,6 +30,16 @@ HCMixes HCReference::mixes(const mx::array& hidden) const {
  for(int i=0;i<n;++i) rows.push_back(mx::matmul(mx::slice(flat,{i,0},{i+1,20480}),mx::transpose(fn_)));
  auto projected=rows.size()==1?rows[0]:mx::concatenate(rows,0);
  auto normalized=mx::multiply(projected,mx::divide(mx::array(1.0f),mx::sqrt(mx::add(mx::mean(mx::square(flat),-1,true),mx::array(1e-20f)))));
+ if(runtime_fused_mhc_enabled()){
+  ++fused_mhc_counter();
+  static auto kernel=mx::fast::metal_kernel("dsv41_mhc_split_sinkhorn",
+   {"normalized","scale","base","count"},{"pre","post","comb"},
+   dsv41_mhc_split_sinkhorn_source);
+  auto outputs=kernel({normalized,scale_,base_,mx::array({std::uint32_t(n)})},
+   {{n,4},{n,4},{n,4,4}},{mx::float32,mx::float32,mx::float32},
+   {n,1,1},{32,1,1},{},std::nullopt,false,mx::Device::gpu);
+  return {outputs[0],outputs[1],outputs[2]};
+ }
  auto segment=[&](int first,int last,int scale_index){
   return mx::add(mx::multiply(mx::slice(normalized,{0,first},{n,last}),mx::reshape(mx::slice(scale_,{scale_index},{scale_index+1}),{})),mx::slice(base_,{first},{last}));
  };

@@ -1,0 +1,2 @@
+#pragma once
+inline constexpr const char* dsv41_mhc_split_sinkhorn_source=R"mhcsplit(@DSV41_MHC_SPLIT_SINKHORN@)mhcsplit";

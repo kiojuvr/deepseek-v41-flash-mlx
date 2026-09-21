@@ -208,6 +208,17 @@ inline bool runtime_deferred_decoder_clear_cache_enabled() {
  throw std::runtime_error("DSV41_RUNTIME_DEFERRED_DECODER_CLEAR_CACHE must be 0 or 1");
 }
 
+// Candidate: evaluate the mHC pre/post mixing and Sinkhorn normalization with
+// one fused Metal dispatch per owner instead of the reference elementwise
+// chain. The reference path stays the bit-exact oracle until the fused kernel
+// passes the mHC fixture and full-backbone gates.
+inline bool runtime_fused_mhc_enabled() {
+ const char* value=std::getenv("DSV41_RUNTIME_FUSED_MHC");
+ if(value==nullptr||std::string_view(value)=="0")return false;
+ if(std::string_view(value)=="1")return true;
+ throw std::runtime_error("DSV41_RUNTIME_FUSED_MHC must be 0 or 1");
+}
+
 inline constexpr std::size_t kDeferredDecoderMinTokens=8192;
 inline constexpr std::size_t kDeferredDecoderMaxTokens=16384;
 

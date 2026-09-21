@@ -147,3 +147,132 @@ If rejected, next investigate shared versus routed MoE service time and actual
 GPU/host submission gaps, then transfer resident scratch/command ownership from
 the reference architectures. Indexer quadratic work remains a separate measured
 scaling concern. No rejected candidate reopens the qualification ladder.
+
+## Fused mHC candidate (2026-09-21) — REVIEWED, REJECTED for decode / DEFERRED for encoder-prefill
+
+Hypothesis. The reviewed 64K session is 57.1% advancing decode (1,713.57 s, flat
+3.3468 s/token) and 42.9% append (1,289.45 s, ~19.8 ms/token). The prefill
+dispatch audit measured 12,358,908 current dispatches against 7,463 for pinned
+oMLX (1,656x). Per layer, `HCReference::mixes` (`src/mhc/reference.cpp`) emits
+~145 MLX ops, of which ~114 are the 19-iteration Sinkhorn normalization loop; it
+is called twice per layer, so ~2/3 of the per-layer dispatch count is mHC. That
+count is independent of token count, so the hypothesis was that it dominates
+one-token decode. Pinned oMLX (`deepseek_v41_sinkhorn`) and DwarfStar
+(`kernel_dsv4_hc_split_sinkhorn`) execute the same normalization in one kernel.
+
+Candidate. `DSV41_RUNTIME_FUSED_MHC=1` replaces the reference scale/base,
+pre/post sigmoid and Sinkhorn elementwise chain with one Metal dispatch per
+owner (`metal/mhc/split_sinkhorn.metal`, ported from DwarfStar's MIT kernel;
+oMLX was a design-only reference). The projection, RMS normalization, and the
+whole reference path are unchanged and remain the bit-exact oracle. The
+implementation and runners are preserved, default OFF.
+
+Outcome. **Rejected as a decode optimization.** The five alternating pairs
+(`artifacts/context-ladder/fused-mhc-paired-20260921-163112-28364`, exit 0)
+measured advancing decode mean 4.1531 -> 4.1402 s (**-0.31%**, mixed signs,
+candidate won 3/5) with flat p95. The synchronized profile
+`decode-component-profile-20260921-162806-28265` is confounded by process state
+and is not used. Prefill/encoder is a separate, first-class path: its paired
+wall moved 44.5347 -> 44.0956 s (**-0.99%**, 4/5 wins, consistent after pair 1).
+That is recorded only as an encoder/prefill observation; it is not promoted and
+not pursued unless the 64K decomposition shows the magnitude matters.
+
+Key finding. **Reducing ~290 mHC dispatches/layer did not materially improve
+production decode.** Dispatch count alone is not a useful proxy for the current
+dominant decode cost. The 90% "MoE bucket" attribution is a
+synchronization/attribution artifact (the bucket evaluates lazy dependencies
+including mHC/norm), not a dispatch-count target. The candidate is preserved as
+a reviewed rejected/deferred artifact so the negative result is not re-run.
+
+Measured structural gap (original hypothesis, retained for the record). Pinned
+oMLX (`deepseek_v41_sinkhorn`) and DwarfStar (`kernel_dsv4_hc_split_sinkhorn`)
+execute the same normalization in a single Metal kernel.
+
+Candidate. `DSV41_RUNTIME_FUSED_MHC=1` replaces the reference scale/base,
+pre/post sigmoid and Sinkhorn elementwise chain with one Metal dispatch per
+owner (`metal/mhc/split_sinkhorn.metal`, ported from DwarfStar's MIT kernel;
+oMLX was a design-only reference). The projection, RMS normalization, and the
+whole reference path are unchanged and remain the bit-exact oracle.
+
+Evidence so far. `DSV41_MHC_PROBE_FUSED_PARITY=1 build-mlx/dsv41-mhc-probe` is
+bit-exact against the reference arithmetic for both attn and ffn owners on the
+official layer-0 fixture: `pre`, `post`, `comb`, `collapsed`, `expanded` all
+report zero bit mismatches. The sigmoid required `metal::precise::exp` on this
+MLX 0.32.2 build; `metal::exp` differed by ~1 ULP and was fixed rather than
+relaxed.
+
+Reproducible gates (user-run; not launched autonomously):
+
+```sh
+bash tools/benchmark/run_fused_mhc_check.sh
+```
+
+Approximately 5–15 minutes total, up to 340 GB Unified Memory, checkpoint
+read-only. It runs two processes: a 2x128-token 40-layer sweep parity and a
+129-token prefill plus four advancing decode tokens, both comparing
+`DSV41_RUNTIME_FUSED_MHC=1` against the reference path bit-for-bit (hidden,
+pre-mix, logits, persistent state, device publication, hash, revision, invalid
+request atomicity). Logs live under `artifacts/mhc/fused-check-<timestamp>-<pid>/`;
+failure is retained and there is no resume. A bounded pass authorizes the
+short component profile and paired decode measurement, not promotion.
+
+Correctness gates. `artifacts/mhc/fused-check-20260921-151522-26838` (first run)
+and `artifacts/mhc/fused-check-20260921-162457-28094` (frozen-source rerun after
+the invocation-counter instrumentation) both exited 0, recorded their tracked
+patch, used 0 swap and ~308 GB peak, and passed both processes: 2x128-token
+40-layer hidden/pre-mix/state/logits/route ties bit-exact, and 129-token prefill
+plus four advancing decode tokens hidden/pre-mix/logits/state/publication/hash/
+revision and invalid-request atomicity bit-exact. `fused_mhc_invocations` was
+1,920 for the candidate and 0 for the baseline in every measured pair.
+
+Paired evidence. `artifacts/context-ladder/fused-mhc-paired-20260921-163112-28364`,
+exit 0, exact generated IDs/state/position within every pair, 0 swap. Decode
+mean 4.1531 -> 4.1402 s (-0.31%, 3/5 wins, mixed signs, flat p95): rejected.
+Encoder/prefill wall 44.5347 -> 44.0956 s (-0.99%, 4/5 wins): recorded as an
+encoder/prefill observation only.
+
+## 64K CED decomposition re-review (2026-09-21, for the next session)
+
+The frozen 64K baseline
+(`artifacts/context-ladder/cumulative-long-20260920-201224-10109/64k-cumulative/attempt-001/`)
+is an eight-turn session, each turn appending 8,128 tokens and generating 64
+greedy tokens. Treat the three paths as distinct first-class execution paths;
+do not infer one from the other's profile.
+
+| CED path | 64K wall | Per token | 32K->64K | Notes |
+|---|---:|---:|---:|---|
+| Encoder+decoder prefill (append) | 1,289.45 s (42.9%) | ~19.8 ms | 2.03x | 8 x 8,128 tokens; rises 4.72% turn 1->8 |
+| Deferred/pending decoder (CED) | 0 s | - | - | `deferred_decoder_chunks=0` |
+| Steady-state decode | 1,713.57 s (57.1%) | 3.3468 s | 2.01x | flat 0.82% turn 1->8 |
+
+Findings.
+
+1. CED is **inactive** in this workload. The pending deferred decoder requires a
+   private 16,384-token encoder frontier (`kDeferredDecoderMinTokens` 8,192,
+   `kDeferredDecoderMaxTokens` 16,384); 8,128-token appends never trigger it.
+   The official DwarfStar policy likewise defers only a >=16,384-row sweep with
+   >=8,192 still pending, so an 8K-append session is not a CED workload. Any CED
+   claim must come from a >=16K-sweep workload, not from this 64K session.
+2. The only superlinear term is the indexer. `indexer_rows` is 3.49e9 at 32K and
+   13.96e9 at 64K (4.00x per 2x); per turn it grows 218M -> 3,271M (15x) while
+   append wall grows only 4.72%. It is therefore a growing but not-yet-dominant
+   share of the 64K wall. Its topology is the decoder hierarchical sparse
+   indexer: layer 20 is the candidate source and 24/28/32/36 consume candidates;
+   encoder sources are 2/8/14. Confirm the candidate-source/consumer reuse and
+   the index score/top-k scheduling against oMLX/DwarfStar before optimizing it.
+3. Steady-state decode is the largest single component and is **not**
+   dispatch-bound (the fused mHC result above). Its dominant cost is therefore
+   the actual GPU execution / memory traffic of the per-token layer, not the
+   number of small elementwise dispatches. The next decode candidate must name a
+   measured GPU-time or traffic mechanism, not a dispatch count.
+
+Next-session selection guidance. Rebuild the 64K (and, where a CED claim is
+needed, a >=16K-sweep) component attribution with the three CED paths separated;
+prefer work that is superlinear in the 32K->64K scaling or whose execution
+topology differs materially from oMLX/DwarfStar. Candidate families, in the
+order implied by the above: (a) decoder indexer sparse-attention scheduling and
+its candidate-source/consumer reuse; (b) steady-state decode MoE/attention GPU
+time and weight-traffic, since dispatch reduction is exhausted as a lever; (c)
+SWA bounded-replay topology alignment. Do not re-run the fused mHC decode
+candidate; the negative result is recorded. No rejected candidate reopens the
+128K/200K/256K qualification ladder.

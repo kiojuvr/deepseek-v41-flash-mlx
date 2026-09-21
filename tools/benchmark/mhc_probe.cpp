@@ -2,6 +2,7 @@
 #include "dsv41/checkpoint_atlas.hpp"
 #include <bit>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -30,7 +31,30 @@ int main(int argc,char** argv){try{
  auto m=read_json_file(fixtures/"manifest.json");for(const auto& [name,h]:m.at("fixture_sha256").items()){check(std::filesystem::path(name).filename()==name,"unsafe fixture");check(sha256_text(raw(fixtures/name))==h.get<std::string>(),"fixture changed");}
  for(const auto& [name,h]:m.at("source_sha256").items()){check(name=="inference/model.py"||name=="inference/kernel.py"||name=="inference/config.json","unsafe source");check(sha256_text(raw(checkpoint/name))==h.get<std::string>(),"source changed");}
  WeightCatalog catalog(checkpoint,summary);check(m.at("revision")==catalog.revision(),"revision mismatch");mx::set_default_device(mx::Device::gpu);
- auto h=load(fixtures/"hidden.bf16",{2,4,5120},true),x=load(fixtures/"sublayer.bf16",{2,5120},true);J runs=J::array();bool exact=true;
+ auto h=load(fixtures/"hidden.bf16",{2,4,5120},true),x=load(fixtures/"sublayer.bf16",{2,5120},true);
+ if(std::getenv("DSV41_MHC_PROBE_FUSED_PARITY")){
+  // Direct fused-kernel vs reference-arithmetic comparison on the same inputs.
+  // The candidate is a faithful fusion, so the primary requirement is bit
+  // identity; a mismatch is investigated, never silently weakened.
+  J parity=J::object();bool ok=true;
+  for(const std::string kind:{"attn","ffn"}){
+   auto owner=std::make_unique<HCReference>(catalog,0,kind);
+   check(setenv("DSV41_RUNTIME_FUSED_MHC","0",1)==0,"cannot select reference mHC");
+   auto ref=owner->mixes(h);
+   check(setenv("DSV41_RUNTIME_FUSED_MHC","1",1)==0,"cannot select fused mHC");
+   auto fus=owner->mixes(h);
+   check(setenv("DSV41_RUNTIME_FUSED_MHC","0",1)==0,"cannot restore mHC policy");
+   J r={{"kind",kind},{"pre",compare(fus.pre,ref.pre)},{"post",compare(fus.post,ref.post)},
+        {"comb",compare(fus.comb,ref.comb)},
+        {"collapsed",compare(hc_pre_reference(h,fus.pre),hc_pre_reference(h,ref.pre))},
+        {"expanded",compare(hc_post_reference(x,h,fus),hc_post_reference(x,h,ref))}};
+   for(auto key:{"pre","post","comb","collapsed","expanded"})ok=ok&&r[key]["bit_mismatches"]==0;
+   parity[kind]=r;
+  }
+  J out={{"status",ok?"fused_bit_exact":"fused_mismatch"},{"parity",parity}};
+  std::cout<<out.dump(2)<<'\n';return ok?0:3;
+ }
+ J runs=J::array();bool exact=true;
  for(const std::string kind:{"attn","ffn"}){
   auto owner=std::make_unique<HCReference>(catalog,0,kind);auto mixes=owner->mixes(h);
   auto collapsed=hc_pre_reference(h,mixes.pre),expanded=hc_post_reference(x,h,mixes);

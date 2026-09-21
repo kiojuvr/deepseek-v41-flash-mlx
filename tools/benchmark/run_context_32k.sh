@@ -26,6 +26,7 @@ export DSV41_RUNTIME_GROUP_SELECTED_EXPERTS=${DSV41_RUNTIME_GROUP_SELECTED_EXPER
 export DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS=${DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS:-1}
 export DSV41_RUNTIME_COMPACT_EXPERT_BANK=${DSV41_RUNTIME_COMPACT_EXPERT_BANK:-0}
 export DSV41_RUNTIME_GROUPED_EXPERT_PIPELINE=${DSV41_RUNTIME_GROUPED_EXPERT_PIPELINE:-0}
+export DSV41_RUNTIME_FUSED_MHC=${DSV41_RUNTIME_FUSED_MHC:-0}
 export DSV41_RUNTIME_ROUTE_DIAGNOSTICS=${DSV41_RUNTIME_ROUTE_DIAGNOSTICS:-0}
 export DSV41_RUNTIME_INDEX_DIAGNOSTICS=${DSV41_RUNTIME_INDEX_DIAGNOSTICS:-0}
 export DSV41_RUNTIME_CHUNK_ATTENTION=${DSV41_RUNTIME_CHUNK_ATTENTION:-0}
@@ -72,6 +73,7 @@ printf '%s\n' "checkpoint=$checkpoint" "context=$context" "base_prefill=$((prefi
  "resident_expert_atlas=$DSV41_RUNTIME_RESIDENT_EXPERT_ATLAS" \
  "compact_expert_bank=$DSV41_RUNTIME_COMPACT_EXPERT_BANK" \
  "grouped_expert_pipeline=$DSV41_RUNTIME_GROUPED_EXPERT_PIPELINE" \
+ "fused_mhc=$DSV41_RUNTIME_FUSED_MHC" \
  "route_diagnostics=$DSV41_RUNTIME_ROUTE_DIAGNOSTICS" \
  "index_diagnostics=$DSV41_RUNTIME_INDEX_DIAGNOSTICS" \
  "chunk_attention=$DSV41_RUNTIME_CHUNK_ATTENTION" \
@@ -142,6 +144,7 @@ shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp 
  src/attention/index_key.cpp src/attention/index_query.cpp src/attention/shared_attention.cpp src/cache/global_kv.cpp \
  include/dsv41/moe.hpp include/dsv41/moe_pipeline.hpp src/moe/reference.cpp \
  src/moe/expert_bank.cpp src/moe/grouped_expert_pipeline.cpp \
+ src/mhc/reference.cpp src/mhc/split_sinkhorn.hpp.in metal/mhc/split_sinkhorn.metal \
  metal/moe/route_select.metal metal/moe/route_reduce.metal \
  include/dsv41/sampling.hpp src/model/sampling.cpp \
  "$run_dir/prompt.txt" "$pattern" tools/reference/expand_token_pattern.py \

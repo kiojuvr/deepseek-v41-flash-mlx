@@ -191,6 +191,7 @@ int main(int argc,char** argv) { try {
   {"resident_expert_atlas",dsv41::runtime_resident_expert_atlas_enabled()},
   {"compact_expert_bank",dsv41::runtime_compact_expert_bank_enabled()},
   {"grouped_expert_pipeline",dsv41::runtime_grouped_expert_pipeline_enabled()},
+  {"fused_mhc",dsv41::runtime_fused_mhc_enabled()},
   {"route_diagnostics",dsv41::runtime_route_diagnostics_enabled()},
   {"index_diagnostics",dsv41::runtime_index_diagnostics_enabled()},
   {"chunk_attention",dsv41::runtime_chunk_attention_enabled()},
@@ -232,6 +233,7 @@ int main(int argc,char** argv) { try {
  dsv41::reset_route_tie_count(); dsv41::reset_route_tie_records();
  dsv41::reset_route_union_stats();
  dsv41::reset_route_execution_stats();
+ dsv41::reset_fused_mhc_invocation_count();
  dsv41::reset_index_tie_count(); dsv41::reset_index_tie_records();
  std::optional<dsv41::BlockResult> last;
 
@@ -385,6 +387,7 @@ int main(int argc,char** argv) { try {
   {"decode_stack_evaluations",sweep_stats.decode_stack_evaluations},
   {"engram_evaluations",sweep_stats.engram_evaluations}};
  report["packed_expert_bank_constructions"]=dsv41::packed_expert_bank_construction_count();
+ report["fused_mhc_invocations"]=dsv41::fused_mhc_invocation_count();
  report["packed_expert_bank_loaded_experts"]=dsv41::packed_expert_bank_loaded_expert_count();
  auto bank_io=dsv41::expert_bank_io_stats();
  report["expert_bank_io_stats"]={{"constructions",bank_io.constructions},

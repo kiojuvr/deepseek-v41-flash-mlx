@@ -97,6 +97,86 @@ int main(int argc,char** argv){try{
  if(dsv41::sha256_text(raw)!=proof.at("fixture_sha256").at("metadata.json").get<std::string>())throw std::runtime_error("Engram metadata identity mismatch");
  std::cout<<"Loading full backbone layers 0..39 on-demand experts and Engram 1/14 mmap backing"<<std::endl;
  dsv41::TextBackboneReference model(c,metadata);
+ if(std::getenv("DSV41_CHECK_FUSED_MHC_BACKBONE_PARITY")){
+  // The fused mHC kernel is a faithful fusion of the reference arithmetic, so
+  // the primary requirement is bit identity through all 40 layers. A mismatch
+  // is investigated (reduction order / precision / contraction), never
+  // silently weakened to a semantic gate.
+  if(!dsv41::runtime_resident_expert_atlas_enabled())
+   throw std::runtime_error("fused mHC parity requires the resident expert atlas");
+  std::vector<std::uint32_t> input(256);
+  for(std::size_t i=0;i<input.size();++i)input[i]=std::uint32_t((i*7919)%129263);
+  auto run=[&](bool fused,dsv41::TextBackboneState& state){
+   if(setenv("DSV41_RUNTIME_FUSED_MHC",fused?"1":"0",1)!=0)
+    throw std::runtime_error("cannot select mHC policy");
+   dsv41::reset_route_tie_count();dsv41::reset_route_tie_records();
+   std::vector<mx::array> hidden,pre;
+   dsv41::run_prefill_chunks(input.size(),128,[&](std::size_t offset,std::size_t count){
+    auto part=model.forward_packed_sweep(std::span(input).subspan(offset,count),state,offset);
+    hidden.push_back(part.hidden);pre.push_back(part.pre_mix);
+   });
+   dsv41::BlockResult result{mx::concatenate(hidden,0),mx::concatenate(pre,0)};
+   return std::pair{std::move(result),dsv41::route_tie_records()};
+  };
+  dsv41::TextBackboneState reference_state(metadata),fused_state(metadata);
+  auto [reference,reference_ties]=run(false,reference_state);
+  auto [fused,fused_ties]=run(true,fused_state);
+  if(setenv("DSV41_RUNTIME_FUSED_MHC","0",1)!=0)throw std::runtime_error("cannot restore mHC policy");
+  same(fused.hidden,reference.hidden,"fused mHC hidden bits");
+  same(fused.pre_mix,reference.pre_mix,"fused mHC pre-mix bits");
+  const int row=int(input.size()-1);
+  dsv41::BlockResult fused_last{mx::slice(fused.hidden,{row,0,0},{row+1,4,5120}),
+                                mx::slice(fused.pre_mix,{row,0},{row+1,4})};
+  dsv41::BlockResult reference_last{mx::slice(reference.hidden,{row,0,0},{row+1,4,5120}),
+                                    mx::slice(reference.pre_mix,{row,0},{row+1,4})};
+  same(model.logits(fused_last),model.logits(reference_last),"fused mHC logits bits");
+  state_same(fused_state,reference_state);
+  ties_same(fused_ties,reference_ties,"fused mHC route ties");
+  std::cout<<"PASS: fused mHC 2x128-token 40-layer hidden, pre-mix, state, logits and "
+   <<"route ties are bit-exact; no performance qualification"<<std::endl;
+  return 0;
+ }
+ if(std::getenv("DSV41_CHECK_FUSED_MHC_DECODE_PARITY")){
+  if(!dsv41::runtime_resident_expert_atlas_enabled())
+   throw std::runtime_error("fused mHC decode parity requires the resident expert atlas");
+  dsv41::TextBackboneState baseline(metadata),candidate(metadata);
+  std::vector<std::uint32_t> prompt(129);
+  for(std::size_t i=0;i<prompt.size();++i)prompt[i]=std::uint32_t((i*7919)%129263);
+  if(setenv("DSV41_RUNTIME_FUSED_MHC","0",1)!=0)throw std::runtime_error("cannot select reference mHC");
+  model.forward_packed_sweep(prompt,baseline,0);candidate=baseline;
+  for(std::uint64_t pos=129;pos<133;++pos){
+   const std::array<std::uint32_t,1> token{std::uint32_t(pos*17)};
+   if(setenv("DSV41_RUNTIME_FUSED_MHC","0",1)!=0)throw std::runtime_error("cannot select reference mHC");
+   auto expected=model.forward_packed_sweep(token,baseline,pos);
+   if(setenv("DSV41_RUNTIME_FUSED_MHC","1",1)!=0)throw std::runtime_error("cannot select fused mHC");
+   auto actual=model.forward_packed_sweep(token,candidate,pos);
+   same(actual.hidden,expected.hidden,"fused mHC decode hidden");
+   same(actual.pre_mix,expected.pre_mix,"fused mHC decode pre-mix");
+   same(model.logits(actual),model.logits(expected),"fused mHC decode logits");
+   state_same(candidate,baseline);
+   if(candidate.revision()!=baseline.revision())throw std::runtime_error("fused mHC decode revision mismatch");
+   auto publication_same=[&](const auto& a,const auto& b,int consumer){
+    const auto& p=*a.publication();const auto& q=*b.publication();
+    if(p.source_layer()!=q.source_layer()||p.index_source_layer()!=q.index_source_layer())
+     throw std::runtime_error("fused mHC decode publication source mismatch");
+    bytes(p.device_indices(consumer,pos,128),q.device_indices(consumer,pos,128),"fused mHC decode indices");
+    bytes(p.device_candidates(),q.device_candidates(),"fused mHC decode candidates");
+   };
+   for(int i=0;i<3;++i)publication_same(candidate.encoder.producer[i],baseline.encoder.producer[i],3+6*i);
+   publication_same(candidate.decoder.producer,baseline.decoder.producer,39);
+  }
+  if(setenv("DSV41_RUNTIME_FUSED_MHC","0",1)!=0)throw std::runtime_error("cannot restore mHC policy");
+  auto saved=candidate;const std::array<std::uint32_t,1> invalid{129264};bool rejected=false;
+  try{model.forward_packed_sweep(invalid,candidate,133);}catch(const std::exception&){rejected=true;}
+  if(!rejected||candidate.revision()!=saved.revision())throw std::runtime_error("fused mHC decode invalid request atomicity");
+  state_same(candidate,saved);
+  auto ah=candidate.encoder.hash,bh=baseline.encoder.hash;
+  const std::array<std::uint32_t,1> suffix{42};
+  if(ah.append(suffix,{},133)!=bh.append(suffix,{},133))throw std::runtime_error("fused mHC decode hash mismatch");
+  std::cout<<"PASS: fused mHC decode advancing-token hidden/pre-mix/logits/state/publication/"
+   <<"hash/revision and invalid request atomicity are bit-exact; no performance qualification"<<std::endl;
+  return 0;
+ }
  if(std::getenv("DSV41_CHECK_DECODE_STACK_GRAPH")){
   if(!dsv41::runtime_resident_expert_atlas_enabled())throw std::runtime_error("decode graph gate requires resident atlas");
   dsv41::TextBackboneState baseline(metadata),candidate(metadata);
