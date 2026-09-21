@@ -2,6 +2,7 @@
 #include "dsv41/execution_policy.hpp"
 #include "dsv41/layer_owner.hpp"
 #include "dsv41/moe_pipeline.hpp"
+#include "dsv41/runtime_profile.hpp"
 #include "route_reduce.hpp"
 #include <algorithm>
 #include <array>
@@ -147,6 +148,7 @@ PackedExpertBank::PackedExpertBank(WeightCatalog& catalog,int layer,
  :w1_(mx::array(0)),s1_(mx::array(0)),w2_(mx::array(0)),s2_(mx::array(0)),w3_(mx::array(0)),s3_(mx::array(0)){
  const auto started=std::chrono::steady_clock::now();
  reference_moe_prefix(layer);
+ layer_=layer;
  if(expert_ids.empty()||expert_ids.size()>384||expert_ids.front()<0||expert_ids.back()>=384||
     !std::is_sorted(expert_ids.begin(),expert_ids.end())||
     std::adjacent_find(expert_ids.begin(),expert_ids.end())!=expert_ids.end())
@@ -277,7 +279,7 @@ GroupedExpertBatchResult PackedExpertBank::forward_batch_selected(const mx::arra
 
 GroupedExpertBatchResult PackedExpertBank::forward_batch_expert_major(const mx::array& x,
  const mx::array& expert_ids,const mx::array& lhs_ids,const mx::array& reduction_slots,
- const mx::array& route_weights) const{
+ const mx::array& route_weights,bool diagnostic) const{
  const int tokens=x.ndim()==2?x.shape(0):0,assignments=tokens*6;
  if(x.dtype()!=mx::bfloat16||tokens<1||tokens>128||x.shape(1)!=5120||
     expert_ids.dtype()!=mx::uint32||expert_ids.shape()!=mx::Shape({tokens,6})||
@@ -286,25 +288,30 @@ GroupedExpertBatchResult PackedExpertBank::forward_batch_expert_major(const mx::
     route_weights.dtype()!=mx::float32||route_weights.shape()!=mx::Shape({tokens,6}))
   throw std::runtime_error("invalid expert-major batch input");
  const bool grouped_pipeline=runtime_grouped_expert_pipeline_enabled()&&tokens<=8;
- {
+ if(!diagnostic){
   std::lock_guard lock(io_stats_mutex());
   ++io_stats().expert_major_batches;io_stats().expert_major_assignments+=assignments;
   if(grouped_pipeline){++io_stats().grouped_pipeline_batches;
    io_stats().grouped_pipeline_assignments+=assignments;}
  }
+ auto routed_stage_started=runtime_profile_start();
  auto flat_rhs=mx::reshape(expert_ids,{assignments});
  auto flat_lhs=mx::reshape(lhs_ids,{assignments});
  auto order=mx::argsort(flat_rhs);
  auto rhs=mx::take(flat_rhs,order);
  auto lhs=mx::take(flat_lhs,order);
  auto sorted_weights=mx::take(mx::reshape(route_weights,{assignments}),order);
+ if(!diagnostic)finish_runtime_routed_stage(layer_,0,routed_stage_started,rhs);
+ routed_stage_started=runtime_profile_start();
  auto gather=[&](const mx::array& value,const mx::array& weight,const mx::array& scale,const mx::array& left){
-  { std::lock_guard lock(io_stats_mutex()); ++io_stats().qmm_dispatches; io_stats().qmm_rows_total+=assignments; io_stats().qmm_rows_max=std::max<std::size_t>(io_stats().qmm_rows_max,assignments); }
+  if(!diagnostic){ std::lock_guard lock(io_stats_mutex()); ++io_stats().qmm_dispatches; io_stats().qmm_rows_total+=assignments; io_stats().qmm_rows_max=std::max<std::size_t>(io_stats().qmm_rows_max,assignments); }
   return mx::gather_qmm(value,weight,scale,std::nullopt,left,rhs,true,32,4,"mxfp4",false,mx::Device::gpu);
  };
  auto first_input=linear_activation_reference(x).decoded;
  auto gate=gather(mx::reshape(first_input,{tokens,1,5120}),w1_,s1_,lhs);
  auto up=gather(mx::reshape(first_input,{tokens,1,5120}),w3_,s3_,lhs);
+ if(!diagnostic)finish_runtime_routed_stage(layer_,1,routed_stage_started,up);
+ routed_stage_started=runtime_profile_start();
  mx::array activation=grouped_pipeline?fused_swiglu_fp8_roundtrip(gate,up):[&]{
   auto g=mx::clip(mx::astype(gate,mx::float32),mx::array(-1e30f),mx::array(10.0f));
   auto u=mx::clip(mx::astype(up,mx::float32),mx::array(-10.0f),mx::array(10.0f));
@@ -322,10 +329,14 @@ GroupedExpertBatchResult PackedExpertBank::forward_batch_expert_major(const mx::
   }
   down_input=decoded_parts.size()==1?decoded_parts.front():mx::concatenate(decoded_parts,0);
  }
+ if(!diagnostic)finish_runtime_routed_stage(layer_,2,routed_stage_started,down_input);
+ routed_stage_started=runtime_profile_start();
  auto down=gather(mx::reshape(down_input,{assignments,1,2304}),w2_,s2_,mx::arange(assignments,mx::uint32));
  if(grouped_pipeline)down=grouped_expert_pipeline(gate,up,activation,down);
  auto weighted=mx::astype(mx::multiply(mx::astype(down,mx::float32),
   mx::reshape(sorted_weights,{assignments,1,1})),mx::bfloat16);
+ if(!diagnostic)finish_runtime_routed_stage(layer_,3,routed_stage_started,weighted);
+ routed_stage_started=runtime_profile_start();
  auto inverse=mx::argsort(order);
  auto token_base=mx::multiply(mx::expand_dims(mx::arange(tokens,mx::uint32),1),mx::array(std::uint32_t(6)));
  auto canonical=mx::reshape(mx::add(reduction_slots,token_base),{assignments});
@@ -334,6 +345,7 @@ GroupedExpertBatchResult PackedExpertBank::forward_batch_expert_major(const mx::
   {"weighted","reduction_slots","params"},{"accumulated"},dsv41_route_reduce_source);
  auto result=reduce({weighted,reduction_assignments,mx::array({std::uint32_t(tokens)})},
   {{tokens,5120}},{mx::float32},{tokens*5120,1,1},{256,1,1},{},std::nullopt,false,mx::Device::gpu).front();
+ if(!diagnostic)finish_runtime_routed_stage(layer_,4,routed_stage_started,result);
  return {result,mx::astype(result,mx::bfloat16)};
 }
 

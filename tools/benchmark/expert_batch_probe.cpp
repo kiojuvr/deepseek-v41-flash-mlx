@@ -108,6 +108,12 @@ int main(int argc,char** argv){try{
  auto compact_run=[&]{return compact.forward_batch_selected(x,ids,weights);};
  std::vector<double> compact_times;
  for(int round=0;round<5;++round)compact_times.push_back(timed(compact_run));
+ // One-token expert-major path: the exact decode shape on the real layer-0 bank.
+ auto one_run=[&]{return bank.forward_batch_expert_major(x1,ids1,lhs1,slots1,weights1);};
+ std::vector<double> one_times;
+ for(int round=0;round<30;++round)one_times.push_back(timed(one_run));
+ std::printf("tokens=1 expert_major median: %.4f ms (real layer-0 bank, 384 experts, 6 routes)\n",
+  median(one_times)*1000.0);
  J report={{"schema_version",1},{"status","probe_completed_requires_review"},{"layer",0},{"tokens",tokens},
   {"routes",tokens*6},{"accumulated_and_routed_bits","exact"},{"expert_major_bits","exact"},
   {"grouped_pipeline_bits","exact"},
@@ -120,6 +126,7 @@ int main(int argc,char** argv){try{
   {"compact_bank_experts",compact.expert_count()},{"compact_bank_bytes",compact.packed_bytes()},
   {"compact_bank_construction_seconds",compact_construction_seconds},
   {"compact_batch_median_seconds",median(compact_times)},
+  {"tokens1_expert_major_median_seconds",median(one_times)},
   {"compact_vs_full_bits","exact"},
   {"scope","One-layer 128-token packed expert batch, including a 192-expert route-first compact bank; not full-backbone qualification."}};
  report["speedup"]=report["serial_median_seconds"].get<double>()/report["batch_median_seconds"].get<double>();

@@ -115,13 +115,17 @@ public:
  // Device-only resident path: stable-sort assignments by expert, execute the
  // three gathered QMMs in expert-major row order, then reduce in canonical
  // per-token expert-ID order.
+ // diagnostic=true suppresses io counters and routed-stage timers; used only by
+ // the profiling warm-repeat, which must not change observable topology counts.
  GroupedExpertBatchResult forward_batch_expert_major(const mlx::core::array& input,
   const mlx::core::array& expert_ids,const mlx::core::array& lhs_ids,
-  const mlx::core::array& reduction_slots,const mlx::core::array& route_weights) const;
+  const mlx::core::array& reduction_slots,const mlx::core::array& route_weights,
+  bool diagnostic=false) const;
  std::size_t packed_bytes() const{return packed_bytes_;}
  std::size_t expert_count() const{return expert_ids_.size();}
 private:
  std::uint32_t local_expert_id(int global_id) const;
+ int layer_=0;
  mlx::core::array w1_,s1_,w2_,s2_,w3_,s3_;
  std::vector<int> expert_ids_;
  std::array<int,384> global_to_local_{};

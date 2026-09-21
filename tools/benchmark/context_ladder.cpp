@@ -96,26 +96,60 @@ J attention_delta(const dsv41::AttentionTelemetry& before,
 J profile_delta(const dsv41::RuntimeProfileTelemetry& before,
                 const dsv41::RuntimeProfileTelemetry& after) {
  double layer=0.0,attention=0.0,moe=0.0,post=0.0;
- std::size_t layer_calls=0,component_calls=0;
+ double moe_input=0.0,moe_route=0.0,moe_routed=0.0,moe_shared=0.0,moe_combine=0.0,moe_routed_warm=0.0,moe_sync_noop=0.0;
+ double routed_stage[5]={0.0,0.0,0.0,0.0,0.0};
+ std::size_t layer_calls=0,component_calls=0,moe_subcomponent_calls=0;
  J layers=J::array();
  for(std::size_t i=0;i<40;++i){
   const auto layer_delta=after.layer_seconds[i]-before.layer_seconds[i];
   const auto attention_delta=after.attention_path_seconds[i]-before.attention_path_seconds[i];
   const auto moe_delta=after.moe_path_seconds[i]-before.moe_path_seconds[i];
   const auto post_delta=after.post_moe_seconds[i]-before.post_moe_seconds[i];
+  const auto moe_input_delta=after.moe_input_seconds[i]-before.moe_input_seconds[i];
+  const auto moe_route_delta=after.moe_route_seconds[i]-before.moe_route_seconds[i];
+  const auto moe_routed_delta=after.moe_routed_seconds[i]-before.moe_routed_seconds[i];
+  const auto moe_shared_delta=after.moe_shared_seconds[i]-before.moe_shared_seconds[i];
+  const auto moe_combine_delta=after.moe_combine_seconds[i]-before.moe_combine_seconds[i];
+  const auto moe_routed_warm_delta=after.moe_routed_warm_seconds[i]-before.moe_routed_warm_seconds[i];
+  const auto moe_sync_noop_delta=after.moe_sync_noop_seconds[i]-before.moe_sync_noop_seconds[i];
   const auto layer_call_delta=after.layer_calls[i]-before.layer_calls[i];
   const auto component_call_delta=after.component_calls[i]-before.component_calls[i];
+  const auto moe_subcomponent_call_delta=after.moe_subcomponent_calls[i]-before.moe_subcomponent_calls[i];
   layer+=layer_delta;attention+=attention_delta;moe+=moe_delta;post+=post_delta;
+  moe_input+=moe_input_delta;moe_route+=moe_route_delta;moe_routed+=moe_routed_delta;
+  moe_shared+=moe_shared_delta;moe_combine+=moe_combine_delta;moe_routed_warm+=moe_routed_warm_delta;moe_sync_noop+=moe_sync_noop_delta;
   layer_calls+=layer_call_delta;component_calls+=component_call_delta;
+  moe_subcomponent_calls+=moe_subcomponent_call_delta;
+  J routed=J::array();
+  for(int s=0;s<5;++s){
+   const auto d=after.routed_stage_seconds[s][i]-before.routed_stage_seconds[s][i];
+   routed_stage[s]+=d;routed.push_back(d);
+  }
   layers.push_back({{"layer",i},{"layer_seconds",layer_delta},
    {"attention_path_seconds",attention_delta},{"moe_path_seconds",moe_delta},
    {"post_moe_seconds",post_delta},{"layer_calls",layer_call_delta},
-   {"component_calls",component_call_delta}});
+   {"component_calls",component_call_delta},
+   {"moe_input_seconds",moe_input_delta},{"moe_route_seconds",moe_route_delta},
+   {"moe_routed_seconds",moe_routed_delta},{"moe_routed_warm_seconds",moe_routed_warm_delta},
+   {"moe_sync_noop_seconds",moe_sync_noop_delta},
+   {"moe_shared_seconds",moe_shared_delta},
+   {"moe_combine_seconds",moe_combine_delta},
+   {"moe_subcomponent_calls",moe_subcomponent_call_delta},
+   {"routed_stage_seconds",std::move(routed)}});
  }
  return {{"measurement_semantics",
-   "GPU completion wall deltas with synchronization after attention, MoE, and post-MoE; perturbs lazy execution"},
+   "GPU completion wall deltas with synchronization after attention, MoE, post-MoE and MoE sub-phases; perturbs lazy execution; MoE sub-phases are nested inside moe_path_seconds"},
   {"layer_seconds",layer},{"attention_path_seconds",attention},{"moe_path_seconds",moe},
   {"post_moe_seconds",post},{"layer_calls",layer_calls},{"component_calls",component_calls},
+  {"moe_input_seconds",moe_input},{"moe_route_seconds",moe_route},
+  {"moe_routed_seconds",moe_routed},{"moe_routed_warm_seconds",moe_routed_warm},
+  {"moe_sync_noop_seconds",moe_sync_noop},
+  {"moe_shared_seconds",moe_shared},
+  {"moe_combine_seconds",moe_combine},
+  {"moe_subcomponent_calls",moe_subcomponent_calls},
+  {"routed_prep_seconds",routed_stage[0]},{"routed_gateup_seconds",routed_stage[1]},
+  {"routed_mid_seconds",routed_stage[2]},{"routed_down_seconds",routed_stage[3]},
+  {"routed_reduce_seconds",routed_stage[4]},
   {"layers",std::move(layers)}};
 }
 
@@ -448,19 +482,37 @@ int main(int argc,char** argv) { try {
  if(dsv41::runtime_component_profile_enabled()){
   const auto profile=dsv41::read_runtime_profile();J layers=J::array();
   double layer_total=0.0,attention_total=0.0,moe_total=0.0,post_total=0.0;
+  double moe_input_total=0.0,moe_route_total=0.0,moe_routed_total=0.0,moe_shared_total=0.0,moe_combine_total=0.0;
+  double routed_stage_total[5]={0.0,0.0,0.0,0.0,0.0};
   for(int layer=0;layer<40;++layer){
    layer_total+=profile.layer_seconds[layer];attention_total+=profile.attention_path_seconds[layer];
    moe_total+=profile.moe_path_seconds[layer];post_total+=profile.post_moe_seconds[layer];
+   moe_input_total+=profile.moe_input_seconds[layer];moe_route_total+=profile.moe_route_seconds[layer];
+   moe_routed_total+=profile.moe_routed_seconds[layer];moe_shared_total+=profile.moe_shared_seconds[layer];
+   moe_combine_total+=profile.moe_combine_seconds[layer];
+   for(int s=0;s<5;++s)routed_stage_total[s]+=profile.routed_stage_seconds[s][layer];
    layers.push_back({{"layer",layer},{"calls",profile.layer_calls[layer]},
     {"component_calls",profile.component_calls[layer]},{"layer_seconds",profile.layer_seconds[layer]},
     {"attention_path_seconds",profile.attention_path_seconds[layer]},
     {"moe_path_seconds",profile.moe_path_seconds[layer]},
-    {"post_moe_seconds",profile.post_moe_seconds[layer]}});
+    {"post_moe_seconds",profile.post_moe_seconds[layer]},
+    {"moe_input_seconds",profile.moe_input_seconds[layer]},
+    {"moe_route_seconds",profile.moe_route_seconds[layer]},
+    {"moe_routed_seconds",profile.moe_routed_seconds[layer]},
+    {"moe_shared_seconds",profile.moe_shared_seconds[layer]},
+    {"moe_combine_seconds",profile.moe_combine_seconds[layer]}});
   }
   report["runtime_component_profile"]={{"measurement_semantics",
-   "GPU completion wall with synchronization after attention, MoE, and post-MoE; perturbs the normal lazy schedule"},
+   "GPU completion wall with synchronization after attention, MoE, post-MoE and MoE sub-phases; perturbs the normal lazy schedule; MoE sub-phases are nested inside moe_path_seconds"},
    {"layer_seconds",layer_total},{"attention_path_seconds",attention_total},
-   {"moe_path_seconds",moe_total},{"post_moe_seconds",post_total},{"layers",std::move(layers)}};
+   {"moe_path_seconds",moe_total},{"post_moe_seconds",post_total},
+   {"moe_input_seconds",moe_input_total},{"moe_route_seconds",moe_route_total},
+   {"moe_routed_seconds",moe_routed_total},{"moe_shared_seconds",moe_shared_total},
+   {"moe_combine_seconds",moe_combine_total},
+   {"routed_prep_seconds",routed_stage_total[0]},{"routed_gateup_seconds",routed_stage_total[1]},
+   {"routed_mid_seconds",routed_stage_total[2]},{"routed_down_seconds",routed_stage_total[3]},
+   {"routed_reduce_seconds",routed_stage_total[4]},
+   {"layers",std::move(layers)}};
  }
  auto union_stats=dsv41::route_union_stats();
  report["route_union_stats"]={{"batches",union_stats.batches},

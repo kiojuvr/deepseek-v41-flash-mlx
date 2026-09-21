@@ -1,5 +1,16 @@
 # 64K production performance milestone — 2026-09-21
 
+Latest update (2026-09-22): [routed expert residency review](expert-residency-review.md)
+selects an explicit bounded MLX residency budget as the next structural candidate.
+The latest short profile isolates a large first-service/immediate-repeat gap;
+code inspection finds the MLX wired budget defaults to zero and this runtime
+never sets it. The current stage timers also defer the gate QMM into the
+nominal SwiGLU bucket, and the routed total includes the warm repeat. Do not
+optimize GatherQMM arithmetic or launch another full-model attribution run.
+No residency candidate has yet been implemented or promoted. Earlier causal
+claims below about dispatch versus GPU arithmetic are not established by the
+confounded measurements; use the linked review for current selection guidance.
+
 Current review checkpoint: the bounded decode-stack experiment below improved
 advancing decode mean from 3.37326 to 3.24626 seconds (-3.765%, seven of seven
 tokens faster), with exact bounded state/logit parity and zero swap deltas.
@@ -276,3 +287,54 @@ time and weight-traffic, since dispatch reduction is exhausted as a lever; (c)
 SWA bounded-replay topology alignment. Do not re-run the fused mHC decode
 candidate; the negative result is recorded. No rejected candidate reopens the
 128K/200K/256K qualification ladder.
+
+## Host-contamination finding and MoE sub-timer gate (2026-09-21)
+
+An untracked attribution attempt (`artifacts/context-ladder/ced-attribution-20260921-173602-30695`,
+schema-2 instrumentation preserved only in that artifact's `control-64k/tracked.patch`)
+was killed at exit 143 after three turns. Its control-64k showed ~8.6 s/token
+against the frozen 3.35 s/token. That is **not** a source regression at `bb4d1dd`:
+a background `omlx-server` (PID 19372) has been resident since 06:41 holding
+~296 GB (297 GB wired, ~8.8 GB unused of 512 GiB). The frozen baseline predates
+it. Every measurement after 06:41 is contaminated, including the fused-mHC pairs
+(~4.15 s) and `decode-component-profile-20260921-162806` (~4.05 s). The clean
+04:12 short profile (`decode-component-profile-20260921-041241-12411`) measured
+3.363 s/token for seven advancing steps: attention 1.64 s, **MoE 21.21 s
+(~90%)**, post-MoE 0.57 s.
+
+Decision. Do not rebuild the full 64K CED attribution yet, and do not run the
+2-3 hour suite. First rerun the short canonical 2K+8 decode component profile on
+a **clean host** and split the ~90% MoE bucket by mechanism. Schema-2 CED/index
+instrumentation stays out of tree unless that short measurement leaves the
+bottleneck ambiguous.
+
+Instrumentation (this change). `include/dsv41/runtime_profile.hpp` gains MoE
+sub-phase arrays (`moe_input/route/routed/shared/combine_seconds`),
+`src/moe/reference.cpp::forward_batch_components` records them, and
+`context_ladder.cpp` emits them in `phases.decode.runtime_profile` and the
+run-level profile. Semantics: all five are nested inside `moe_path_seconds` and
+must never be added to layer wall; each forces GPU completion, so ratios are
+attribution, not production TPT. `moe_input` isolates the lazy mHC/norm deps
+that the old bucket absorbed; `moe_route` is the device gate selection;
+`moe_routed` is the expert-major routed service (argsort/take, gather QMMs,
+FP8 roundtrip, reduce); `moe_shared` is the shared FP8 expert; `moe_combine` is
+the routed+shared add. Production arithmetic and defaults are unchanged.
+
+Host gate. `tools/benchmark/run_decode_component_profile.sh` now refuses to
+start if another process holds >32 GiB RSS or if free+inactive memory is below
+360 GiB, and writes `preflight.txt`. A contaminated run is not comparable to the
+frozen baseline.
+
+Reproducible short run (user-run; ~3-8 minutes; one fresh model; up to 340 GB
+Unified Memory; checkpoint read-only):
+
+```sh
+bash tools/benchmark/run_decode_component_profile.sh
+```
+
+Acceptance: decode TPT for the seven advancing tokens must return near
+3.3-3.4 s/token. A value near 4.05 s/token means the host is still contaminated;
+stop and clean further. The `decode-profile.tsv` and the printed MoE split name
+the dominant decode mechanism, which selects the next structural candidate
+(routed-expert M=1 service is the leading hypothesis) for a topology comparison
+against oMLX `b390b31e` and DwarfStar `8db1d1d1` before any implementation.

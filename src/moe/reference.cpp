@@ -1,5 +1,6 @@
 #include "dsv41/moe.hpp"
 #include "dsv41/execution_policy.hpp"
+#include "dsv41/runtime_profile.hpp"
 #include "route_select.hpp"
 #include <algorithm>
 #include <cmath>
@@ -288,7 +289,19 @@ MoEComponents MoEReference::forward_batch_components(const mx::array& x,std::uin
  if(x.dtype()!=mx::bfloat16||x.ndim()!=2||x.shape(0)<1||x.shape(0)>128||x.shape(1)!=5120)
   throw std::runtime_error("batched MoE requires BF16 [1..128,5120]");
  const int tokens=x.shape(0);
+ // Diagnostic-only MoE sub-phase boundaries. Each forces GPU completion and is
+ // nested inside the caller's moe_path_seconds; production execution is unchanged
+ // because the helpers return immediately when profiling is disabled.
+ auto sub_started=runtime_profile_start();
+ finish_runtime_subcomponent(layer_,ProfileSubcomponent::MoeInput,sub_started,x);
+ // Diagnostic-only no-op: x is already materialized, so this measures pure
+ // eval+synchronize overhead inside the full model (isolated probes: ~0.2 ms).
+ sub_started=runtime_profile_start();
+ finish_runtime_subcomponent(layer_,ProfileSubcomponent::MoeSyncNoop,sub_started,x);
+ sub_started=runtime_profile_start();
  auto routes=gate_.forward_batch(x,start,!resident_atlas_||runtime_route_diagnostics_enabled());
+ finish_runtime_subcomponent(layer_,ProfileSubcomponent::MoeRoute,sub_started,routes.weights);
+ sub_started=runtime_profile_start();
  tie_count_+=routes.ties.size();
  tie_records().insert(tie_records().end(),routes.ties.begin(),routes.ties.end());
  set_route_trace_token(start+std::uint64_t(tokens-1));
@@ -314,14 +327,29 @@ MoEComponents MoEReference::forward_batch_components(const mx::array& x,std::uin
  }else if(resident_atlas_){
   routed=resident_atlas_->bank(layer_).forward_batch_expert_major(x,routes.device_ids,routes.device_lhs,
                                                           routes.reduction_slots,routes.weights);
+  // Diagnostic-only immediate repeat. The first call's weight pages are cold;
+  // this second call reads the same experts while they are hot. Comparing the
+  // two separates a memory-residency cost from per-call execution overhead.
+  // Restricted to short decode-like batches so prefill is not doubled.
+  if(runtime_component_profile_enabled()&&tokens<=8){
+   auto warm_started=runtime_profile_start();
+   auto warm=resident_atlas_->bank(layer_).forward_batch_expert_major(x,routes.device_ids,
+    routes.device_lhs,routes.reduction_slots,routes.weights,true);
+   finish_runtime_subcomponent(layer_,ProfileSubcomponent::MoeRoutedWarm,warm_started,warm.accumulated);
+  }
  }else{
   if(!expert_bank_)expert_bank_=std::make_unique<PackedExpertBank>(*catalog_,layer_);
   routed=expert_bank_->forward_batch_selected(x,routes.device_ids,routes.device_lhs,
                                                routes.reduction_slots,routes.weights);
  }
+ finish_runtime_subcomponent(layer_,ProfileSubcomponent::MoeRouted,sub_started,routed.accumulated);
+ sub_started=runtime_profile_start();
  auto shared=mx::astype(shared_.forward(x,mx::array(1.0f)),mx::float32);
- return {mx::astype(shared,mx::bfloat16),mx::astype(routed.accumulated,mx::bfloat16),
-         mx::astype(mx::add(routed.accumulated,shared),mx::bfloat16)};
+ finish_runtime_subcomponent(layer_,ProfileSubcomponent::MoeShared,sub_started,shared);
+ sub_started=runtime_profile_start();
+ auto total=mx::astype(mx::add(routed.accumulated,shared),mx::bfloat16);
+ finish_runtime_subcomponent(layer_,ProfileSubcomponent::MoeCombine,sub_started,total);
+ return {mx::astype(shared,mx::bfloat16),mx::astype(routed.accumulated,mx::bfloat16),total};
 }
 mx::array MoEReference::expert_contribution(const mx::array& x, int id, const mx::array& weight) const {
  if (id < 0 || id >= 384) throw std::runtime_error("invalid routed expert");
