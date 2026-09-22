@@ -24,6 +24,20 @@
 
 checkpoint自体のSSD保存は通常のload元。推論時のstorage subsystemとしてSSDを使う対象はEngram backingとする。OS file cache、mmapのresident pages、runtime hot cacheの物理的重複をmemory計測で確認する。
 
+2026-09-22: model-lifetime tensor ownershipが物理常駐を保証しないことを受け、MLXの
+wired/residency budget候補を既定OFFで追加した。非zero budgetはmodel allocation前に
+process-global ownerが取得し、Metal推奨上限と64 GiB以上のOS reserveを越える要求を
+拒否し、model teardown時に同期して以前のbudgetへ戻す。これはweightsだけを優先して
+wireするAPIではなく、その後のMLX allocationも同じbudgetを消費する。従ってbudget値を
+resident bytesやpage-lock成功の証拠とせず、process footprint、圧縮/展開、swap、scratch、
+Engram working setをfull-pathで別途確認する。最初の320 GiB候補はdecodeを大幅に改善したが
+system swapout +28 pagesで棄却し、288 GiBも+8 pages、272 GiBも+12 pagesで棄却した。
+anonymous atlasのwired budget調整は終了した。公式bytesからtransactionalに生成する
+read-only file-backed packed atlasとno-copy Metal viewをopt-in実装し、派生物のprovenance・
+digest・約288.78 GBのSSD容量・生成失敗時のatomicityを固定した。生成は完了したが、最初の
+exactness processは数値的にPASSしてもsystem swapと深刻なhost pressureを発生させた。
+`speculative` file cacheをavailable扱いしてはならず、runnerは停止中。詳細は[residency review](expert-residency-review.md)。
+
 ## Global KVの890 bytes/token
 
 以下は取得済み公式config、`inference/model.py`と`kernel.py`から導いたpacked payloadの見積り。allocatorや実装の実測ではない。[provenance](architecture.md)を参照。

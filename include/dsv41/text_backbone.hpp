@@ -2,6 +2,7 @@
 #include "dsv41/text_encoder.hpp"
 #include "dsv41/text_decoder.hpp"
 #include "dsv41/trace.hpp"
+#include "dsv41/runtime_residency.hpp"
 #include <cstdint>
 #include <optional>
 namespace dsv41 {
@@ -86,6 +87,9 @@ private:
 class TextBackboneReference {
 public:
  TextBackboneReference(WeightCatalog& catalog,std::shared_ptr<const EngramMetadata> metadata);
+ ~TextBackboneReference(){residency_.synchronize();}
+ std::size_t wired_limit_bytes() const{return residency_.requested_bytes();}
+ bool expert_backing_file_backed() const{return expert_atlas_&&expert_atlas_->file_backed();}
  BlockResult forward(std::span<const std::uint32_t> ids,TextBackboneState& state,std::uint64_t start,TraceSink* trace=nullptr) const;
  BlockResult forward_packed_chunk(std::span<const std::uint32_t> ids,
                                   TextBackboneState& state,std::uint64_t start) const;
@@ -104,7 +108,10 @@ public:
                                   TextBackboneState& state) const;
  mlx::core::array logits(const BlockResult& final_hidden,TraceSink* trace=nullptr) const{return decoder_.logits(final_hidden,trace);}
 private:
+ // First constructed, last destroyed: budget covers all model-owned buffers.
+ RuntimeResidencyLease residency_;
  std::shared_ptr<const ResidentExpertAtlas> expert_atlas_;
+ RuntimeResidencyActivation residency_activation_;
  TextEncoderReference encoder_;
  TextDecoderReference decoder_;
 };

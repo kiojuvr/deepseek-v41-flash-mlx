@@ -7,9 +7,28 @@ code inspection finds the MLX wired budget defaults to zero and this runtime
 never sets it. The current stage timers also defer the gate QMM into the
 nominal SwiGLU bucket, and the routed total includes the warm repeat. Do not
 optimize GatherQMM arithmetic or launch another full-model attribution run.
-No residency candidate has yet been implemented or promoted. Earlier causal
-claims below about dispatch versus GPU arithmetic are not established by the
-confounded measurements; use the linked review for current selection guidance.
+The bounded, explicit MLX residency-budget candidate is now implemented opt-in.
+Its first 320 GiB bounded run cut advancing decode from 3.3503 to 0.1447 s
+(23.15x) with exact observables, but is **rejected** because system swapouts
+increased by 28 pages. It is not promoted and must not advance to paired/64K.
+A 288 GiB parity run was rejected on +8 system swapout pages, and 272 GiB was
+rejected on +12 pages; both stopped before full-path measurement. Anonymous
+atlas wired-budget tuning is closed and its paired mode must not run. The next
+structural candidate is an exact, derived file-backed packed atlas with no-copy
+Metal views. The ~288.78 GB backing was prepared and repaired after a pre-runtime
+ctime identity bug. Its first exactness process passed all numerical/state gates
+but caused severe host memory pressure and system swap after an unsafe preflight
+counted speculative file cache as reclaimable. The runner is disabled; no paired
+or 64K run is allowed until a process-separated, conservatively gated replacement
+is reviewed. The process-separated file-backed candidate later matched the
+anonymous resident oracle bit-for-bit across five bounded steps with zero swap.
+Its 2,063+8 candidate-only run reached 0.14808 s advancing decode but is rejected
+on +16 system swapout pages and 638.9 s model construction. The current opt-in
+candidate maps all atlas views first, activates residency once before dense
+model allocation, and lowers the budget to 256 GiB; it has checkpoint-free
+lifecycle/build evidence only and requires a clean rebooted-host measurement.
+Earlier arithmetic/dispatch causal claims are superseded by this residency
+evidence.
 
 Current review checkpoint: the bounded decode-stack experiment below improved
 advancing decode mean from 3.37326 to 3.24626 seconds (-3.765%, seven of seven

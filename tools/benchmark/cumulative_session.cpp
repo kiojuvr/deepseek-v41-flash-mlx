@@ -173,7 +173,9 @@ int main(int argc,char** argv) { try {
  auto construction_started=Clock::now();
  dsv41::WeightCatalog catalog(argv[1],argv[2]);
  auto metadata=dsv41::EngramMetadata::load(argv[3]);
- dsv41::TextBackboneReference model(catalog,metadata);mx::synchronize();
+ dsv41::TextBackboneReference model(catalog,metadata);
+ report["wired_limit_bytes"]=model.wired_limit_bytes();
+ report["expert_backing_file_backed"]=model.expert_backing_file_backed();mx::synchronize();
  report["model_construction"]={{"seconds",seconds(construction_started)},{"memory",memory()}};
  dsv41::TextBackboneState state(metadata);
  const auto session_started=Clock::now();

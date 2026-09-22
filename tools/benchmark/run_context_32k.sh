@@ -45,6 +45,8 @@ export DSV41_RUNTIME_LONG_CONTEXT_CACHE_LIMIT_BYTES=${DSV41_RUNTIME_LONG_CONTEXT
 export DSV41_RUNTIME_EXPERT_IO_THREADS=${DSV41_RUNTIME_EXPERT_IO_THREADS:-4}
 export DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK=${DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK:-0}
 export DSV41_RUNTIME_COMPONENT_PROFILE=${DSV41_RUNTIME_COMPONENT_PROFILE:-0}
+export DSV41_RUNTIME_WIRED_LIMIT_BYTES=${DSV41_RUNTIME_WIRED_LIMIT_BYTES:-0}
+export DSV41_RUNTIME_EXPERT_BACKING_DIR=${DSV41_RUNTIME_EXPERT_BACKING_DIR:-}
 export DSV41_CONTEXT_EXECUTION=${DSV41_CONTEXT_EXECUTION:-sweep}
 if [[ ! "$decode" =~ ^[0-9]+$ ]] || ((decode<1 || decode>128)); then
  echo "DECODE_TOKENS must be an integer in 1..128" >&2
@@ -92,6 +94,8 @@ printf '%s\n' "checkpoint=$checkpoint" "context=$context" "base_prefill=$((prefi
  "expert_io_threads=$DSV41_RUNTIME_EXPERT_IO_THREADS" \
  "expert_assignment_chunk=$DSV41_RUNTIME_EXPERT_ASSIGNMENT_CHUNK" \
  "component_profile=$DSV41_RUNTIME_COMPONENT_PROFILE" \
+ "wired_limit_bytes=$DSV41_RUNTIME_WIRED_LIMIT_BYTES" \
+ "expert_backing_dir=${DSV41_RUNTIME_EXPERT_BACKING_DIR:-disabled}" \
  "metal_trace=${DSV41_XCTRACE_OUTPUT:-disabled}" \
  "execution=$DSV41_CONTEXT_EXECUTION" \
  "cache_condition=${CACHE_CONDITION:-unknown}" "run_conditions=${RUN_CONDITIONS:-unknown}" \
@@ -122,7 +126,7 @@ shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp 
  tools/benchmark/run_layer_component_profile.sh \
  tools/benchmark/run_resident_layer_component_profile.sh \
  tools/benchmark/run_shape_bucket_attention_profile.sh \
- include/dsv41/text_backbone.hpp include/dsv41/generation_loop.hpp include/dsv41/execution_policy.hpp \
+ include/dsv41/text_backbone.hpp include/dsv41/runtime_residency.hpp include/dsv41/expert_backing.hpp include/dsv41/generation_loop.hpp include/dsv41/execution_policy.hpp \
  include/dsv41/deferred_decoder_plan.hpp \
  include/dsv41/runtime_profile.hpp \
  include/dsv41/swa_layer.hpp include/dsv41/swa_attention.hpp include/dsv41/compressed_layer.hpp include/dsv41/reused_layer.hpp \
@@ -143,7 +147,7 @@ shasum -a 256 build-mlx/dsv41-context-ladder tools/benchmark/context_ladder.cpp 
  metal/attention/steel_attention_header.metal \
  src/attention/index_key.cpp src/attention/index_query.cpp src/attention/shared_attention.cpp src/cache/global_kv.cpp \
  include/dsv41/moe.hpp include/dsv41/moe_pipeline.hpp src/moe/reference.cpp \
- src/moe/expert_bank.cpp src/moe/grouped_expert_pipeline.cpp \
+ src/moe/expert_bank.cpp src/moe/expert_backing.cpp src/moe/grouped_expert_pipeline.cpp src/runtime/residency.cpp \
  src/mhc/reference.cpp src/mhc/split_sinkhorn.hpp.in metal/mhc/split_sinkhorn.metal \
  metal/moe/route_select.metal metal/moe/route_reduce.metal \
  include/dsv41/sampling.hpp src/model/sampling.cpp \

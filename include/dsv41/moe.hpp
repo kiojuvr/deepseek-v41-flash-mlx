@@ -96,12 +96,14 @@ private:
 // One layer's 384 routed experts in the [E,N,packed] layout required by
 // gather_qmm. Construction reads checkpoint tensors without modifying them and
 // avoids retaining a second set of per-expert MLX arrays.
+class ExpertBackingStore;
 class PackedExpertBank {
 public:
  PackedExpertBank(WeightCatalog& catalog,int layer);
  // Compact bank for a sorted unique subset of global expert IDs. This is the
  // storage primitive for route-first, expert-major prefill scheduling.
  PackedExpertBank(WeightCatalog& catalog,int layer,const std::vector<int>& expert_ids);
+ PackedExpertBank(WeightCatalog& catalog,int layer,std::shared_ptr<const ExpertBackingStore> backing);
  GroupedExpertComponents forward_selected(const mlx::core::array& input,
   const std::array<int,6>& expert_ids,const mlx::core::array& route_weights) const;
  GroupedExpertBatchResult forward_batch_selected(const mlx::core::array& input,
@@ -139,7 +141,9 @@ public:
  explicit ResidentExpertAtlas(WeightCatalog& catalog);
  const PackedExpertBank& bank(int layer) const;
  std::size_t packed_bytes() const{return packed_bytes_;}
+ bool file_backed() const{return bool(backing_);}
 private:
+ std::shared_ptr<const ExpertBackingStore> backing_;
  std::array<std::shared_ptr<const PackedExpertBank>,40> banks_;
  std::size_t packed_bytes_=0;
 };

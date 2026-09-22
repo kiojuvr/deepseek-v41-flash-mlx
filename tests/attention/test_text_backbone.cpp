@@ -95,6 +95,31 @@ int main(int argc,char** argv){try{
  auto proof=dsv41::read_json_file("artifacts/engram/fixture-provenance.json");
  std::ifstream file(argv[3],std::ios::binary);std::string raw{std::istreambuf_iterator<char>(file),{}};
  if(dsv41::sha256_text(raw)!=proof.at("fixture_sha256").at("metadata.json").get<std::string>())throw std::runtime_error("Engram metadata identity mismatch");
+ if(std::getenv("DSV41_CHECK_FILE_BACKED_EXACTNESS")){
+  if(!std::getenv("DSV41_ALLOW_UNSAFE_IN_PROCESS_FILE_EXACTNESS"))
+   throw std::runtime_error("in-process file-backed exactness is rejected for host-memory safety; use process-separated digest runner");
+  const char* configured=std::getenv("DSV41_RUNTIME_EXPERT_BACKING_DIR");
+  if(!configured||!*configured)throw std::runtime_error("file-backed exactness requires backing directory");
+  const std::string backing=configured;setenv("DSV41_RUNTIME_WIRED_LIMIT_BYTES","0",1);unsetenv("DSV41_RUNTIME_EXPERT_BACKING_DIR");
+  dsv41::TextBackboneState expected_state(metadata);std::vector<dsv41::BlockResult> outputs;std::vector<mx::array> logits;std::vector<dsv41::TextBackboneState> states;
+  std::vector<std::uint32_t> prompt(129);for(std::size_t i=0;i<prompt.size();++i)prompt[i]=std::uint32_t((i*7919)%129263);
+  dsv41::reset_route_tie_records();
+  {
+   auto baseline=std::make_unique<dsv41::TextBackboneReference>(c,metadata);outputs.push_back(baseline->forward_packed_sweep(prompt,expected_state,0));logits.push_back(baseline->logits(outputs.back()));states.push_back(expected_state);
+   for(std::uint64_t pos=129;pos<133;++pos){const std::array<std::uint32_t,1> token{std::uint32_t(pos*17)};outputs.push_back(baseline->forward_packed_sweep(token,expected_state,pos));logits.push_back(baseline->logits(outputs.back()));states.push_back(expected_state);}
+   for(auto& x:outputs)mx::eval(x.hidden,x.pre_mix);for(auto& x:logits)mx::eval(x);mx::synchronize();
+  }
+  auto expected_ties=dsv41::route_tie_records();mx::clear_cache();setenv("DSV41_RUNTIME_EXPERT_BACKING_DIR",backing.c_str(),1);dsv41::reset_route_tie_records();
+  dsv41::TextBackboneReference candidate(c,metadata);if(!candidate.expert_backing_file_backed())throw std::runtime_error("candidate did not map file-backed experts");dsv41::TextBackboneState actual_state(metadata);
+  auto check=[&](std::size_t i,const dsv41::BlockResult& actual){same(actual.hidden,outputs[i].hidden,"file-backed hidden");same(actual.pre_mix,outputs[i].pre_mix,"file-backed pre-mix");same(candidate.logits(actual),logits[i],"file-backed logits");state_same(actual_state,states[i]);};
+  auto actual=candidate.forward_packed_sweep(prompt,actual_state,0);check(0,actual);
+  for(std::uint64_t pos=129;pos<133;++pos){const std::array<std::uint32_t,1> token{std::uint32_t(pos*17)};actual=candidate.forward_packed_sweep(token,actual_state,pos);check(std::size_t(pos-128),actual);}
+  ties_same(dsv41::route_tie_records(),expected_ties,"file-backed route ties");
+  auto saved=actual_state;const std::array<std::uint32_t,1> invalid{129264};bool rejected=false;try{candidate.forward_packed_sweep(invalid,actual_state,133);}catch(const std::exception&){rejected=true;}
+  if(!rejected||actual_state.revision()!=saved.revision())throw std::runtime_error("file-backed invalid request atomicity");state_same(actual_state,saved);
+  auto ah=actual_state.encoder.hash,bh=expected_state.encoder.hash;const std::array<std::uint32_t,1> suffix{42};if(ah.append(suffix,{},133)!=bh.append(suffix,{},133))throw std::runtime_error("file-backed hash mismatch");
+  std::cout<<"PASS: file-backed prefill/decode hidden, pre-mix, logits, state, route ties, hash, revision and invalid-request atomicity are bit-exact; no performance qualification"<<std::endl;return 0;
+ }
  std::cout<<"Loading full backbone layers 0..39 on-demand experts and Engram 1/14 mmap backing"<<std::endl;
  dsv41::TextBackboneReference model(c,metadata);
  if(std::getenv("DSV41_CHECK_FUSED_MHC_BACKBONE_PARITY")){
@@ -177,18 +202,32 @@ int main(int argc,char** argv){try{
    <<"hash/revision and invalid request atomicity are bit-exact; no performance qualification"<<std::endl;
   return 0;
  }
- if(std::getenv("DSV41_CHECK_DECODE_STACK_GRAPH")){
+ if(std::getenv("DSV41_CHECK_DECODE_STACK_GRAPH")||std::getenv("DSV41_CHECK_RESIDENCY")){
+  const bool residency_check=std::getenv("DSV41_CHECK_RESIDENCY")!=nullptr;
+  if(residency_check&&(!model.wired_limit_bytes()||dsv41::runtime_decode_stack_graph_enabled()))
+   throw std::runtime_error("residency parity requires a wired model and decode stack graph OFF");
+  auto select=[&](bool candidate){
+   if(residency_check){mx::synchronize();mx::set_wired_limit(candidate?model.wired_limit_bytes():0);}
+   else setenv("DSV41_RUNTIME_DECODE_STACK_GRAPH",candidate?"1":"0",1);
+  };
   if(!dsv41::runtime_resident_expert_atlas_enabled())throw std::runtime_error("decode graph gate requires resident atlas");
   dsv41::TextBackboneState baseline(metadata),candidate(metadata);
   std::vector<std::uint32_t> prompt(129);
   for(std::size_t i=0;i<prompt.size();++i)prompt[i]=std::uint32_t((i*7919)%129263);
-  setenv("DSV41_RUNTIME_DECODE_STACK_GRAPH","0",1);
-  model.forward_packed_sweep(prompt,baseline,0);candidate=baseline;
+  select(false);
+  auto prefix_expected=model.forward_packed_sweep(prompt,baseline,0);
+  if(residency_check){
+   select(true);auto prefix_actual=model.forward_packed_sweep(prompt,candidate,0);
+   same(prefix_actual.hidden,prefix_expected.hidden,"residency prefill hidden");
+   same(prefix_actual.pre_mix,prefix_expected.pre_mix,"residency prefill pre-mix");
+   same(model.logits(prefix_actual),model.logits(prefix_expected),"residency prefill logits");
+   state_same(candidate,baseline);
+  }else candidate=baseline;
   for(std::uint64_t pos=129;pos<133;++pos){
    const std::array<std::uint32_t,1> token{std::uint32_t(pos*17)};
-   setenv("DSV41_RUNTIME_DECODE_STACK_GRAPH","0",1);
+   select(false);
    auto expected=model.forward_packed_sweep(token,baseline,pos);
-   setenv("DSV41_RUNTIME_DECODE_STACK_GRAPH","1",1);
+   select(true);
    auto actual=model.forward_packed_sweep(token,candidate,pos);
    same(actual.hidden,expected.hidden,"decode graph hidden");
    same(actual.pre_mix,expected.pre_mix,"decode graph pre-mix");
@@ -212,7 +251,8 @@ int main(int argc,char** argv){try{
   auto ah=candidate.encoder.hash,bh=baseline.encoder.hash;
   const std::array<std::uint32_t,1> suffix{42};
   if(ah.append(suffix,{},133)!=bh.append(suffix,{},133))throw std::runtime_error("decode graph hash mismatch");
-  std::cout<<"PASS: decode stack graph hidden/pre-mix/logits/state/publication/hash/revision and invalid request atomicity; no performance qualification"<<std::endl;
+  std::cout<<"PASS: "<<(residency_check?"residency policy":"decode stack graph")
+   <<" hidden/pre-mix/logits/state/publication/hash/revision and invalid request atomicity; no performance qualification"<<std::endl;
   return 0;
  }
  if(std::getenv("DSV41_CHECK_LAYER_MAJOR_BACKBONE")){

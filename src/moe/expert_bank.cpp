@@ -3,12 +3,14 @@
 #include "dsv41/layer_owner.hpp"
 #include "dsv41/moe_pipeline.hpp"
 #include "dsv41/runtime_profile.hpp"
+#include "dsv41/expert_backing.hpp"
 #include "route_reduce.hpp"
 #include <algorithm>
 #include <array>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <exception>
 #include <numeric>
 #include <optional>
@@ -143,6 +145,22 @@ PackedExpertBank::PackedExpertBank(WeightCatalog& catalog,int layer)
    std::vector<int> ids(384);std::iota(ids.begin(),ids.end(),0);return ids;
   }()){}
 
+PackedExpertBank::PackedExpertBank(WeightCatalog&,int layer,
+ std::shared_ptr<const ExpertBackingStore> backing)
+ :w1_(mx::array(0)),s1_(mx::array(0)),w2_(mx::array(0)),s2_(mx::array(0)),w3_(mx::array(0)),s3_(mx::array(0)){
+ if(!backing)throw std::runtime_error("file-backed expert bank requires a backing store");
+ const auto started=std::chrono::steady_clock::now();reference_moe_prefix(layer);layer_=layer;
+ expert_ids_.resize(384);std::iota(expert_ids_.begin(),expert_ids_.end(),0);global_to_local_.fill(-1);
+ for(int i=0;i<384;++i)global_to_local_[i]=i;
+ auto w1=backing->projection(layer,"w1",2304,5120);
+ auto w3=backing->projection(layer,"w3",2304,5120);
+ auto w2=backing->projection(layer,"w2",5120,2304);
+ packed_bytes_=w1.bytes+w2.bytes+w3.bytes;
+ w1_=std::move(w1.weight);s1_=std::move(w1.scale);w2_=std::move(w2.weight);s2_=std::move(w2.scale);w3_=std::move(w3.weight);s3_=std::move(w3.scale);
+ mx::eval(w1_,s1_,w2_,s2_,w3_,s3_);++construction_counter();loaded_expert_counter()+=384;
+ {std::lock_guard lock(io_stats_mutex());io_stats().constructions++;io_stats().total_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-started).count();}
+}
+
 PackedExpertBank::PackedExpertBank(WeightCatalog& catalog,int layer,
  const std::vector<int>& expert_ids)
  :w1_(mx::array(0)),s1_(mx::array(0)),w2_(mx::array(0)),s2_(mx::array(0)),w3_(mx::array(0)),s3_(mx::array(0)){
@@ -176,8 +194,11 @@ PackedExpertBank::PackedExpertBank(WeightCatalog& catalog,int layer,
 ResidentExpertAtlas::ResidentExpertAtlas(WeightCatalog& catalog){
  // Populate the private object completely before make_shared publishes it.
  // If any layer fails, ordinary stack unwinding releases every completed bank.
+ if(const char* root=std::getenv("DSV41_RUNTIME_EXPERT_BACKING_DIR");root&&*root)
+  backing_=std::make_shared<ExpertBackingStore>(root,catalog);
  for(int layer=0;layer<40;++layer){
-  auto bank=std::make_shared<PackedExpertBank>(catalog,layer);
+  auto bank=backing_?std::make_shared<PackedExpertBank>(catalog,layer,backing_):
+                      std::make_shared<PackedExpertBank>(catalog,layer);
   packed_bytes_+=bank->packed_bytes();
   banks_[layer]=std::move(bank);
  }

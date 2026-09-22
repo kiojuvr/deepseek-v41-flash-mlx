@@ -254,6 +254,8 @@ int main(int argc,char** argv) { try {
  dsv41::WeightCatalog catalog(argv[1],argv[2]);
  auto metadata=dsv41::EngramMetadata::load(argv[3]);
  dsv41::TextBackboneReference model(catalog,metadata);
+ report["wired_limit_bytes"]=model.wired_limit_bytes();
+ report["expert_backing_file_backed"]=model.expert_backing_file_backed();
  mx::synchronize();
  const auto construction_io=dsv41::expert_bank_io_stats();
  report["phases"]["model_construction"]={{"seconds",seconds(started)},{"memory",memory()},

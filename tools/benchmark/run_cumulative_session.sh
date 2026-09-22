@@ -54,6 +54,8 @@ export DSV41_RUNTIME_BATCHED_DENSE_QMM=${DSV41_RUNTIME_BATCHED_DENSE_QMM:-0}
 export DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES=${DSV41_RUNTIME_MLX_CACHE_LIMIT_BYTES:-0}
 export DSV41_RUNTIME_LONG_CONTEXT_CACHE_LIMIT_BYTES=${DSV41_RUNTIME_LONG_CONTEXT_CACHE_LIMIT_BYTES:-17179869184}
 export DSV41_RUNTIME_EXPERT_IO_THREADS=${DSV41_RUNTIME_EXPERT_IO_THREADS:-4}
+export DSV41_RUNTIME_WIRED_LIMIT_BYTES=${DSV41_RUNTIME_WIRED_LIMIT_BYTES:-0}
+export DSV41_RUNTIME_EXPERT_BACKING_DIR=${DSV41_RUNTIME_EXPERT_BACKING_DIR:-}
 export DSV41_CUMULATIVE_WALL_BUDGET_SECONDS=${DSV41_CUMULATIVE_WALL_BUDGET_SECONDS:-14400}
 
 python=${PYTHON:-python3}
@@ -69,14 +71,16 @@ printf '%s\n' "checkpoint=$checkpoint" "context=$context" "turn_count=$turn_coun
  "deferred_decoder=$DSV41_RUNTIME_DEFERRED_DECODER" \
  "deferred_decoder_clear_cache=$DSV41_RUNTIME_DEFERRED_DECODER_CLEAR_CACHE" \
  "grouped_expert_pipeline=$DSV41_RUNTIME_GROUPED_EXPERT_PIPELINE" \
+ "wired_limit_bytes=$DSV41_RUNTIME_WIRED_LIMIT_BYTES" \
+ "expert_backing_dir=${DSV41_RUNTIME_EXPERT_BACKING_DIR:-disabled}" \
  "long_context_cache_limit_bytes=$DSV41_RUNTIME_LONG_CONTEXT_CACHE_LIMIT_BYTES" \
  "wall_budget_seconds=$DSV41_CUMULATIVE_WALL_BUDGET_SECONDS" > "$run_dir/config.txt"
 shasum -a 256 build-mlx/dsv41-cumulative-session tools/benchmark/cumulative_session.cpp \
  tools/benchmark/run_cumulative_session.sh tools/benchmark/run_cumulative_long_context_qualification.sh \
  tools/benchmark/summarize_cumulative_sessions.py \
- include/dsv41/text_backbone.hpp include/dsv41/execution_policy.hpp include/dsv41/deferred_decoder_plan.hpp \
+ include/dsv41/text_backbone.hpp include/dsv41/runtime_residency.hpp include/dsv41/expert_backing.hpp include/dsv41/execution_policy.hpp include/dsv41/deferred_decoder_plan.hpp \
  include/dsv41/moe.hpp include/dsv41/moe_pipeline.hpp src/moe/reference.cpp \
- src/moe/expert_bank.cpp src/moe/grouped_expert_pipeline.cpp \
+ src/moe/expert_bank.cpp src/moe/expert_backing.cpp src/moe/grouped_expert_pipeline.cpp src/runtime/residency.cpp \
  src/model/text_backbone.cpp src/model/text_encoder.cpp src/model/text_decoder.cpp src/model/text_generate.cpp \
  "$run_dir/prompt.txt" "$run_dir/turn-schedule.txt" "$pattern" \
  artifacts/checkpoint/summary.json artifacts/checkpoint/verification.json \
